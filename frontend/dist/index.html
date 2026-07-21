@@ -1,207 +1,394 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="dark">
+<html lang="tr" data-theme="ink">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Notis Pro</title>
-  <link rel="stylesheet" href="app.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Notis — Not Al, Çiz, Planla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="notis.css">
+<link rel="stylesheet" href="pro-theme.css">
+
 </head>
 <body>
-  <!-- Splash -->
-  <div id="splash">
-    <div class="s-logo">
-      <div class="mark">N</div>
-      <h1>Notis <b>Pro</b></h1>
-      <div class="tag">Profesyonel dijital defter & çizim stüdyosu</div>
+<!-- AÇILIŞ EFEKTİ — animasyon bitince kendini DOM'dan söker; dokununca atlanır -->
+<button id="uiRestore" title="Panelleri geri getir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg></button>
+<div id="splash" aria-hidden="true">
+  <div class="sp-beams"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="sp-stage">
+    <div class="sp-mark"><svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="30" height="30" rx="9" fill="#FFB454"/><path d="M9 24V8.5l2.8 0L20 19V8h3v15.5h-2.8L12 12.8V24H9z" fill="#3A2A08"/></svg></div>
+    <div class="sp-word"><span class="w-base">Not<b>is</b></span><span class="w-shine" aria-hidden="true">Notis</span></div>
+  </div>
+  <div class="sp-tag">Not Al · Çiz · Planla</div>
+</div>
+
+
+<!-- ÜST ÇUBUK — TEK SATIR -->
+<header id="topbar">
+  <div id="logo">
+    <svg width="28" height="28" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="9" fill="#FFB454"/><path d="M9 24V8.5l2.8 0L20 19V8h3v15.5h-2.8L12 12.8V24H9z" fill="#3A2A08"/></svg>
+    <b>Not<i>is</i></b>
+  </div>
+  <span class="tb-sep"></span>
+  <div id="tbTools">
+    <span id="toolName">Tükenmez</span>
+    <span id="colorWrap" style="display:flex;align-items:center;gap:6px">
+      <div class="swatches" id="swatches"></div>
+      <button id="wheelBtn" title="Renk Tekerleği"></button>
+      <span class="tb-sep"></span>
+    </span>
+    <div class="ctrl" id="sizeCtrl" title="Kalem kalınlığı"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="4.5" cy="12" r="1.4"/><circle cx="11" cy="12" r="2.4"/><circle cx="19" cy="12" r="3.6"/></svg><input type="range" id="sizeRng" min="1" max="40" step="0.5" value="3"><span class="val" id="sizeOut">3</span></div>
+    <div class="ctrl" id="opCtrl" title="Opaklık"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7 6.4 9.8a7 7 0 1 0 11.2 0L12 2.7z"/></svg><input type="range" id="opRng" min="5" max="100" value="100"><span class="val" id="opOut">100</span></div>
+    <span id="toolOpts"></span>
+    <span class="tb-sep"></span>
+    <span id="favRow"></span>
+    <button id="favSave" title="Geçerli kalemi profil olarak kaydet">＋</button>
+  </div>
+  <div id="tbRight">
+    <button class="tbtn" id="palBtn" title="Komut Paleti · Evrensel Arama (Ctrl+K)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+    <span class="tb-sep"></span>
+    <button class="tbtn" id="undoBtn" title="Geri Al (Ctrl+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="tbtn" id="redoBtn" title="Yinele (Ctrl+Y)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <span class="tb-sep"></span>
+    <button class="tbtn" id="importBtn" title="PDF / Görsel içe aktar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></button>
+    <button class="tbtn" id="exportBtn" title="Dışa aktar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 8 5-5 5 5"/><path d="M12 3v12"/></svg></button>
+    <button class="tbtn" id="fs2Btn" title="Tam ekran (F11)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+    <button class="tbtn" id="homeBtn" title="Boş tahtaya dön (yeni çalışma alanı)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M8 11h8" opacity=".45"/></svg></button>
+    <button class="tbtn" id="presentBtn" title="Sunum (F5)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M10 8.2v4.6l4-2.3z" fill="currentColor" stroke="none"/><path d="M12 17v3M8 20h8"/></svg></button>
+    <button class="tbtn" id="sideBtn" title="Paneli aç/kapat (Sayfalar · Katmanlar · Çıkartmalar)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M15 3v18"/></svg></button>
+    <button class="tbtn" id="setBtn" title="Ayarlar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M1 12h3m16 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
+  </div>
+</header>
+
+<!-- ARAÇ RAYI -->
+<nav id="rail"></nav>
+
+<!-- KANVAS -->
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <canvas id="ovl"></canvas>
+  <div id="spot"></div>
+  <textarea id="textEdit" spellcheck="false"></textarea>
+
+  <!-- Sol alt köşe: gezinme + yakınlaştırma -->
+  <div id="corner">
+    <div class="c-row">
+      <button class="cbtn" id="zoomOut" title="Uzaklaş (-)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+      <span id="zoomLbl" title="Sığdır (0)">100%</span>
+      <button class="cbtn" id="zoomIn" title="Yaklaş (+)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <span class="c-sep" id="pgSep"></span>
+    <div class="c-row" id="pgRow">
+      <button class="cbtn" id="pgPrev" title="Önceki sayfa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <span id="cornerPg">1/1</span>
+      <button class="cbtn" id="pgNext" title="Sonraki sayfa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
     </div>
   </div>
 
-  <div id="app">
-    <!-- Top bar -->
-    <header id="topbar">
-      <div id="logo"><span class="mark">N</span> Notis <span class="pro">PRO</span></div>
-      <button class="tb-title" id="docTitle" title="Yeniden adlandır">İsimsiz Defter</button>
-      <div class="tb-sep"></div>
-      <button class="tbtn icon" id="undoBtn" data-tip="Geri Al (Ctrl+Z)" title="Geri Al">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
-      </button>
-      <button class="tbtn icon" id="redoBtn" title="İleri Al">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7L21 13"/></svg>
-      </button>
-      <div class="tb-spacer"></div>
+</main>
 
-      <div class="zoom-wrap">
-        <button class="tbtn icon" id="zoomOut" title="Uzaklaş"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
-        <span id="zoomLbl">100%</span>
-        <button class="tbtn icon" id="zoomIn" title="Yakınlaş"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      </div>
-      <div class="tb-sep"></div>
+<!-- Çözüm modu üst şeridi -->
+<div id="scratchBar">
+  <button class="scbtn" id="scWipe" title="Çözüm alanını temizle"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 4-7.5 7.5"/><path d="M11 10l-7.2 7.2a2.4 2.4 0 0 0 0 3.4 2.4 2.4 0 0 0 3.4 0L14.4 13.4"/><path d="m8.5 15.5 3 3"/></svg></button>
+  <button class="scbtn back" id="scBack" title="Geri dön — karalamalar kaydedilmez (Esc)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+</div>
 
-      <button class="tbtn" id="presentBtn" title="Sunum modu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> Sunum
-      </button>
-      <button class="tbtn" id="exportBtn" title="Dışa aktar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg> Aktar
-      </button>
-      <button class="tbtn icon" id="libBtn" data-tip="Kütüphane" title="Kütüphane">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      </button>
-      <button class="tbtn icon" id="setBtn" data-tip="Ayarlar" title="Ayarlar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-    </header>
+<!-- Şekil kütüphanesi -->
+<div class="pop" id="shapePop" style="max-height:min(540px,74vh); overflow-y:auto; scrollbar-width:thin">
+  <div class="shape-sec">MATEMATİKSEL ŞEKİLLER</div>
+  <div id="shapeGrid"></div>
+  <div class="shape-sec" style="margin-top:10px">SEMBOLLER</div>
+  <div id="symGrid"></div>
+</div>
 
-    <!-- Left tool rail -->
-    <nav id="rail"></nav>
 
-    <!-- Stage -->
-    <main id="stage">
-      <div id="scroll">
-        <div id="paper">
-          <div class="page-tag" id="pageTag">Sayfa 1</div>
-          <canvas id="gridCv"></canvas>
-          <canvas id="inkCv"></canvas>
-          <canvas id="liveCv"></canvas>
-        </div>
-      </div>
+<!-- Odak modundan çıkış -->
+<button id="focusExit" class="chip">👁 Odaktan çık · Esc</button>
 
-      <!-- Contextual tool options -->
-      <div id="toolOpts">
-        <span class="tool-name" id="toolName">Kalem</span>
-        <div class="opt-sep"></div>
-        <button class="color-btn" id="colorBtn" title="Renk"></button>
-        <div class="swatches" id="quickSwatches"></div>
-        <div class="opt-sep"></div>
-        <div class="mini-ctrl">
-          <label>Kalınlık</label>
-          <div class="row"><input type="range" id="sizeRng" min="1" max="60" value="6" /><span class="mini-val" id="sizeVal">6</span></div>
-        </div>
-        <div class="mini-ctrl">
-          <label>Opaklık</label>
-          <div class="row"><input type="range" id="opRng" min="5" max="100" value="100" /><span class="mini-val" id="opVal">100%</span></div>
-        </div>
-        <div class="opt-sep" id="penExtraSep"></div>
-        <div id="penPicker" class="swatches"></div>
-      </div>
-    </main>
-
-    <!-- Side panel -->
-    <aside id="side">
-      <div class="side-head">
-        <h3 id="sideTitle">Sayfalar</h3>
-        <button class="tbtn icon" id="sideClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div class="side-tabs">
-        <button class="stab on" data-panel="pages">Sayfalar</button>
-        <button class="stab" data-panel="layers">Katmanlar</button>
-        <button class="stab" data-panel="library">Kütüphane</button>
-      </div>
-
-      <!-- Pages panel -->
-      <div class="spanel on" id="panel-pages">
-        <div class="prow">
-          <button class="pbtn primary" id="pgAdd"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Sayfa Ekle</button>
-        </div>
-        <div class="sec-title">Kağıt Şablonu</div>
-        <div class="paper-grid" id="paperGrid"></div>
-        <div class="sec-title">Sayfalar</div>
-        <div id="pgList"></div>
-      </div>
-
-      <!-- Layers panel -->
-      <div class="spanel" id="panel-layers">
-        <div class="prow">
-          <button class="pbtn primary" id="layAdd"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Katman Ekle</button>
-        </div>
-        <div id="layList"></div>
-      </div>
-
-      <!-- Library panel -->
-      <div class="spanel" id="panel-library">
-        <div class="prow">
-          <button class="pbtn primary" id="libNew">Yeni Defter</button>
-          <button class="pbtn ghost sm" id="libRefresh" title="Yenile">↻</button>
-        </div>
-        <div class="lib-grid" id="libGrid"></div>
-      </div>
-    </aside>
+<!-- SAĞ PANEL -->
+<aside id="side">
+  <div id="sideTabs">
+    <button class="stab on" data-p="pages">Sayfalar</button>
+    <button class="stab" data-p="layers">Katmanlar</button>
+    <button class="stab" data-p="stickers">Çıkartma</button>
+    <button class="stab" data-p="library">Kütüphane</button>
   </div>
-
-  <!-- Color wheel popover -->
-  <div class="pop" id="colorPop">
-    <canvas id="wheelCv" width="220" height="220"></canvas>
-    <div class="pk-sliders">
-      <div class="row"><span>V</span><input type="range" id="valRng" min="0" max="100" value="100" style="width:150px" /><span id="valOut" style="width:34px;text-align:right;font-weight:700">100</span></div>
-      <div class="row"><span>A</span><input type="range" id="alphaRng" min="5" max="100" value="100" style="width:150px" /><span id="alphaOut" style="width:34px;text-align:right;font-weight:700">100</span></div>
+  <div class="spanel on" id="p-pages">
+    <div class="side-head"><span>Sayfalar</span>
+      <span style="display:flex;gap:5px">
+        <button class="mini" id="pgDup" title="Sayfayı çoğalt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button class="mini" id="pgAdd" title="Yeni sayfa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </span>
     </div>
-    <div class="pk-row">
-      <div class="pk-prev" id="pkPrev"></div>
-      <input class="hex-in" id="hexIn" value="#1a2230" spellcheck="false" />
-      <button class="pbtn sm" id="pkFav">★</button>
+    <div id="pgList"></div>
+  </div>
+  <div class="spanel" id="p-layers">
+    <div class="side-head"><span>Katmanlar</span>
+      <span style="display:flex;gap:5px">
+        <button class="mini" id="layGroupBtn" title="Seçili nesneleri grupla (Ctrl+G)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/></svg></button>
+        <button class="mini" id="layAdd" title="Yeni katman"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </span>
     </div>
-    <div class="pal-swatches" id="palSwatches"></div>
-  </div>
-
-  <!-- Shapes popover -->
-  <div class="pop" id="shapePop">
-    <div class="shape-grid" id="shapeGrid"></div>
-  </div>
-
-  <!-- Export dialog -->
-  <div class="overlay" id="exportDlg">
-    <div class="dialog" style="width:min(460px,92vw)">
-      <div class="dlg-head"><h2>Dışa Aktar</h2><button class="tbtn icon" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-      <div class="dlg-body" style="display:block;padding:20px">
-        <div class="set-row"><div class="info"><div class="t">Biçim</div><div class="d">Çıktı dosya türü</div></div>
-          <div class="seg" id="expFmt"><button class="on" data-fmt="pdf">PDF</button><button data-fmt="png">PNG</button></div></div>
-        <div class="set-row"><div class="info"><div class="t">Kapsam</div><div class="d">Hangi sayfalar</div></div>
-          <div class="seg" id="expScope"><button class="on" data-scope="all">Tüm defter</button><button data-scope="page">Bu sayfa</button></div></div>
-        <div class="set-row"><div class="info"><div class="t">Çözünürlük</div><div class="d">Piksel yoğunluğu</div></div>
-          <div class="seg" id="expDpi"><button data-dpi="1">1×</button><button class="on" data-dpi="2">2×</button><button data-dpi="3">3×</button></div></div>
-      </div>
-      <div class="dlg-foot"><button class="pbtn ghost sm" data-close>İptal</button><button class="pbtn primary sm" id="expGo" style="width:auto">Dışa Aktar</button></div>
+    <div id="layList"></div>
+    <div class="side-head" style="margin-top:14px"><span>Hizalama</span></div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="chip" data-al="l">Sola</button><button class="chip" data-al="cx">Ortala X</button><button class="chip" data-al="r">Sağa</button>
+      <button class="chip" data-al="t">Üste</button><button class="chip" data-al="cy">Ortala Y</button><button class="chip" data-al="b">Alta</button>
     </div>
+    <div id="selInfo" style="margin-top:12px;font-size:11px;color:var(--mut);font-weight:700;line-height:1.7"></div>
   </div>
+  <div class="spanel" id="p-stickers">
+    <div class="side-head"><span>Çıkartmalar</span>
+      <button class="mini" id="stkImport" title="Görsel klasöründen içe aktar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></button>
+    </div>
+    <div id="stkGrid"></div>
+    <p style="font-size:10.5px;color:var(--mut);font-weight:600;margin-top:10px;line-height:1.5">Bir çıkartma seç, tuvale dokunarak yapıştır. Toplu görsel içe aktarabilirsin.</p>
+  </div>
+  <div class="spanel" id="p-library">
+    <div class="side-head"><span>Kütüphane</span>
+      <span style="display:flex;gap:5px;align-items:center">
+        <span id="libCount" style="font-size:10px;color:var(--mut);font-weight:800"></span>
+        <button class="mini" id="libRefresh" title="Yenile"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+      </span>
+    </div>
+    <div id="libList"></div>
+    <p style="font-size:10.5px;color:var(--mut);font-weight:600;margin-top:10px;line-height:1.5">PDF ve görsel çalışmaların otomatik ve sessizce buraya kaydedilir (boş tahta çizimleri kaydedilmez). Bir karta dokunarak kaldığın yerden devam et.</p>
+  </div>
+</aside>
 
-  <!-- Settings dialog -->
-  <div class="overlay" id="setDlg">
-    <div class="dialog">
-      <div class="dlg-head"><h2>Ayarlar</h2><button class="tbtn icon" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-      <div class="dlg-body">
-        <div class="set-tabs" id="setTabs">
-          <button class="set-tab on" data-pane="draw">Çizim</button>
-          <button class="set-tab" data-pane="ui">Görünüm</button>
-          <button class="set-tab" data-pane="keys">Kısayollar</button>
-          <button class="set-tab" data-pane="storage">Depolama</button>
-          <button class="set-tab" data-pane="about">Hakkında</button>
+<!-- SUNUM ÇUBUĞU -->
+<div id="presentBar">
+  <button class="pbtn" id="prSmart" title="Akıllı kalem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="M19 13l.9 2.1L22 16l-2.1.9L19 19l-.9-2.1L16 16l2.1-.9z" fill="currentColor" stroke="none"/></svg></button>
+  <button class="pbtn" id="prPen" title="Kalem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+  <button class="pbtn" id="prHl" title="Fosforlu"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4l8 8z"/></svg></button>
+  <button class="pbtn" id="prEraser" title="Silgi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H7z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg></button>
+  <button class="pbtn" id="prUndo" title="Geri al"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+  <span class="p-sep"></span>
+  <button class="pdot" data-c="#243B6B" style="background:#243B6B" title="Lacivert"></button>
+  <button class="pdot" data-c="#C0392B" style="background:#C0392B" title="Kırmızı"></button>
+  <button class="pdot" data-c="#2B8A3E" style="background:#2B8A3E" title="Yeşil"></button>
+  <button class="pdot" data-c="#FFFFFF" style="background:#FFFFFF" title="Beyaz"></button>
+  <span class="p-sep"></span>
+  <button class="pbtn" id="prLaser" title="Lazer işaretçi"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".5"/></svg></button>
+  <button class="pbtn" id="prSpot" title="Spot ışığı"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></button>
+  <button class="pbtn" id="prExit" title="Çık (Esc)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+</div>
+
+<!-- RENK TEKERLEĞİ -->
+<div class="pop" id="wheelPop">
+  <canvas id="wheelCv" width="180" height="180" style="cursor:crosshair;border-radius:12px"></canvas>
+  <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+    <div id="wheelPrev" style="width:28px;height:28px;border-radius:9px;border:1px solid var(--line)"></div>
+    <input id="hexInp" style="flex:1;background:var(--p1);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:7px 9px;font-size:12px;font-weight:700" value="#243B6B">
+  </div>
+</div>
+
+<!-- YÜZEN MİNİ ARAÇ ÇUBUĞU -->
+<div id="miniBar"></div>
+
+<!-- HAREKET HALKASI -->
+<div id="gring"><div class="gcenter"></div></div>
+
+<!-- KOMUT PALETİ -->
+<div id="palWrap"><div id="pal"><input id="palInp" placeholder="Komut yaz ya da ara — sayfa, metin, araç, tema…" autocomplete="off" spellcheck="false"><div id="palList"></div></div></div>
+
+<input type="file" id="fileInp" accept=".pdf,image/*" hidden>
+<input type="file" id="stkInp" accept="image/*" multiple hidden>
+
+<!-- AYARLAR — kalem stüdyosu v18 -->
+<dialog id="setDlg">
+  <div class="set-wrap">
+    <nav class="set-tabs">
+      <div class="set-brand"><h3>Ayarlar</h3><div class="set-sub">Notis'i senin için özelleştir</div></div>
+      <button class="set-tab on" data-s="pens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg><span class="tw"><span class="tt">Kalemler</span><span class="ts">Kalem ve fırça ayarları</span></span></button>
+      <button class="set-tab" data-s="draw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c3-8 5-8 7-1s4 6 8-4"/></svg><span class="tw"><span class="tt">Çizim</span><span class="ts">Çizim tercihleri</span></span></button>
+      <button class="set-tab" data-s="align"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7a2 2 0 0 1-2-2V4z"/><path d="m9 16 2.5-2.5"/></svg><span class="tw"><span class="tt">Hizalama</span><span class="ts">Izgara ve kılavuzlar</span></span></button>
+      <button class="set-tab" data-s="present"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01"/></svg><span class="tw"><span class="tt">Sunum</span><span class="ts">Sunum ayarları</span></span></button>
+      <button class="set-tab" data-s="keys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg><span class="tw"><span class="tt">Klavye</span><span class="ts">Kısayol ve kısayollar</span></span></button>
+      <button class="set-tab" data-s="ui"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.7 1.6-1.7h2c3 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/><path d="M13.5 6.5h.01M17.5 10.5h.01M8.5 7.5h.01M6.5 12.5h.01"/></svg><span class="tw"><span class="tt">Arayüz</span><span class="ts">Görünüm ayarları</span></span></button>
+      <button class="set-tab" data-s="opts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span class="tw"><span class="tt">Opsiyonlar</span><span class="ts">Diğer ayarlar</span></span></button>
+      <div style="flex:1"></div>
+      <button class="set-tab set-tab-store" data-s="storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg><span class="tw"><span class="tt">Depolama</span><span class="ts">Yedekleme ve alan yönetimi</span></span></button>
+      <button class="set-tab set-tab-exit" id="exitApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="tw"><span class="tt">Çıkış Yap</span><span class="ts">Kaydet ve uygulamayı kapat</span></span></button>
+    </nav>
+    <div class="set-main">
+      <div class="set-mainhead">
+        <div class="pane-hd"><span class="pane-ico" id="paneIco"></span><div><h3 id="paneT">Kalem Ayarları</h3><div class="set-sub" id="paneD">Kalem deneyimini kendi stiline göre özelleştir.</div></div></div>
+        <div class="set-actions">
+          <button class="ghost" id="setReset">↺ Sıfırla</button>
+          <button class="cta" id="setSave">✓ Kaydet</button>
+          <button class="tbtn" onclick="setDlg.close()">✕</button>
         </div>
-        <div class="set-pane on" id="pane-draw"></div>
-        <div class="set-pane" id="pane-ui"></div>
-        <div class="set-pane" id="pane-keys"></div>
-        <div class="set-pane" id="pane-storage"></div>
-        <div class="set-pane" id="pane-about"></div>
       </div>
-      <div class="dlg-foot"><button class="pbtn ghost sm" id="setReset" style="width:auto;margin-right:auto">Sıfırla</button><button class="pbtn primary sm" data-close style="width:auto">Bitti</button></div>
+      <div class="set-panels">
+
+      <div class="set-pane on" id="sp-pens">
+        <div id="penCards" class="pk-cards"></div>
+
+        <div class="pk-grid">
+          <div class="pk-left">
+            <div class="pk-sec"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Kalem Özelleştirme</div>
+            <div class="pk-cardgrid">
+              <div class="pk-card"><div class="pk-lbl">Kalınlık<span class="pk-val" id="pkSizeOut">2,2 px</span></div>
+                <div class="pk-slider"><button class="pk-step" data-t="pkSize" data-d="-1">−</button><input type="range" id="pkSize" min="0.5" max="40" step="0.1" value="2.2"><button class="pk-step" data-t="pkSize" data-d="1">+</button></div></div>
+              <div class="pk-card"><div class="pk-lbl">Basınç Hassasiyeti<span class="pk-val" id="pkPressOut">%80</span></div>
+                <div class="pk-slider vio"><button class="pk-step" data-t="pkPress" data-d="-1">−</button><input type="range" id="pkPress" min="0" max="100" step="5" value="80"><button class="pk-step" data-t="pkPress" data-d="1">+</button></div></div>
+              <div class="pk-card"><div class="pk-lbl">Opaklık<span class="pk-val" id="pkOpOut">%100</span></div>
+                <div class="pk-slider"><button class="pk-step" data-t="pkOp" data-d="-1">−</button><input type="range" id="pkOp" min="10" max="100" step="5" value="100"><button class="pk-step" data-t="pkOp" data-d="1">+</button></div></div>
+              <div class="pk-card"><div class="pk-lbl">Stabilizasyon<span class="pk-val" id="pkStabOut">Yüksek</span></div>
+                <div class="pk-seg" id="pkStab"><button>Kapalı</button><button>Düşük</button><button>Orta</button><button class="on">Yüksek</button></div></div>
+              <div class="pk-card"><div class="pk-lbl">Akış<span class="pk-val" id="pkFlowOut">%95</span></div>
+                <div class="pk-slider"><button class="pk-step" data-t="pkFlow" data-d="-1">−</button><input type="range" id="pkFlow" min="40" max="100" step="5" value="95"><button class="pk-step" data-t="pkFlow" data-d="1">+</button></div></div>
+              <div class="pk-card"><div class="pk-lbl">Uç Yapısı<span class="pk-val" id="pkNibOut">Sivri</span></div>
+                <div class="pk-nibs" id="pkNibs"><button class="pk-nib on" title="Sivri — uçlarda incelir"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.4 8.6V17a3.4 3.4 0 0 1-6.8 0v-6.4z"/><path d="M12 8v7"/></svg></button><button class="pk-nib" title="İnce — standart uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.6 6.6V16a2.6 2.6 0 1 1-5.2 0v-5.4z"/></svg></button><button class="pk-nib" title="Dolgun — geniş yuvarlak uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c2.6 0 4.2 1.9 4.2 4.6V15a4.2 4.2 0 0 1-8.4 0V8.6C7.8 5.9 9.4 4 12 4z"/></svg></button><button class="pk-nib" title="Keski — düz kesim"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4h6.8l.9 10a4.3 4.3 0 0 1-8.6 0z"/></svg></button></div></div>
+            </div>
+          </div>
+          <div class="pk-prev">
+            <div class="pk-prevhead"><span>Canlı Önizleme</span><button class="tbtn" id="pkClear" title="Önizlemeyi temizle" style="width:26px;height:25px">↺</button></div>
+            <canvas id="pkCv"></canvas>
+            <div class="pk-prevcap" id="pkCap">Akıllı Kalem ile yazı deneyimini test et — üzerine çizebilirsin</div>
+          </div>
+        </div>
+
+        <div class="pk-extra">
+          <button class="pk-extrahead" id="pkMore"><span>Ek Ayarlar</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="pk-extrabody" id="pkMoreBody">
+            <div class="set-sec-t" style="margin-top:12px">Genel Varsayılanlar</div>
+            <div class="set-row"><div><div class="t">Varsayılan renk</div><div class="d">Uygulama her açılışta kalemi bu renkle başlatır</div></div><input type="color" id="dColor" value="#111827" style="width:44px;height:30px;border:none;background:none;cursor:pointer"></div>
+            <div class="set-row"><div><div class="t">Varsayılan opaklık</div><div class="d" id="dOpOut">%100</div></div><input type="range" id="dOp" min="10" max="100" value="100"></div>
+            <div class="set-row"><div><div class="t">Varsayılan punto</div><div class="d">Metin aracı bu boyutla başlar</div></div>
+              <select class="num" id="dText" style="width:82px"><option>14</option><option>16</option><option>18</option><option>20</option><option selected>24</option><option>28</option><option>32</option><option>40</option><option>48</option><option>64</option></select></div>
+            <div class="set-row"><div><div class="t">Araca geçince varsayılanı uygula</div><div class="d">Kapalıysa son kullanılan kalınlık korunur</div></div><label class="sw-toggle"><input type="checkbox" id="sApplyDef" checked><i></i></label></div>
+            <div class="set-sec-t" style="margin-top:16px">Çark Kalemleri — sağ tık basılı tut › Kalem</div>
+            <div class="d" style="margin:0 0 6px">Bu üç özel kalem yalnızca hareket halkasındaki kalem çarkında yaşar. Aşağıdan her birinin varsayılanlarını düzenleyebilirsin; değişiklikler kalıcıdır.</div>
+            <div id="cpenSet"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-pane" id="sp-draw">
+        <div class="set-row"><div><div class="t">Basınç hassasiyeti</div><div class="d">Stylus basıncına göre çizgi kalınlığı değişir</div></div><label class="sw-toggle"><input type="checkbox" id="sPressure" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Çizgi yumuşatma</div><div class="d">Kalem hareketlerini pürüzsüzleştirir</div></div><input type="range" id="sSmooth" min="0" max="100" value="45"></div>
+        <div class="set-row"><div><div class="t">Titreme azaltma (Sabitleyici)</div></div><input type="range" id="sStab" min="0" max="90" value="35"></div>
+        <div class="set-row"><div><div class="t">Gecikme tahmini</div><div class="d">Hareketi önceden kestirerek gecikmeyi azaltır</div></div><label class="sw-toggle"><input type="checkbox" id="sPredict" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Şekilleri otomatik düzelt</div><div class="d">Tükenmez / dolma / kurşun kalemde geçerli · Akıllı kalem saf mürekkeptir</div></div><label class="sw-toggle"><input type="checkbox" id="sShape"><i></i></label></div>
+        <div class="set-row"><div><div class="t">Fosforlu kalemi düzleştir</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapHl" checked><i></i></label></div>
+      </div>
+
+      <div class="set-pane" id="sp-align">
+        <div class="set-row"><div><div class="t">Izgaraya yapış (Snap)</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapGrid"><i></i></label></div>
+        <div class="set-row"><div><div class="t">Izgara aralığı</div><div class="d" id="sGridOut">20 px</div></div><input type="range" id="sGrid" min="8" max="80" step="4" value="20"></div>
+        <div class="set-row"><div><div class="t">Akıllı kılavuz çizgileri</div><div class="d">Sayfa merkezine hizalanınca kılavuz göster</div></div><label class="sw-toggle"><input type="checkbox" id="sGuides" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Cetvelde açı yapışması</div><div class="d">15°'lik adımlara kilitlenir</div></div><label class="sw-toggle"><input type="checkbox" id="sAngle"><i></i></label></div>
+      </div>
+
+      <div class="set-pane" id="sp-present">
+        <div class="set-row"><div><div class="t">Lazer rengi</div></div><input type="color" id="sLaser" value="#FF4D5E" style="width:44px;height:30px;border:none;background:none;cursor:pointer"></div>
+        <div class="set-row"><div><div class="t">Spot ışığı yarıçapı</div><div class="d" id="sSpotOut">150 px · sunumda fare tekeriyle de ayarlanır</div></div><input type="range" id="sSpot" min="60" max="400" step="10" value="150"></div>
+        <div class="set-row"><div><div class="t">Tekerlekle sayfa geçişi</div><div class="d">Sunumda kaydırma sayfaları çevirir</div></div><label class="sw-toggle"><input type="checkbox" id="sWheelPage" checked><i></i></label></div>
+      </div>
+
+      <div class="set-pane" id="sp-keys">
+        <div class="set-sec-t">Kısayolları düzenle — tuşa tıkla, yeni tuşa bas</div>
+        <div id="keyList"></div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--mut);font-weight:600">Sabit: Ctrl+Z/Y, Ctrl+G/D/A, Del, Boşluk, Esc, +/−, PgUp/PgDn</span>
+          <button class="ghost" id="keyReset">Varsayılanlara dön</button>
+        </div>
+      </div>
+
+      <div class="set-pane" id="sp-ui">
+        <div class="set-sec-t">Tema</div>
+        <div id="themeGrid"></div>
+        <div class="set-sec-t" style="margin-top:16px">Tahta Stili</div>
+        <div class="d" style="margin:0 0 8px">Sonsuz tahtanın zemini — hepsi opsiyonel, varsayılan Klasik. Koyu tahtaya geçince siyah kalem kendiliğinden tebeşir beyazına döner.</div>
+        <div id="boardGrid"></div>
+        <div class="set-row"><div><div class="t">Solak düzeni</div><div class="d">Araç rayını sağa taşır</div></div><label class="sw-toggle"><input type="checkbox" id="sLeft"><i></i></label></div>
+        <div class="set-row"><div><div class="t">Kompakt arayüz</div><div class="d">Üst paneli ve araç rayını daraltır — tuvale daha çok alan kalır</div></div><label class="sw-toggle"><input type="checkbox" id="sCompact"><i></i></label></div>
+        <div class="set-row"><div><div class="t">Köşe kontrollerini göster</div><div class="d">Sol alttaki yakınlaştırma ve sayfa gezintisi</div></div><label class="sw-toggle"><input type="checkbox" id="sCorner"><i></i></label></div>
+        <div class="set-sec-t" style="margin-top:16px">Hızlı Erişim</div>
+        <div class="set-row"><div><div class="t">Yüzen mini araç çubuğu</div><div class="d">Çizim bitince imlecin yanında hızlı ayarlar belirir</div></div><label class="sw-toggle"><input type="checkbox" id="sMini" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Hareket halkası</div><div class="d">Sağ tuşu basılı tut — araçlar imlecin etrafında açılır</div></div><label class="sw-toggle"><input type="checkbox" id="sRing" checked><i></i></label></div>
+        <div class="set-sec-t" style="margin-top:16px">Premium Görünüm</div>
+        <div class="set-row"><div><div class="t">Doku &amp; vinyet</div><div class="d">%2–3 opaklıkta kâğıt dokusu ve yumuşak kenar gölgesi</div></div><label class="sw-toggle"><input type="checkbox" id="sGrain" checked><i></i></label></div>
+      </div>
+
+      <div class="set-pane" id="sp-opts">
+        <div class="set-sec-t">Deneysel Opsiyonlar — hepsi kapalı başlar, dilediğini aç</div>
+        <div class="set-row"><div><div class="t">🧲 Akıllı Snap</div><div class="d">Açınca: taşınan nesneler yalnızca ızgaraya değil; sayfa ortasına, diğer nesnelere, başlıklara ve metin kutularına hafifçe mıknatıslanır. Hizalanınca pembe kılavuz belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oSnap"><i></i></label></div>
+        <div class="set-row"><div><div class="t">🖋 Odaklı Yazım Modu</div><div class="d">Açınca: kalem kâğıda değdiği an üst çubuk %80 soluklaşır, sağ panel gizlenir, sol ray küçülür; kalem kalkınca arayüz yumuşakça geri gelir. Video çekimlerinde çok temiz görünür.</div></div><label class="sw-toggle"><input type="checkbox" id="oFocusW"><i></i></label></div>
+        <div class="set-row"><div><div class="t">🎥 Otomatik Odak Zoom</div><div class="d">Açınca: yazmaya başladığında kamera kalemin olduğu noktaya doğru hafifçe yaklaşır, bitirince yumuşakça geri çekilir. Video anlatımlarına sinematik his katar.</div></div><label class="sw-toggle"><input type="checkbox" id="oAutoZoom"><i></i></label></div>
+        <div class="set-row"><div><div class="t">✒️ Living Ink</div><div class="d">Açınca: mürekkep her yakınlaştırmada vektörden yeniden hesaplanır, çizgi asla piksellenmez; kurşun kalemin kenar dokusu bile zoom seviyesine göre yeniden üretilir.</div></div><label class="sw-toggle"><input type="checkbox" id="oLiving"><i></i></label></div>
+        <div class="set-row"><div><div class="t">🧬 Pen DNA</div><div class="d">Açınca: uygulama alışkanlığını öğrenir — en çok kullandığın araç + renk + kalınlık + opaklık kombinasyonunu (yeterli veri birikince) sonraki açılışlarda otomatik seçer.</div></div><label class="sw-toggle"><input type="checkbox" id="oPenDNA"><i></i></label></div>
+        <div class="set-row"><div><div class="t">🧭 Kenar Oto-Kaydırma</div><div class="d">Açınca: çizim ekranın kenarına yaklaştığında tuval o yöne kendiliğinden kaymaya başlar — kalemi kaldırmadan sonsuza yaz.</div></div><label class="sw-toggle"><input type="checkbox" id="oEdge"><i></i></label></div>
+        <div class="set-sec-t" style="margin-top:16px">Arayüz Gizleme</div>
+        <div class="set-row"><div><div class="t">◧ Sol paneli gizle</div><div class="d">Araç çubuğu gizlenir; çalışma alanı sola genişler, PDF yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideLeft"><i></i></label></div>
+        <div class="set-row"><div><div class="t">⬒ Üst paneli gizle</div><div class="d">Üst çubuk gizlenir; çalışma alanı yukarı genişler. Sağ üstte küçük geri-getir düğmesi belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideTop"><i></i></label></div>
+        <div class="set-row"><div><div class="t">⛶ İkisini birden gizle</div><div class="d">Sol + üst panel gizlenir — tam sayfa çalışma alanı. PDF ekrana yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideBoth"><i></i></label></div>
+        <div class="set-sec-t" style="margin-top:16px">Kalem Kalitesi</div>
+        <div class="set-row"><div><div class="t">🔬 Ultra Netlik</div><div class="d">Tuval, ekran çözünürlüğünün üzerinde örneklenir (süper-örnekleme): kalem çizgileri yakınlaştırmada bile piksellenmez, kenarlar ipek gibi kalır. Tüm kalemler için geçerli. (Güçlü donanım önerilir.)</div></div><label class="sw-toggle"><input type="checkbox" id="oUltraInk"><i></i></label></div>
+        <div class="set-row"><div><div class="t">💎 Pro Plus Kalem Karakteri</div><div class="d">Her kaleme kendi kişiliği verilir: <b>Akıllı Kalem</b> yavaşladığın yerde mürekkep biriktirir ve kenarı keskinleşir · <b>Tükenmez</b> cam gibi parlar, gövdesi yuvarlanır · <b>Dolma Kalem</b> gerçek hat kalemi gibi kalın-ince oynar, dönüşlerde mürekkep toplanır · <b>Kurşun Kalem</b> kağıdın dokusunu ve grafit tanesini yakalar · <b>Fosforlu</b> gerçek markerdaki gibi kenar koyuluğu kazanır. Ultra Netlik ile birlikte açılması önerilir.</div></div><label class="sw-toggle"><input type="checkbox" id="oPlus"><i></i></label></div>
+        <div class="set-row"><div><div class="t">✒️ Pro Kalem Modu</div><div class="d">Kalemler yaşamaya başlar: çizerken ucunda seni takip eden yumuşak IŞIK NEFESİ · mürekkep uçtan uca renk-derinlikli akar (ton gradyanı) · çizgiler kâğıda gömülme gölgesiyle kâğıdın ÜSTÜNDE durur · Akıllı'da yavaşlayınca doğal mürekkep birikintileri · Dolma'da hattat kontrastı + ıslak parlaklık şeridi · Tükenmez'de ipek 'nefes alan' çizgi + bilye damlası · Kurşun'da gerçek grafit dokusu · Fosforlu'da kenar pigmenti. Yazmak bağımlılık yapar.</div></div><label class="sw-toggle"><input type="checkbox" id="oProPens"><i></i></label></div>
+        <div class="set-row"><div><div class="t">💭 Memory Canvas</div><div class="d">Açınca: yazdığın metinleri hatırlar. Aynı ifadeyi aylar sonra başka sayfada yazmaya başladığında "bunu daha önce kullanmıştın" diye önerir; tek dokunuşla getirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oMemCanvas"><i></i></label></div>
+      </div>
+
+      <div class="set-pane" id="sp-storage">
+        <div class="set-sec-t">Otomatik Kayıt</div>
+        <div class="set-row"><div><div class="t">🧑‍🏫 Tahta çizimlerini de kaydet</div><div class="d">Açarsan serbest tahta çizimlerin de kütüphaneye kaydedilir. Kapalıyken yalnız PDF ve görsel çalışmaları saklanır.</div></div><label class="sw-toggle"><input type="checkbox" id="oBoardSave"><i></i></label></div>
+        <div class="set-row"><div><div class="t">💾 Sessiz otomatik kayıt</div><div class="d">PDF ve görsel çalışmaların hiçbir bildirim göstermeden arka planda kaydedilir; kütüphaneden kaldığın yerden devam edersin. Boş tahta çizimleri kaydedilmez.</div></div><label class="sw-toggle"><input type="checkbox" id="oAutosave" checked><i></i></label></div>
+        <div class="set-sec-t" style="margin-top:16px">Alan Kullanımı</div>
+        <div class="set-row"><div style="flex:1"><div class="t" id="stUsageT">Hesaplanıyor…</div>
+          <div style="height:8px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:8px"><div id="stUsageBar" style="height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,var(--acc),#F59E0B);transition:width .5s var(--ease)"></div></div>
+          <div class="d" id="stUsageD" style="margin-top:6px"></div></div></div>
+        <div class="set-sec-t" style="margin-top:16px">Kütüphane</div>
+        <div class="set-row"><div><div class="t" id="stLibT">Kayıtlı çalışma</div><div class="d">Tüm tahta, PDF ve görsel çalışmaların — küçük önizlemeleriyle.</div></div>
+          <button class="ghost" id="stOpenLib" style="white-space:nowrap">Kütüphaneyi Aç</button></div>
+        <div class="set-row"><div><div class="t" style="color:#EF4444">Tüm kayıtları sil</div><div class="d">Kütüphanedeki bütün çalışmaları temelli siler. Bu işlem geri alınamaz.</div></div>
+          <button class="ghost" id="stWipe" style="white-space:nowrap;color:#EF4444;border-color:rgba(239,68,68,.4)">Temelli Sil</button></div>
+        <div class="d" style="margin-top:14px;line-height:1.6">Uygulamada tüm kayıtlar ve ayarlar C:\Notis\Data klasöründe gerçek dosyalar olarak saklanır; uygulamayı kapatıp açınca her şey yerli yerindedir. (Tarayıcı sürümünde IndexedDB kullanılır.)</div>
+      </div>
+
+      </div>
     </div>
   </div>
+</dialog>
 
-  <!-- Presentation bar -->
-  <div id="present-bar">
-    <button class="tool" data-ptool="pen" data-tip="Kalem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg></button>
-    <button class="tool" data-ptool="laser" data-tip="Lazer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
-    <button class="tool" data-ptool="spot" data-tip="Spot Işık"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2"/></svg></button>
-    <div class="opt-sep"></div>
-    <button class="tool" data-ptool="prev" data-tip="Önceki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <button class="tool" data-ptool="next" data-tip="Sonraki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="tool" data-ptool="exit" data-tip="Çıkış" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+<!-- DIŞA AKTAR -->
+<dialog id="expDlg">
+  <div class="dlg-head"><h3>Dışa Aktar</h3><button class="tbtn" onclick="expDlg.close()">✕</button></div>
+  <div class="dlg-body">
+    <div class="fld"><label>BİÇİM</label>
+      <select id="expFmt">
+        <option value="png">PNG — geçerli sayfa (yüksek çözünürlük)</option>
+        <option value="pdf">PDF — tüm sayfalar</option>
+        <option value="notis">.notis — düzenlenebilir proje dosyası</option>
+      </select>
+    </div>
   </div>
-  <div id="laserDot"></div>
-  <canvas id="spotMask"></canvas>
+  <div class="dlg-foot"><button class="ghost" onclick="expDlg.close()">Vazgeç</button><button class="cta" id="expGo">Aktar</button></div>
+</dialog>
 
-  <div id="toast"></div>
-  <input type="file" id="fileInp" accept="image/*,application/pdf" style="display:none" />
+<!-- SAYFA ÖZELLİKLERİ -->
+<dialog id="pageDlg">
+  <div class="dlg-head"><h3>Sayfa Özellikleri</h3><button class="tbtn" onclick="pageDlg.close()">✕</button></div>
+  <div class="dlg-body">
+    <div class="fld"><label>SAYFA ETİKETİ</label><input id="pgName"></div>
+    <div class="fld"><label>KÂĞIT TÜRÜ</label>
+      <select id="pgPaper">
+        <option value="plain">Düz</option><option value="lined">Çizgili</option><option value="dotted">Noktalı</option>
+        <option value="grid">Kareli</option><option value="graph">Milimetrik (grafik kâğıdı)</option>
+        <option value="iso">İzometrik</option><option value="coord">Koordinat düzlemi</option>
+      </select>
+    </div>
+    <div class="set-row"><div><div class="t">Sonsuz tuval</div><div class="d">Tek sayfalık belgede sınırsız tahta</div></div><label class="sw-toggle"><input type="checkbox" id="pgInf"><i></i></label></div>
+    <div class="set-row"><div><div class="t">Yer imi</div></div><label class="sw-toggle"><input type="checkbox" id="pgBk"><i></i></label></div>
+    <div class="set-row"><div><div class="t">Özel arka plan</div><div class="d">Bir görseli sayfa zemini yap</div></div><button class="ghost" id="pgBg">Görsel Seç</button></div>
+    <div class="set-row"><div><div class="t">Sayfayı döndür</div></div><button class="ghost" id="pgRot">90° Döndür</button></div>
+    <div class="set-row"><div><div class="t">Sayfayı sil</div></div><button class="ghost" id="pgDel" style="color:var(--dgr);border-color:var(--dgr)">Sil</button></div>
+  </div>
+  <div class="dlg-foot"><button class="cta" onclick="pageDlg.close()">Tamam</button></div>
+</dialog>
 
-  <script src="ink.js"></script>
-  <script src="app.js"></script>
+<script src="notis.js"></script>
 </body>
 </html>
