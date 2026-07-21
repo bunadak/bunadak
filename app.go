@@ -143,6 +143,25 @@ func (a *App) ExportFile(defaultName string, data string) (string, error) {
 	return dest, nil
 }
 
+// Quit closes the application (bound fallback for the frontend exit hook).
+func (a *App) Quit() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	}
+}
+
+// ToggleFullscreen flips the window between fullscreen and normal (fallback).
+func (a *App) ToggleFullscreen() {
+	if a.ctx == nil {
+		return
+	}
+	if runtime.WindowIsFullscreen(a.ctx) {
+		runtime.WindowUnfullscreen(a.ctx)
+	} else {
+		runtime.WindowFullscreen(a.ctx)
+	}
+}
+
 // AppInfo exposes version metadata to the About screen.
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
