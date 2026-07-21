@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Notis Pro</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <!-- Splash -->
+  <div id="splash">
+    <div class="s-logo">
+      <div class="mark">N</div>
+      <h1>Notis <b>Pro</b></h1>
+      <div class="tag">Profesyonel dijital defter & çizim stüdyosu</div>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- Top bar -->
+    <header id="topbar">
+      <div id="logo"><span class="mark">N</span> Notis <span class="pro">PRO</span></div>
+      <button class="tb-title" id="docTitle" title="Yeniden adlandır">İsimsiz Defter</button>
+      <div class="tb-sep"></div>
+      <button class="tbtn icon" id="undoBtn" data-tip="Geri Al (Ctrl+Z)" title="Geri Al">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+      </button>
+      <button class="tbtn icon" id="redoBtn" title="İleri Al">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7L21 13"/></svg>
+      </button>
+      <div class="tb-spacer"></div>
+
+      <div class="zoom-wrap">
+        <button class="tbtn icon" id="zoomOut" title="Uzaklaş"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+        <span id="zoomLbl">100%</span>
+        <button class="tbtn icon" id="zoomIn" title="Yakınlaş"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="tb-sep"></div>
+
+      <button class="tbtn" id="presentBtn" title="Sunum modu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> Sunum
+      </button>
+      <button class="tbtn" id="exportBtn" title="Dışa aktar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg> Aktar
+      </button>
+      <button class="tbtn icon" id="libBtn" data-tip="Kütüphane" title="Kütüphane">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </button>
+      <button class="tbtn icon" id="setBtn" data-tip="Ayarlar" title="Ayarlar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <!-- Left tool rail -->
+    <nav id="rail"></nav>
+
+    <!-- Stage -->
+    <main id="stage">
+      <div id="scroll">
+        <div id="paper">
+          <div class="page-tag" id="pageTag">Sayfa 1</div>
+          <canvas id="gridCv"></canvas>
+          <canvas id="inkCv"></canvas>
+          <canvas id="liveCv"></canvas>
+        </div>
+      </div>
+
+      <!-- Contextual tool options -->
+      <div id="toolOpts">
+        <span class="tool-name" id="toolName">Kalem</span>
+        <div class="opt-sep"></div>
+        <button class="color-btn" id="colorBtn" title="Renk"></button>
+        <div class="swatches" id="quickSwatches"></div>
+        <div class="opt-sep"></div>
+        <div class="mini-ctrl">
+          <label>Kalınlık</label>
+          <div class="row"><input type="range" id="sizeRng" min="1" max="60" value="6" /><span class="mini-val" id="sizeVal">6</span></div>
+        </div>
+        <div class="mini-ctrl">
+          <label>Opaklık</label>
+          <div class="row"><input type="range" id="opRng" min="5" max="100" value="100" /><span class="mini-val" id="opVal">100%</span></div>
+        </div>
+        <div class="opt-sep" id="penExtraSep"></div>
+        <div id="penPicker" class="swatches"></div>
+      </div>
+    </main>
+
+    <!-- Side panel -->
+    <aside id="side">
+      <div class="side-head">
+        <h3 id="sideTitle">Sayfalar</h3>
+        <button class="tbtn icon" id="sideClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="side-tabs">
+        <button class="stab on" data-panel="pages">Sayfalar</button>
+        <button class="stab" data-panel="layers">Katmanlar</button>
+        <button class="stab" data-panel="library">Kütüphane</button>
+      </div>
+
+      <!-- Pages panel -->
+      <div class="spanel on" id="panel-pages">
+        <div class="prow">
+          <button class="pbtn primary" id="pgAdd"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Sayfa Ekle</button>
+        </div>
+        <div class="sec-title">Kağıt Şablonu</div>
+        <div class="paper-grid" id="paperGrid"></div>
+        <div class="sec-title">Sayfalar</div>
+        <div id="pgList"></div>
+      </div>
+
+      <!-- Layers panel -->
+      <div class="spanel" id="panel-layers">
+        <div class="prow">
+          <button class="pbtn primary" id="layAdd"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Katman Ekle</button>
+        </div>
+        <div id="layList"></div>
+      </div>
+
+      <!-- Library panel -->
+      <div class="spanel" id="panel-library">
+        <div class="prow">
+          <button class="pbtn primary" id="libNew">Yeni Defter</button>
+          <button class="pbtn ghost sm" id="libRefresh" title="Yenile">↻</button>
+        </div>
+        <div class="lib-grid" id="libGrid"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Color wheel popover -->
+  <div class="pop" id="colorPop">
+    <canvas id="wheelCv" width="220" height="220"></canvas>
+    <div class="pk-sliders">
+      <div class="row"><span>V</span><input type="range" id="valRng" min="0" max="100" value="100" style="width:150px" /><span id="valOut" style="width:34px;text-align:right;font-weight:700">100</span></div>
+      <div class="row"><span>A</span><input type="range" id="alphaRng" min="5" max="100" value="100" style="width:150px" /><span id="alphaOut" style="width:34px;text-align:right;font-weight:700">100</span></div>
+    </div>
+    <div class="pk-row">
+      <div class="pk-prev" id="pkPrev"></div>
+      <input class="hex-in" id="hexIn" value="#1a2230" spellcheck="false" />
+      <button class="pbtn sm" id="pkFav">★</button>
+    </div>
+    <div class="pal-swatches" id="palSwatches"></div>
+  </div>
+
+  <!-- Shapes popover -->
+  <div class="pop" id="shapePop">
+    <div class="shape-grid" id="shapeGrid"></div>
+  </div>
+
+  <!-- Export dialog -->
+  <div class="overlay" id="exportDlg">
+    <div class="dialog" style="width:min(460px,92vw)">
+      <div class="dlg-head"><h2>Dışa Aktar</h2><button class="tbtn icon" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="dlg-body" style="display:block;padding:20px">
+        <div class="set-row"><div class="info"><div class="t">Biçim</div><div class="d">Çıktı dosya türü</div></div>
+          <div class="seg" id="expFmt"><button class="on" data-fmt="pdf">PDF</button><button data-fmt="png">PNG</button></div></div>
+        <div class="set-row"><div class="info"><div class="t">Kapsam</div><div class="d">Hangi sayfalar</div></div>
+          <div class="seg" id="expScope"><button class="on" data-scope="all">Tüm defter</button><button data-scope="page">Bu sayfa</button></div></div>
+        <div class="set-row"><div class="info"><div class="t">Çözünürlük</div><div class="d">Piksel yoğunluğu</div></div>
+          <div class="seg" id="expDpi"><button data-dpi="1">1×</button><button class="on" data-dpi="2">2×</button><button data-dpi="3">3×</button></div></div>
+      </div>
+      <div class="dlg-foot"><button class="pbtn ghost sm" data-close>İptal</button><button class="pbtn primary sm" id="expGo" style="width:auto">Dışa Aktar</button></div>
+    </div>
+  </div>
+
+  <!-- Settings dialog -->
+  <div class="overlay" id="setDlg">
+    <div class="dialog">
+      <div class="dlg-head"><h2>Ayarlar</h2><button class="tbtn icon" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="dlg-body">
+        <div class="set-tabs" id="setTabs">
+          <button class="set-tab on" data-pane="draw">Çizim</button>
+          <button class="set-tab" data-pane="ui">Görünüm</button>
+          <button class="set-tab" data-pane="keys">Kısayollar</button>
+          <button class="set-tab" data-pane="storage">Depolama</button>
+          <button class="set-tab" data-pane="about">Hakkında</button>
+        </div>
+        <div class="set-pane on" id="pane-draw"></div>
+        <div class="set-pane" id="pane-ui"></div>
+        <div class="set-pane" id="pane-keys"></div>
+        <div class="set-pane" id="pane-storage"></div>
+        <div class="set-pane" id="pane-about"></div>
+      </div>
+      <div class="dlg-foot"><button class="pbtn ghost sm" id="setReset" style="width:auto;margin-right:auto">Sıfırla</button><button class="pbtn primary sm" data-close style="width:auto">Bitti</button></div>
+    </div>
+  </div>
+
+  <!-- Presentation bar -->
+  <div id="present-bar">
+    <button class="tool" data-ptool="pen" data-tip="Kalem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg></button>
+    <button class="tool" data-ptool="laser" data-tip="Lazer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    <button class="tool" data-ptool="spot" data-tip="Spot Işık"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2"/></svg></button>
+    <div class="opt-sep"></div>
+    <button class="tool" data-ptool="prev" data-tip="Önceki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <button class="tool" data-ptool="next" data-tip="Sonraki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="tool" data-ptool="exit" data-tip="Çıkış" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div id="laserDot"></div>
+  <canvas id="spotMask"></canvas>
+
+  <div id="toast"></div>
+  <input type="file" id="fileInp" accept="image/*,application/pdf" style="display:none" />
+
+  <script src="ink.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

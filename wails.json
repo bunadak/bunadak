@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Notis Pro",
+  "outputfilename": "Notis",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Notis"
+  },
+  "info": {
+    "companyName": "Notis",
+    "productName": "Notis Pro",
+    "productVersion": "2.0.0",
+    "copyright": "© 2026 Notis",
+    "comments": "Profesyonel dijital defter & çizim stüdyosu"
+  }
+}

@@ -1,0 +1,13 @@
+# Wails / Go build output
+build/bin/
+node_modules/
+*.exe
+*.syso
+frontend/dist/wailsjs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
