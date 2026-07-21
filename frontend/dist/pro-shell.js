@@ -10,6 +10,18 @@
   "use strict";
 
   /* ---------------------------------------------------------------------------
+   * 0) HATA AĞI — beklenmedik bir hata olursa uygulamayı kilitlemek yerine
+   *    kaydını tut. (Sessizce yutmaz; yalnızca konsola yazar ki teşhis
+   *    edilebilsin.) Kritik olmayan runtime hatalarında arayüz ayakta kalır.
+   * ------------------------------------------------------------------------- */
+  window.addEventListener("error", function (e) {
+    try { console.warn("[Notis Pro] hata:", e && e.message, e && e.filename, e && e.lineno); } catch (_) {}
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    try { console.warn("[Notis Pro] işlenmemiş promise:", e && e.reason); } catch (_) {}
+  });
+
+  /* ---------------------------------------------------------------------------
    * 1) TAM EKRAN — WebView2, document.requestFullscreen()'i yok sayar.
    *    Uygulamanın var olan tam ekran çağrılarını Wails penceresine yönlendir.
    * ------------------------------------------------------------------------- */
@@ -63,23 +75,34 @@
   })(20);
 
   /* ---------------------------------------------------------------------------
-   * 3) KALEM KALİTESİ — uygulamanın kendi premium mürekkep modlarını (Ultra
-   *    Netlik: süper-örnekleme · Pro Kalem Modu · Pro Plus Kalem Karakteri)
-   *    ilk açılışta varsayılan AÇIK yap. Kullanıcı sonradan kapatırsa saygı
-   *    gösterilir (tek seferlik bayrak). Uygulamanın kendi 'change' işleyicileri
-   *    üzerinden etkinleştirildiği için mantık birebir korunur.
+   * 3) KALEM KALİTESİ — uygulamanın kendi premium mürekkep modlarını varsayılan
+   *    açar. Yalnızca hafif ve güvenli iki mod: "Ultra Netlik" (süper-örnekleme)
+   *    ve "Pro Plus Kalem Karakteri". "Pro Kalem Modu" (proPens) KAPALI kalır —
+   *    her çizgide ışık/gölge/gradyan üreten en ağır mod olduğundan zayıf
+   *    donanımda kare düşürüp çizim/silme kaçırmalarına yol açabiliyor.
+   *    Uygulamanın kendi 'change' işleyicileri üzerinden etkinleştirilir.
    * ------------------------------------------------------------------------- */
+  function setToggle(id, on) {
+    var el = document.getElementById(id);
+    if (el && !!el.checked !== !!on) {
+      el.checked = !!on;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
   function boostPens() {
     try {
-      if (localStorage.getItem("notis_pro_penboost")) return;
-      ["oUltraInk", "oProPens", "oPlus"].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el && !el.checked) {
-          el.checked = true;
-          el.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      });
-      localStorage.setItem("notis_pro_penboost", "1");
+      // İlk kurulum: yalnızca güvenli iki modu aç.
+      if (!localStorage.getItem("notis_pro_penboost")) {
+        setToggle("oUltraInk", true);
+        setToggle("oPlus", true);
+        localStorage.setItem("notis_pro_penboost", "1");
+      }
+      // v2 geçişi: önceki sürümde açılmış olabilecek Pro Kalem Modu'nu bir defaya
+      // mahsus kapat (kullanıcı isteği). Sonrasında kullanıcının tercihine karışmaz.
+      if (!localStorage.getItem("notis_pro_penboost_v2")) {
+        setToggle("oProPens", false);
+        localStorage.setItem("notis_pro_penboost_v2", "1");
+      }
     } catch (_) {}
   }
   function whenReady(fn) {
