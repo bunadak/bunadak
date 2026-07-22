@@ -89,6 +89,13 @@
       el.dispatchEvent(new Event("change", { bubbles: true }));
     }
   }
+  function setSlider(id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = val;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   function boostPens() {
     try {
       // İlk kurulum: yalnızca güvenli iki modu aç.
@@ -102,6 +109,17 @@
       if (!localStorage.getItem("notis_pro_penboost_v2")) {
         setToggle("oProPens", false);
         localStorage.setItem("notis_pro_penboost_v2", "1");
+      }
+      // v3 — TIRTIKLIĞI BİTİR: görünürdeki yazı kalemleri (Akıllı/Tükenmez/Dolma/
+      // Kurşun/Fosforlu) küresel "çizgi yumuşatma" + "titreme azaltma" (sabitleyici)
+      // değerlerini kullanır ve bunların varsayılanı düşüktü (45/35) — el titremesi
+      // çizgiye yansıyordu. Daha yüksek, dengeli bir varsayılana çekiyoruz: ipek
+      // gibi çizgi, yine de kaleme yapışık his. Tek seferlik; kullanıcı Ayarlar ›
+      // Çizim'den dilediği gibi değiştirebilir.
+      if (!localStorage.getItem("notis_pro_smooth_v1")) {
+        setSlider("sSmooth", 78); // çizgi yumuşatma (0–100)
+        setSlider("sStab", 64);   // titreme azaltma / sabitleyici (0–90)
+        localStorage.setItem("notis_pro_smooth_v1", "1");
       }
     } catch (_) {}
   }
