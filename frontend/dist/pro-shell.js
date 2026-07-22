@@ -121,6 +121,13 @@
         setSlider("sStab", 64);   // titreme azaltma / sabitleyici (0–90)
         localStorage.setItem("notis_pro_smooth_v1", "1");
       }
+      // v1 — LIVING INK: yakınlaştırmada mürekkep vektörden yeniden hesaplanır,
+      // çizgi asla piksellenmez; doku bile zoom seviyesine göre yeniden üretilir.
+      // "Yakınlaştırınca kalite katmıyor / tırtıklı" sorununun çözümü.
+      if (!localStorage.getItem("notis_pro_living_v1")) {
+        setToggle("oLiving", true);
+        localStorage.setItem("notis_pro_living_v1", "1");
+      }
     } catch (_) {}
   }
   function whenReady(fn) {
