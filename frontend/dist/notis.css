@@ -47,7 +47,7 @@ body.focus #topbar,body.focus #rail,body.focus #side{display:none}
 #topbar,#rail,#side{transition:opacity .38s var(--ease),transform .38s var(--ease)}
 body.fwrite #topbar{opacity:.18;pointer-events:none}
 body.fwrite #side{opacity:0;pointer-events:none}
-
+body.fwrite #rail{opacity:.4;transform:scale(.88);transform-origin:left center;pointer-events:none}
 /* Sunum geçişi: üst çubuk fade ↓ · ray ve panel slide ↓ · tuval yumuşak zoom */
 body.present-out #topbar{opacity:0}
 body.present-out #rail{transform:translateX(-115%);opacity:0}
@@ -562,10 +562,3 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
   #splash .sp-mark,#splash .sp-word,#splash .sp-word .w-shine,#splash .sp-beams i,#splash .sp-tag,#splash::before{
     animation:none!important;opacity:1;transform:none;clip-path:none}
   #splash .sp-word .w-shine{display:none}}
-
-/* == Fable5 kalite katmani == */
-body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
-#cv,#ovl{will-change:transform}
-.rtool,.set-row,.lib-card,button{-webkit-font-smoothing:antialiased}
-#rail .rtool{transition:background .12s ease,color .12s ease,transform .08s ease}
-#rail .rtool:active{transform:scale(.92)}

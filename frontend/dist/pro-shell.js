@@ -1,10 +1,10 @@
 /* =============================================================================
  * Notis PRO — Masaüstü Kabuğu Entegrasyonu + Kalem Kalitesi
  *
- * notis.js'ten SONRA yüklenir. Orijinal mantığı değiştirmez; yalnızca WebView2
+ * notis.js'ten SONRA yüklenir. Çizim motorunu değiştirmez; yalnızca WebView2
  * ortamında tarayıcı API'lerinin çalışmadığı iki noktayı Wails runtime'ına
- * bağlar (tam ekran, çıkış) ve uygulamanın KENDİ üst düzey kalem modlarını
- * varsayılan açık hale getirir.
+ * bağlar (tam ekran, çıkış) ve kalem ayarlarını bir defaya mahsus native
+ * (16_2) varsayılanlarına döndürür.
  * ========================================================================== */
 (function () {
   "use strict";
@@ -75,12 +75,12 @@
   })(20);
 
   /* ---------------------------------------------------------------------------
-   * 3) KALEM KALİTESİ — uygulamanın kendi premium mürekkep modlarını varsayılan
-   *    açar. Yalnızca hafif ve güvenli iki mod: "Ultra Netlik" (süper-örnekleme)
-   *    ve "Pro Plus Kalem Karakteri". "Pro Kalem Modu" (proPens) KAPALI kalır —
-   *    her çizgide ışık/gölge/gradyan üreten en ağır mod olduğundan zayıf
-   *    donanımda kare düşürüp çizim/silme kaçırmalarına yol açabiliyor.
-   *    Uygulamanın kendi 'change' işleyicileri üzerinden etkinleştirilir.
+   * 3) NATIVE ÇİZİM — çizim motoru artık kullanıcının "doğru çizebildiğim" dediği
+   *    sürümün (16_2) birebir motorudur. Bu yüzden önceki sürümlerde bizim
+   *    açtığımız kalem "boost"larını (Ultra Netlik / Pro Plus / Living Ink ve
+   *    yükseltilmiş yumuşatma) BİR DEFAYA MAHSUS geri alıp motoru kendi native
+   *    varsayılanlarına döndürüyoruz. Böylece o sürümün çizim hissi aynen gelir.
+   *    Sonrasında kullanıcının Ayarlar'dan yaptığı hiçbir tercihe karışılmaz.
    * ------------------------------------------------------------------------- */
   function setToggle(id, on) {
     var el = document.getElementById(id);
@@ -96,43 +96,22 @@
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  function boostPens() {
+  function restoreNativePens() {
     try {
-      // İlk kurulum: yalnızca güvenli iki modu aç.
-      if (!localStorage.getItem("notis_pro_penboost")) {
-        setToggle("oUltraInk", true);
-        setToggle("oPlus", true);
-        localStorage.setItem("notis_pro_penboost", "1");
-      }
-      // v2 geçişi: önceki sürümde açılmış olabilecek Pro Kalem Modu'nu bir defaya
-      // mahsus kapat (kullanıcı isteği). Sonrasında kullanıcının tercihine karışmaz.
-      if (!localStorage.getItem("notis_pro_penboost_v2")) {
-        setToggle("oProPens", false);
-        localStorage.setItem("notis_pro_penboost_v2", "1");
-      }
-      // v3 — TIRTIKLIĞI BİTİR: görünürdeki yazı kalemleri (Akıllı/Tükenmez/Dolma/
-      // Kurşun/Fosforlu) küresel "çizgi yumuşatma" + "titreme azaltma" (sabitleyici)
-      // değerlerini kullanır ve bunların varsayılanı düşüktü (45/35) — el titremesi
-      // çizgiye yansıyordu. Daha yüksek, dengeli bir varsayılana çekiyoruz: ipek
-      // gibi çizgi, yine de kaleme yapışık his. Tek seferlik; kullanıcı Ayarlar ›
-      // Çizim'den dilediği gibi değiştirebilir.
-      if (!localStorage.getItem("notis_pro_smooth_v1")) {
-        setSlider("sSmooth", 78); // çizgi yumuşatma (0–100)
-        setSlider("sStab", 64);   // titreme azaltma / sabitleyici (0–90)
-        localStorage.setItem("notis_pro_smooth_v1", "1");
-      }
-      // v1 — LIVING INK: yakınlaştırmada mürekkep vektörden yeniden hesaplanır,
-      // çizgi asla piksellenmez; doku bile zoom seviyesine göre yeniden üretilir.
-      // "Yakınlaştırınca kalite katmıyor / tırtıklı" sorununun çözümü.
-      if (!localStorage.getItem("notis_pro_living_v1")) {
-        setToggle("oLiving", true);
-        localStorage.setItem("notis_pro_living_v1", "1");
-      }
+      if (localStorage.getItem("notis_native_pens_v1")) return;
+      // Önceki "boost"ları kapat — 16_2 native davranışına dön.
+      setToggle("oUltraInk", false);
+      setToggle("oProPens", false);
+      setToggle("oLiving", false);
+      // Yumuşatma/sabitleyiciyi native varsayılana çek (16_2: 45 / 35).
+      setSlider("sSmooth", 45);
+      setSlider("sStab", 35);
+      localStorage.setItem("notis_native_pens_v1", "1");
     } catch (_) {}
   }
   function whenReady(fn) {
     if (document.readyState !== "loading") setTimeout(fn, 450);
     else document.addEventListener("DOMContentLoaded", function () { setTimeout(fn, 450); });
   }
-  whenReady(boostPens);
+  whenReady(restoreNativePens);
 })();
