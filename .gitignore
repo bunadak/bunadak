@@ -4,6 +4,7 @@ node_modules/
 *.exe
 *.syso
 frontend/dist/wailsjs/
+frontend/wailsjs/
 
 # OS / editor
 .DS_Store
