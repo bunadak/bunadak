@@ -215,6 +215,13 @@ function fillInkStroke(c,rawPts,widthAt){
   for(let i=0;i<L;i++)ws[i]=Math.max(.2,widthAt(pts[i],i,L)/2);
   for(let i=1;i<L;i++)ws[i]=ws[i-1]+(ws[i]-ws[i-1])*.55;
   for(let i=L-2;i>=0;i--)ws[i]=ws[i+1]+(ws[i]-ws[i+1])*.55;
+  /* EĞİM SINIRLAYICI: kalınlık, yay uzunluğu başına ancak sınırlı hızda ARTABİLİR.
+     Hız/basınç gürültüsünün yarattığı yerel şişkinlikler ('boncuklanma') böylece
+     geometrik olarak imkânsız hale gelir; uzun doğal incelmeler aynen korunur. */
+  for(let i=1;i<L;i++){const ds=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+    const m=ws[i-1]+ds*(.30+ws[i-1]*.22)+.02;if(ws[i]>m)ws[i]=m}
+  for(let i=L-2;i>=0;i--){const ds=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);
+    const m=ws[i+1]+ds*(.30+ws[i+1]*.22)+.02;if(ws[i]>m)ws[i]=m}
   const Lp=new Array(L),Rp=new Array(L);
   for(let i=0;i<L;i++){
     const w=ws[i],[dx,dy]=dirs[i];
@@ -609,13 +616,16 @@ stage.addEventListener('pointermove',e=>{
         if(d>r){const m=(d-r)/d;stabPt={x:stabPt.x+dx*m,y:stabPt.y+dy*m}}
       }else{
         const spd=dist(stabPt,cp)*view.s;                 // ekran pikseli / olay
-        const base=1-S.stab*0.85;
-        const k=clamp(base+spd/34,base,1);                // hız arttıkça filtre gevşer → sıfır gecikme
+        /* Samsung S Pen tarzı ılımlı sabitleyici: yavaşta titreşimi yumuşatır,
+           hız artınca tamamen açılır — gecikme hissi yok (tahmin kuyruğu da
+           S.predict ile gizler). Eski taban (1-stab*.85) fazla gevşekti. */
+        const base=clamp(1-(S.stab*.5+.28),.15,.72);
+        const k=clamp(base+spd/30,base,1);
         stabPt={x:stabPt.x+(cp.x-stabPt.x)*k,y:stabPt.y+(cp.y-stabPt.y)*k};
       }
       const p=S.pressure?(ce.pressure||0.5):0.5;
       const lp=live.points.at(-1);
-      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
+      if(dist(lp,stabPt)>(live.cp?0.45:0.6)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
     }
     requestLiveDraw(e);
   }
@@ -709,12 +719,48 @@ function resampleStroke(pts,step){
   if(Math.hypot(le.x-lo.x,le.y-lo.y)>step*.3)out.push({...le});
   return out;
 }
+function msInkSmooth(o){
+  const pts=o.points,n=pts.length;if(n<5)return;
+  const bin=A=>{let prev=A[0];for(let i=1;i<n-1;i++){const v=(prev+2*A[i]+A[i+1])*.25;prev=A[i];A[i]=v}};
+  const X1=pts.map(p=>p.x),Y1=pts.map(p=>p.y);
+  const k1=2,k2=clamp(Math.round(12+clamp(S.smooth,0,1)*100),k1+2,115); // varsayılan ~57 geçiş ≈ σ4.8px
+  for(let k=0;k<k1;k++){bin(X1);bin(Y1)}
+  const X2=X1.slice(),Y2=Y1.slice();
+  for(let k=k1;k<k2;k++){bin(X2);bin(Y2)}
+  /* yerel hız → yavaşlık faktörü (0 hızlı … 1 yavaş) */
+  const sf=new Array(n).fill(.5);
+  if(pts[0].t!=null&&pts[n-1].t!=null){
+    for(let i=1;i<n;i++){
+      const dt=Math.max(.5,(pts[i].t??0)-(pts[i-1].t??0));
+      const spd=dist(pts[i-1],pts[i])*view.s/dt;          // ekran px / ms
+      sf[i]=clamp((.40-spd)/(.40-.05),0,1);
+    }
+    sf[0]=sf[1];
+    for(let k=0;k<6;k++)bin(sf);                          // faktör pürüzsüz aksın
+  }
+  /* kısa çizgi koruması: toplam yay < 60px ekran → derin seviye kademeli kısılır */
+  let arc=0;for(let i=1;i<n;i++)arc+=dist(pts[i-1],pts[i]);
+  const lenK=clamp(arc*view.s/60,.2,1);
+  for(let i=1;i<n-1;i++){
+    const f=sf[i]*lenK;
+    pts[i].x=X1[i]+(X2[i]-X1[i])*f;
+    pts[i].y=Y1[i]+(Y2[i]-Y1[i])*f;
+  }
+}
 function commitStroke(){
   let o=live;live=null;
   if(o.points.length<2){drawOverlay();return}
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
   // gürültü temizliği: kalınlığa ve o anki zoom'a uyarlanan adım (ekranda ~0.9px)
   o.points=resampleStroke(o.points,Math.max(.9/view.s,Math.min(o.size*.3,4/view.s)));
+  /* MICROSOFT/SAMSUNG MÜREKKEP HİSSİ — hareket-uyarlı Gauss parlatma.
+     İlke: el titremesi YAVAŞ çizimde ortaya çıkar; hızlı çizgi fizik gereği
+     zaten pürüzsüzdür. İki binom-Gauss seviyesi (hafif σ≈1.4px, derin σ≈4.5px)
+     hesaplanır ve her nokta YEREL ÇİZİM HIZINA göre ikisi arasında harmanlanır.
+     Saf alçak geçiren süzgeçtir: düzleştirme, şekil tahmini, doğrultma YOKTUR —
+     köşe/yapaylık üretemez; elin geniş doğal dalgası aynen kalır. Kısa çizgiler
+     (küçük el yazısı harfleri) uzunluk kademesiyle ayrıca korunur. */
+  msInkSmooth(o);
   const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
   for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
     /* t (zaman) interpolasyonu KRİTİK: eski kod ara noktaları t'siz üretiyordu →
@@ -733,6 +779,11 @@ function commitStroke(){
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
   else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
+  /* Kalınlık profili parlatma: basınç/hız gürültüsü kenarlarda dalgacık bırakıyordu.
+     Aynı binom çekirdeği p (kalınlık) dizisine — kenarlar da omurga kadar ipeksi. */
+  if(!o.straight){const P=o.points,n=P.length;
+    if(n>4)for(let k=0;k<12;k++){let pp=P[0].p??.5;
+      for(let i=1;i<n-1;i++){const q=(pp+2*(P[i].p??.5)+(P[i+1].p??.5))*.25;pp=P[i].p??.5;P[i].p=q}}}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
 /* Çark kalemleri mürekkep motoru: her kalemin kendi Pressure/Velocity karışımı.
@@ -744,7 +795,10 @@ function cpInk(o,cp){
   const v=new Array(n).fill(0);
   for(let i=1;i<n;i++){const dt=Math.max(1,(pts[i].t??i)-(pts[i-1].t??(i-1)));v[i]=dist(pts[i-1],pts[i])/dt}
   v[0]=v[1];
-  for(let k=0;k<2;k++)for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6; // oneEuro tarzı hız süzgeci
+  for(let k=0;k<2;k++){ // iki yönlü hız süzgeci: tek yönlü EMA gecikme/boncuk bırakıyordu
+    for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6;
+    for(let i=n-2;i>=0;i--)v[i]=v[i+1]*.4+v[i]*.6;
+  }
   const sorted=[...v].sort((a,b)=>a-b);
   const vRef=Math.max(sorted[Math.floor(sorted.length*.9)],.02);
   const flat=pts.every(p=>Math.abs((p.p??.5)-.5)<.03);        // fare/parmak: gerçek basınç yok
@@ -782,6 +836,10 @@ function matisInk(o){
     v[i]=dist(pts[i-1],pts[i])/dt;
   }
   v[0]=v[1];
+  for(let k=0;k<2;k++){ // iki yönlü hız süzgeci: gürültülü hız kalınlığa 'boncuk' basıyordu
+    for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6;
+    for(let i=n-2;i>=0;i--)v[i]=v[i+1]*.4+v[i]*.6;
+  }
   const sorted=[...v].sort((a,b)=>a-b);
   const vRef=Math.max(sorted[Math.floor(sorted.length*0.9)],0.02);
   let ema=0.7;
@@ -790,6 +848,7 @@ function matisInk(o){
     ema=ema*0.55+raw*0.45;
     pts[i].p=ema;
   }
+  for(let i=n-2;i>=0;i--)pts[i].p=pts[i+1].p*.45+pts[i].p*.55; // geri yönlü geçiş: EMA fazı sıfırlanır
   const tip=Math.min(4,Math.floor(n/3));
   for(let k=0;k<tip;k++){
     const f=0.45+0.55*(k/tip);
