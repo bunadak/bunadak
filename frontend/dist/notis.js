@@ -123,9 +123,28 @@ function updUndoBtns(){const p=page();$('#undoBtn').disabled=!p._undo.length;$('
 ============================================================ */
 const stage=$('#stage'), cv=$('#cv'), ovl=$('#ovl');
 const ctx=cv.getContext('2d'), octx=ovl.getContext('2d');ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
-let DPR=Math.min(2,window.devicePixelRatio||1);
+let DPR=window.devicePixelRatio||1;
 let stageRect=null;
-function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
+/* Render çözünürlüğü: ekranın GERÇEK piksel oranı esas alınır (eski sürüm 2 ile
+   sınırlıyordu — yüksek DPI ekranlarda tırtıklık yaratıyordu). Ultra Netlik açıkken
+   TAM SAYI katlı (2×) süper-örnekleme yapılır: kesirli oran (×1.6) tarayıcının her
+   kareyi yeniden ölçeklemesine, yani kalıcı bulanıklığa yol açıyordu. */
+function computeDPR(){
+  const native=window.devicePixelRatio||1;
+  if(S.ultraInk){
+    const r=stage.getBoundingClientRect();
+    const area=(r.width*native*2)*(r.height*native*2);
+    if(area<=36e6)return native*2;   // bellek bütçesi içinde: temiz 2× süper-örnekleme
+  }
+  return native;
+}
+function resize(){DPR=computeDPR();
+  const r=stageRect=stage.getBoundingClientRect();
+  /* Tam sayı cihaz pikseli: kesirli backing-store boyutu tüm tuvale ince bir
+     yeniden örnekleme bulanıklığı bindiriyordu */
+  const w=Math.max(1,Math.round(r.width*DPR)),h=Math.max(1,Math.round(r.height*DPR));
+  [cv,ovl].forEach(c=>{c.width=w;c.height=h;c.style.width=r.width+'px';c.style.height=r.height+'px'});
+  ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
 window.addEventListener('resize',resize);
 function toDoc(e){const r=stageRect||(stageRect=stage.getBoundingClientRect());return{x:(e.clientX-r.left-view.x)/view.s,y:(e.clientY-r.top-view.y)/view.s}}
 function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();const r=stage.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;s=clamp(s,.1,8);const k=s/view.s;view.x=cx-(cx-view.x)*k;view.y=cy-(cy-view.y)*k;view.s=s;$('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
@@ -177,14 +196,28 @@ function fillInkStroke(c,rawPts,widthAt){
     if(Math.abs(q.x-l.x)>.01||Math.abs(q.y-l.y)>.01)pts.push(q)}
   const L=pts.length;
   if(L===1){const w=widthAt(pts[0],0,1)/2;c.beginPath();c.arc(pts[0].x,pts[0].y,Math.max(.3,w),0,7);c.fill();return}
+  /* YUMUŞATILMIŞ TEĞETLER: yön tek komşudan hesaplanınca yoğun/titrek noktalarda
+     normaller savruluyor, kontur 'testere dişi' oluyordu. Komşu penceresi (±2)
+     üzerinden ortalanan teğet, yakınlaştırmada bile ipeksi bir kenar verir. */
   const dirs=new Array(L);
+  let tpx=1,tpy=0;
   for(let i=0;i<L;i++){
-    const a=pts[Math.max(0,i-1)],b=pts[Math.min(L-1,i+1)];
-    let dx=b.x-a.x,dy=b.y-a.y;const d=Math.hypot(dx,dy)||1;dirs[i]=[dx/d,dy/d];
+    let dx=0,dy=0;
+    const a0=Math.max(0,i-2),b0=Math.min(L-1,i+2);
+    for(let k=a0;k<b0;k++){dx+=pts[k+1].x-pts[k].x;dy+=pts[k+1].y-pts[k].y}
+    const d=Math.hypot(dx,dy);
+    if(d>1e-6){tpx=dx/d;tpy=dy/d}
+    dirs[i]=[tpx,tpy];
   }
+  /* KALINLIK SÜZGECİ: ani basınç sıçramaları kenarda yumru/boğum yapıyordu —
+     iki yönlü EMA ile kalınlık profili sürekli ve pürüzsüz hale gelir. */
+  const ws=new Array(L);
+  for(let i=0;i<L;i++)ws[i]=Math.max(.2,widthAt(pts[i],i,L)/2);
+  for(let i=1;i<L;i++)ws[i]=ws[i-1]+(ws[i]-ws[i-1])*.55;
+  for(let i=L-2;i>=0;i--)ws[i]=ws[i+1]+(ws[i]-ws[i+1])*.55;
   const Lp=new Array(L),Rp=new Array(L);
   for(let i=0;i<L;i++){
-    const w=Math.max(.2,widthAt(pts[i],i,L)/2),[dx,dy]=dirs[i];
+    const w=ws[i],[dx,dy]=dirs[i];
     Lp[i]={x:pts[i].x-dy*w,y:pts[i].y+dx*w};
     Rp[i]={x:pts[i].x+dy*w,y:pts[i].y-dx*w};
   }
@@ -192,14 +225,14 @@ function fillInkStroke(c,rawPts,widthAt){
   c.moveTo(Lp[0].x,Lp[0].y);
   for(let i=1;i<L-1;i++){const mx=(Lp[i].x+Lp[i+1].x)/2,my=(Lp[i].y+Lp[i+1].y)/2;c.quadraticCurveTo(Lp[i].x,Lp[i].y,mx,my)}
   c.lineTo(Lp[L-1].x,Lp[L-1].y);
-  { // uç kapağı — yuvarlak
-    const[dx,dy]=dirs[L-1],a=Math.atan2(dy,dx),w=Math.max(.2,widthAt(pts[L-1],L-1,L)/2);
+  { // uç kapağı — yuvarlak (yarıçap süzülmüş kalınlıkla birebir → basamak yok)
+    const[dx,dy]=dirs[L-1],a=Math.atan2(dy,dx),w=ws[L-1];
     c.arc(pts[L-1].x,pts[L-1].y,w,a+Math.PI/2,a-Math.PI/2,true);
   }
   for(let i=L-2;i>0;i--){const mx=(Rp[i].x+Rp[i-1].x)/2,my=(Rp[i].y+Rp[i-1].y)/2;c.quadraticCurveTo(Rp[i].x,Rp[i].y,mx,my)}
   c.lineTo(Rp[0].x,Rp[0].y);
-  { // başlangıç kapağı — yuvarlak
-    const[dx,dy]=dirs[0],a=Math.atan2(dy,dx),w=Math.max(.2,widthAt(pts[0],0,L)/2);
+  { // başlangıç kapağı — yuvarlak (yarıçap süzülmüş kalınlıkla birebir)
+    const[dx,dy]=dirs[0],a=Math.atan2(dy,dx),w=ws[0];
     c.arc(pts[0].x,pts[0].y,w,a-Math.PI/2,a+Math.PI/2,true);
   }
   c.closePath();c.fill();
@@ -259,14 +292,8 @@ function drawStroke(c,o){
   const nibEnd=(i,L)=>NIB===0?(.3+.7*Math.min(1,i/6,(L-i)/6)):1;
   if(o.tool==='smart'){const L=pts.length,EG=ENGINE_DEFAULTS,FX=o.fx;
     const PRO=S.proPens?1.12:1;               // Pro: kalınlık tepkisi zenginleşir
-    if(S.proPens&&L>3){                        // PRO İMZA: kâğıda gömülme gölgesi
-      const gz=Math.max(1,INK.z);
-      c.save();c.globalAlpha*=.085;c.fillStyle='#000';c.translate(.7/gz,1/gz);
-      fillInkStroke(c,pts,(pt,i,n)=>{
-        const pr=.6+(((pt&&pt.p)??.6)-.6)*PKK;
-        return Math.max(.4,o.size*NW*nibEnd(i,n)*(0.45+1.25*pr));
-      });c.restore();
-    }
+    /* (Pro 'kâğıda gömülme gölgesi' kaldırıldı: kaydırılmış hayalet kopya çizgiyi
+       çift/bulanık gösteriyordu — netlik her efektten önce gelir) */
     if(S.proPens&&L>3){                        // PRO İMZA: renk-derinlikli mürekkep (uçtan uca ton gradyanı)
       const a=pts[0],b2=pts[L-1];
       try{const gr=c.createLinearGradient(a.x,a.y,b2.x,b2.y);
@@ -293,26 +320,15 @@ function drawStroke(c,o){
       c.save();c.globalAlpha*=clamp(WETX*.5,.08,.42);
       c.lineWidth=o.size*.5;strokePath(c,pts);c.stroke();c.restore();
     }
-    if(S.proPens&&L>6){                                      // PRO İMZA: yavaşlayınca mürekkep birikir
-      const rnd=mulberry32(strokeSeed(pts));c.save();
-      for(let i=3;i<L-3;i+=2){
-        const pr=(pts[i].p??.6);
-        if(pr>.86&&rnd()<.5){                                // yüksek basınç/yavaşlık noktaları
-          c.globalAlpha=Math.min(.14,(pr-.86)*.9)*o.opacity;
-          c.beginPath();c.arc(pts[i].x,pts[i].y,o.size*NW*(.62+rnd()*.28),0,7);
-          c.fillStyle=o.color;c.fill();
-        }
-      }c.restore();
-    }
+    /* (Pro 'mürekkep birikintisi' kaldırıldı: rastgele lekeler çizgiyi kirli ve
+       düzensiz gösteriyordu — kalınlık modeli bu hissi zaten temiz veriyor) */
   }else if(o.tool==='fountain'){const L=pts.length;
     for(let i=1;i<L;i++){const p0=pts[i-1],p1=pts[i];const pr0=((p0.p??.5)+(p1.p??.5))/2,pr=.5+(pr0-.5)*PKK;
       c.lineWidth=Math.max(.4,o.size*NW*nibEnd(i,L)*(0.35+1.35*pr));c.beginPath();c.moveTo(p0.x,p0.y);c.lineTo(p1.x,p1.y);c.stroke()}
       if(S.proPens){
         c.save();c.globalAlpha*=.26;c.lineWidth=o.size*NW*.52;strokePath(c,pts);c.stroke();c.restore();  // koyu mürekkep çekirdeği
-        /* PRO İMZA: ıslak mürekkep parlaklığı — çizginin bir yanında ince ışık şeridi */
-        c.save();c.globalAlpha*=.16;c.strokeStyle='#FFFFFF';
-        c.lineWidth=Math.max(.5,o.size*NW*.14);
-        strokePath(c,offsetRail(pts,o.size*NW*.22));c.stroke();c.restore();
+        /* (Pro 'beyaz parlaklık şeridi' kaldırıldı: açık zeminde çizgi kenarını
+           yenmiş/tırtıklı gösteriyordu — koyu çekirdek derinliği tek başına verir) */
       }
 }else if(o.tool==='pencil'){
     /* Living Ink açıkken doku ofseti zoom'a göre yeniden hesaplanır — yakınlaşınca
@@ -321,12 +337,12 @@ function drawStroke(c,o){
     c.globalAlpha*=.82;c.lineWidth=o.size*NW;strokePath(c,pts);c.stroke();
     c.globalAlpha*=.35;c.lineWidth=o.size*.55;c.save();c.translate(.7/gz,.5/gz);strokePath(c,pts);c.stroke();c.restore();
     if(INK.z>1.8){c.globalAlpha*=.5;c.lineWidth=o.size*.3;c.save();c.translate(-.45/gz,.32/gz);strokePath(c,pts);c.stroke();c.restore()}
-    if(S.proPens){                            // PRO İMZA Kurşun: gerçek grafit dokusu
-      const rnd=mulberry32(strokeSeed(pts));
-      for(let k=0;k<2;k++){c.save();
-        c.globalAlpha*=.16+rnd()*.08;
-        c.translate((rnd()*2-1)*.9/gz,(rnd()*2-1)*.9/gz);
-        c.lineWidth=o.size*(.28+rnd()*.2);strokePath(c,pts);c.stroke();c.restore()}
+    if(S.proPens){                            // PRO İMZA Kurşun: grafit dokusu — TEK ince
+      const rnd=mulberry32(strokeSeed(pts));  // geçiş, dar ofset (çift geçiş bulanık gösteriyordu)
+      c.save();
+      c.globalAlpha*=.13+rnd()*.05;
+      c.translate((rnd()*2-1)*.55/gz,(rnd()*2-1)*.55/gz);
+      c.lineWidth=o.size*(.26+rnd()*.14);strokePath(c,pts);c.stroke();c.restore();
     }
   }else if(o.tool==='ball'&&S.proPens){      // PRO İMZA Tükenmez: ipek 'nefes alan' çizgi
     c.fillStyle=o.color;
@@ -336,8 +352,7 @@ function drawStroke(c,o){
       const breath=1+0.05*Math.sin(i*.55+ph); // ±%5 canlı kalınlık nefesi
       return o.size*NW*taper*breath;
     });
-    c.save();c.globalAlpha*=.5;              // bilye ucunun ilk mürekkep damlası
-    c.beginPath();c.arc(pts[0].x,pts[0].y,o.size*NW*.58,0,7);c.fill();c.restore();
+    /* (Pro 'ilk mürekkep damlası' kaldırıldı: çizgi başında yumru gibi görünüyordu) */
   }else{c.lineWidth=o.size*NW;
     if(o.straight){c.beginPath();c.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y)}
     else strokePath(c,pts);
@@ -394,7 +409,8 @@ function redraw(){ctx.imageSmoothingQuality='high';
   ctx.setTransform(DPR*view.s,0,0,DPR*view.s,Math.round(DPR*view.x),Math.round(DPR*view.y));
   const r=stageRect||(stageRect=stage.getBoundingClientRect());
   const vx0=-view.x/view.s,vy0=-view.y/view.s,vx1=(r.width-view.x)/view.s,vy1=(r.height-view.y)/view.s;
-  INK.z=S.livingInk?view.s:1; // Living Ink: mürekkep bu zoom'a göre yeniden hesaplanır
+  INK.z=view.s; // Mürekkep HER ZAMAN zoom'a göre hesaplanır: doku ofsetleri ekran-piksel
+                // sabitlenir — yakınlaşınca grain büyüyüp 'bulanık çift çizgi'ye dönüşmez
   if(boardMode()){
     ctx.fillStyle=boardBg();ctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);
     paperPattern(ctx,p.paper,vx0,vy0,vx1,vy1);
@@ -667,13 +683,45 @@ function drawLive(e){
   }
   octx.restore();
 }
+/* EŞİT ARALIKLI YENİDEN ÖRNEKLEME: ham imleç seli (~0.35px aralıklı, mikro titrek)
+   doğrudan kontura yansıyıp tırtıklık yaratıyordu. Omurga eşit adımlarla yeniden
+   örneklenir (x/y/p/t doğrusal interpolasyon) — gürültü kaynağında yok edilir,
+   yakınlaştırmada bile kontur pürüzsüz kalır. */
+function resampleStroke(pts,step){
+  if(pts.length<3||!(step>0))return pts;
+  const out=[{...pts[0]}];
+  let ax=pts[0].x,ay=pts[0].y,ap=pts[0].p??.5,at=pts[0].t,acc=0;
+  for(let i=1;i<pts.length;i++){
+    const b=pts[i];
+    let seg=Math.hypot(b.x-ax,b.y-ay);
+    while(acc+seg>=step&&seg>1e-9){
+      const t=(step-acc)/seg;
+      ax+=(b.x-ax)*t;ay+=(b.y-ay)*t;
+      ap+=((b.p??.5)-ap)*t;
+      if(at!=null&&b.t!=null)at+=(b.t-at)*t;
+      const np={x:ax,y:ay,p:ap};if(at!=null)np.t=at;
+      out.push(np);
+      seg=Math.hypot(b.x-ax,b.y-ay);acc=0;
+    }
+    acc+=seg;ax=b.x;ay=b.y;ap=b.p??ap;at=b.t??at;
+  }
+  const le=pts[pts.length-1],lo=out[out.length-1];
+  if(Math.hypot(le.x-lo.x,le.y-lo.y)>step*.3)out.push({...le});
+  return out;
+}
 function commitStroke(){
   let o=live;live=null;
   if(o.points.length<2){drawOverlay();return}
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
+  // gürültü temizliği: kalınlığa ve o anki zoom'a uyarlanan adım (ekranda ~0.9px)
+  o.points=resampleStroke(o.points,Math.max(.9/view.s,Math.min(o.size*.3,4/view.s)));
   const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
   for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
-    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p})}np.push(o.points.at(-1));o.points=np}
+    /* t (zaman) interpolasyonu KRİTİK: eski kod ara noktaları t'siz üretiyordu →
+       hız modeli (cpInk/matisInk) indeks-zaman karışımıyla bozulup düzensiz kalınlık yapıyordu */
+    const tt=(a.t!=null&&b.t!=null);
+    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,t:tt?a.t*.75+b.t*.25:a.t},
+            {x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,t:tt?a.t*.25+b.t*.75:b.t})}np.push(o.points.at(-1));o.points=np}
   if(o.tool==='hl'&&S.snapHl)o=snapStraighten(o);
   else if(cp){o=cpInk(o,cp);
     /* Render efekt tanımlayıcısı — serileştirilebilir, deterministik (seed'li) */
@@ -2881,8 +2929,8 @@ function applyPanels(refit){
   if(refit&&!boardMode())fit();               // PDF/sayfa yeni alana yeniden sığdırılır
 }
 function applyDPR(){
-  const base=Math.min(2,window.devicePixelRatio||1);
-  DPR=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
+  /* DPR artık resize() içinde computeDPR() ile hesaplanır:
+     Ultra Netlik = tam sayı 2× süper-örnekleme (kesirli ×1.6 bulanıklık yapıyordu) */
   resize();
 }
 $('#oHideLeft').addEventListener('change',e=>{S.hideLeft=e.target.checked;saveOpts();applyPanels(true)});
