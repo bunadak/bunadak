@@ -215,6 +215,13 @@ function fillInkStroke(c,rawPts,widthAt){
   for(let i=0;i<L;i++)ws[i]=Math.max(.2,widthAt(pts[i],i,L)/2);
   for(let i=1;i<L;i++)ws[i]=ws[i-1]+(ws[i]-ws[i-1])*.55;
   for(let i=L-2;i>=0;i--)ws[i]=ws[i+1]+(ws[i]-ws[i+1])*.55;
+  /* EĞİM SINIRLAYICI: kalınlık, yay uzunluğu başına ancak sınırlı hızda ARTABİLİR.
+     Hız/basınç gürültüsünün yarattığı yerel şişkinlikler ('boncuklanma') böylece
+     geometrik olarak imkânsız hale gelir; uzun doğal incelmeler aynen korunur. */
+  for(let i=1;i<L;i++){const ds=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+    const m=ws[i-1]+ds*(.30+ws[i-1]*.22)+.02;if(ws[i]>m)ws[i]=m}
+  for(let i=L-2;i>=0;i--){const ds=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);
+    const m=ws[i+1]+ds*(.30+ws[i+1]*.22)+.02;if(ws[i]>m)ws[i]=m}
   const Lp=new Array(L),Rp=new Array(L);
   for(let i=0;i<L;i++){
     const w=ws[i],[dx,dy]=dirs[i];
@@ -609,13 +616,16 @@ stage.addEventListener('pointermove',e=>{
         if(d>r){const m=(d-r)/d;stabPt={x:stabPt.x+dx*m,y:stabPt.y+dy*m}}
       }else{
         const spd=dist(stabPt,cp)*view.s;                 // ekran pikseli / olay
-        const base=1-S.stab*0.85;
-        const k=clamp(base+spd/34,base,1);                // hız arttıkça filtre gevşer → sıfır gecikme
+        /* Güçlendirilmiş sabitleyici: eski taban (1-stab*.85) o kadar gevşekti ki
+           el titremesi neredeyse süzülmeden kayda giriyordu. Yeni taban yavaş
+           çizimde titremeyi ciddi yutar; hızla birlikte açılır → gecikme hissi yok. */
+        const base=clamp(1-(S.stab*.6+.38),.10,.62);
+        const k=clamp(base+spd/26,base,1);                // hız arttıkça filtre gevşer → sıfır gecikme
         stabPt={x:stabPt.x+(cp.x-stabPt.x)*k,y:stabPt.y+(cp.y-stabPt.y)*k};
       }
       const p=S.pressure?(ce.pressure||0.5):0.5;
       const lp=live.points.at(-1);
-      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
+      if(dist(lp,stabPt)>(live.cp?0.45:0.75)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
     }
     requestLiveDraw(e);
   }
@@ -709,19 +719,88 @@ function resampleStroke(pts,step){
   if(Math.hypot(le.x-lo.x,le.y-lo.y)>step*.3)out.push({...le});
   return out;
 }
+/* ============ HAREKET-UYARLI YOL DÜZLEŞTİRME (fark katmanı) ============
+   İlke: el titremesi YAVAŞ çizimde ortaya çıkar (1-3px genlik, 8-25px dalga boyu);
+   hızlı çizgi fizik gereği zaten pürüzsüzdür. Bu yüzden iki Gauss seviyesi
+   hesaplanır — hafif (σ≈1.5px: konturu parlatır) ve derin (σ≈5px: titremeyi
+   dalga boyunda söker) — ve her nokta YEREL ÇİZİM HIZINA göre ikisi arasında
+   harmanlanır. Nokta aralığı eşit olduğundan (resampleStroke) örnek-penceresi
+   birebir yay-penceresidir: düzleştirme ekran-piksel ölçeğinde deterministiktir.
+   Kısa çizgiler (küçük el yazısı harfleri) korunur: derinlik, çizgi uzunluğuyla
+   kademelenir — harf yuvarlanmaz, uzun yavaş çizgi cetvel gibi durulur. */
+function pathSmooth(o,smoothAmt){
+  const pts=o.points,n=pts.length;if(n<5)return;
+  const bin=A=>{let prev=A[0];for(let i=1;i<n-1;i++){const v=(prev+2*A[i]+A[i+1])*.25;prev=A[i];A[i]=v}};
+  const X1=pts.map(p=>p.x),Y1=pts.map(p=>p.y);
+  const k1=2,k2=clamp(Math.round(10+smoothAmt*70),k1+2,80);
+  for(let k=0;k<k1;k++){bin(X1);bin(Y1)}
+  const X2=X1.slice(),Y2=Y1.slice();
+  for(let k=k1;k<k2;k++){bin(X2);bin(Y2)}
+  /* yerel hız → yavaşlık faktörü (0 hızlı … 1 yavaş) */
+  const sf=new Array(n).fill(.5);
+  if(pts[0].t!=null&&pts[n-1].t!=null){
+    for(let i=1;i<n;i++){
+      const dt=Math.max(.5,(pts[i].t??0)-(pts[i-1].t??0));
+      const spd=dist(pts[i-1],pts[i])*view.s/dt;          // ekran px / ms
+      sf[i]=clamp((.40-spd)/(.40-.05),0,1);
+    }
+    sf[0]=sf[1];
+    for(let k=0;k<6;k++)bin(sf);                          // faktör pürüzsüz aksın
+  }
+  /* kısa çizgi koruması: toplam yay < 60px ekran → derin seviye kademeli kısılır */
+  let arc=0;for(let i=1;i<n;i++)arc+=dist(pts[i-1],pts[i]);
+  const lenK=clamp(arc*view.s/60,.2,1);
+  for(let i=1;i<n-1;i++){
+    const f=sf[i]*lenK;
+    pts[i].x=X1[i]+(X2[i]-X1[i])*f;
+    pts[i].y=Y1[i]+(Y2[i]-Y1[i])*f;
+  }
+}
+/* ============ NİYET NETLEŞTİRME (fark katmanı, 2. kademe) ============
+   Kayan pencereli TOPLAM-en-küçük-kareler (TLS/PCA) regresyonu: her nokta,
+   çevresindeki pencerenin ana eksenine olan sapmasına bakılarak değerlendirilir.
+   Pencere 'neredeyse düz'se (artık sapma < eşik) nokta regresyon doğrusuna doğru
+   çekilir → düz olması NİYET edilen bölge cetvel düzlüğüne kavuşur. Gerçek
+   eğrilerde artık sapma eşiği aşar → katman kendini tamamen kapatır, şekil
+   korunur. İki ölçek (≈26px + ≈70px ekran) orta ve uzun dalga boyundaki
+   sürüklenmeyi birlikte yok eder — hiçbir alçak geçiren filtrenin yapamadığı şey. */
+function snapPass(pts,W,T,cap){
+  const n=pts.length,H=W>>1;if(n<W+2)return;
+  const px=new Float64Array(n+1),py=new Float64Array(n+1),pxx=new Float64Array(n+1),pxy=new Float64Array(n+1),pyy=new Float64Array(n+1);
+  for(let i=0;i<n;i++){const q=pts[i];px[i+1]=px[i]+q.x;py[i+1]=py[i]+q.y;pxx[i+1]=pxx[i]+q.x*q.x;pxy[i+1]=pxy[i]+q.x*q.y;pyy[i+1]=pyy[i]+q.y*q.y}
+  const nx=new Float64Array(n),ny=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    const a=Math.max(0,i-H),b=Math.min(n,i+H+1),m=b-a;
+    const mx=(px[b]-px[a])/m,my=(py[b]-py[a])/m;
+    const cxx=(pxx[b]-pxx[a])/m-mx*mx,cyy=(pyy[b]-pyy[a])/m-my*my,cxy=(pxy[b]-pxy[a])/m-mx*my;
+    const tr=cxx+cyy,dd=Math.sqrt(Math.max(0,(cxx-cyy)*(cxx-cyy)/4+cxy*cxy));
+    const res=Math.sqrt(Math.max(0,tr/2-dd));      // TLS artık sapması (rms)
+    const f=clamp((T-res)/T,0,1)*cap;
+    if(f<=0){nx[i]=pts[i].x;ny[i]=pts[i].y;continue}
+    const lmax=tr/2+dd;let ex,ey;                  // ana eksen
+    if(cxy!==0){ex=lmax-cyy;ey=cxy}else{ex=cxx>=cyy?1:0;ey=cxx>=cyy?0:1}
+    const el=Math.hypot(ex,ey)||1;ex/=el;ey/=el;
+    const dx=pts[i].x-mx,dy=pts[i].y-my,t=dx*ex+dy*ey;
+    nx[i]=pts[i].x+((mx+ex*t)-pts[i].x)*f;
+    ny[i]=pts[i].y+((my+ey*t)-pts[i].y)*f;
+  }
+  for(let i=1;i<n-1;i++){pts[i].x=nx[i];pts[i].y=ny[i]}
+}
+function intentSnap(pts){
+  const T=1.15/view.s;                             // eşik: ekranda ~1.15px sapma
+  snapPass(pts,24,T,.92);snapPass(pts,64,T,.92);   // orta + uzun dalga, iki tur
+  snapPass(pts,24,T,.92);snapPass(pts,64,T,.92);
+}
 function commitStroke(){
   let o=live;live=null;
   if(o.points.length<2){drawOverlay();return}
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
-  // gürültü temizliği: kalınlığa ve o anki zoom'a uyarlanan adım (ekranda ~0.9px)
-  o.points=resampleStroke(o.points,Math.max(.9/view.s,Math.min(o.size*.3,4/view.s)));
-  const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
-  for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
-    /* t (zaman) interpolasyonu KRİTİK: eski kod ara noktaları t'siz üretiyordu →
-       hız modeli (cpInk/matisInk) indeks-zaman karışımıyla bozulup düzensiz kalınlık yapıyordu */
-    const tt=(a.t!=null&&b.t!=null);
-    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,t:tt?a.t*.75+b.t*.25:a.t},
-            {x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,t:tt?a.t*.25+b.t*.75:b.t})}np.push(o.points.at(-1));o.points=np}
+  /* Eşit yay aralığı (ekranda ~1.1px) → hareket-uyarlı düzleştirme → niyet
+     netleştirme. Eski köşe-kırpma alt bölmesi kaldırıldı: nokta sayısını
+     patlatıyor ama titremenin dalga boyuna hiç dokunamıyordu. */
+  o.points=resampleStroke(o.points,1.1/view.s);
+  pathSmooth(o,cp?clamp(cp.smoothing*.7+cp.streamline*.5,0,1.1):S.smooth+(o.tool==='smart'?.15:0));
+  intentSnap(o.points);
   if(o.tool==='hl'&&S.snapHl)o=snapStraighten(o);
   else if(cp){o=cpInk(o,cp);
     /* Render efekt tanımlayıcısı — serileştirilebilir, deterministik (seed'li) */
@@ -744,7 +823,10 @@ function cpInk(o,cp){
   const v=new Array(n).fill(0);
   for(let i=1;i<n;i++){const dt=Math.max(1,(pts[i].t??i)-(pts[i-1].t??(i-1)));v[i]=dist(pts[i-1],pts[i])/dt}
   v[0]=v[1];
-  for(let k=0;k<2;k++)for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6; // oneEuro tarzı hız süzgeci
+  for(let k=0;k<2;k++){ // iki yönlü hız süzgeci: tek yönlü EMA gecikme/boncuk bırakıyordu
+    for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6;
+    for(let i=n-2;i>=0;i--)v[i]=v[i+1]*.4+v[i]*.6;
+  }
   const sorted=[...v].sort((a,b)=>a-b);
   const vRef=Math.max(sorted[Math.floor(sorted.length*.9)],.02);
   const flat=pts.every(p=>Math.abs((p.p??.5)-.5)<.03);        // fare/parmak: gerçek basınç yok
@@ -782,6 +864,10 @@ function matisInk(o){
     v[i]=dist(pts[i-1],pts[i])/dt;
   }
   v[0]=v[1];
+  for(let k=0;k<2;k++){ // iki yönlü hız süzgeci: gürültülü hız kalınlığa 'boncuk' basıyordu
+    for(let i=1;i<n;i++)v[i]=v[i-1]*.4+v[i]*.6;
+    for(let i=n-2;i>=0;i--)v[i]=v[i+1]*.4+v[i]*.6;
+  }
   const sorted=[...v].sort((a,b)=>a-b);
   const vRef=Math.max(sorted[Math.floor(sorted.length*0.9)],0.02);
   let ema=0.7;
@@ -790,6 +876,7 @@ function matisInk(o){
     ema=ema*0.55+raw*0.45;
     pts[i].p=ema;
   }
+  for(let i=n-2;i>=0;i--)pts[i].p=pts[i+1].p*.45+pts[i].p*.55; // geri yönlü geçiş: EMA fazı sıfırlanır
   const tip=Math.min(4,Math.floor(n/3));
   for(let k=0;k<tip;k++){
     const f=0.45+0.55*(k/tip);
