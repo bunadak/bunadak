@@ -96,22 +96,22 @@
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  function restoreNativePens() {
+  function proInkSetup() {
     try {
-      if (localStorage.getItem("notis_native_pens_v1")) return;
-      // Önceki "boost"ları kapat — 16_2 native davranışına dön.
-      setToggle("oUltraInk", false);
-      setToggle("oProPens", false);
-      setToggle("oLiving", false);
-      // Yumuşatma/sabitleyiciyi native varsayılana çek (16_2: 45 / 35).
-      setSlider("sSmooth", 45);
-      setSlider("sStab", 35);
-      localStorage.setItem("notis_native_pens_v1", "1");
+      if (localStorage.getItem("notis_proink_v1")) return;
+      // Yeni "smooth ink" motoru drawStroke içinde tüm serbest kalemlere zaten
+      // uygulanıyor. Ultra Netlik + Pro Kalem opsiyonlarını da bu geliştirmeye
+      // uyarlayarak varsayılan açıyoruz (ikisi de yumuşatılmış noktalar üzerine
+      // çiziyor → en temiz + karakterli sonuç). Kullanıcı Ayarlar › Opsiyonlar'dan
+      // kapatabilir; sonrasında tercihe karışılmaz.
+      setToggle("oUltraInk", true);
+      setToggle("oProPens", true);
+      localStorage.setItem("notis_proink_v1", "1");
     } catch (_) {}
   }
   function whenReady(fn) {
     if (document.readyState !== "loading") setTimeout(fn, 450);
     else document.addEventListener("DOMContentLoaded", function () { setTimeout(fn, 450); });
   }
-  whenReady(restoreNativePens);
+  whenReady(proInkSetup);
 })();

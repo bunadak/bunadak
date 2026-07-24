@@ -245,8 +245,41 @@ function drawSpray(c,o){
   }
   c.restore();
 }
+/* ---------------------------------------------------------------------------
+ * Pro Ink — yüksek kalite mürekkep yumuşatma (smooth ink)
+ * Serbest kalem çizgilerini el titremesinden arındırıp ipeksi eğrilere çevirir.
+ * İki aşama: (1) alçak-geçiren ağırlıklı ortalama (tremor'ı yutar), (2) Chaikin
+ * köşe-kesme spline'ı (pürüzsüz eğrilik). Bu, yüksek kaliteli kalem motorlarında
+ * kullanılan standart bir tekniktir. Çizgi/şekil/pergel (o.straight) DOKUNULMAZ.
+ * Sonuç WeakMap'te önbelleklenir (kayıtta saklanmaz, yeniden çizimde ucuz).
+ * ------------------------------------------------------------------------- */
+const _inkCache=new WeakMap();
+function proInkSmooth(src){
+  const n=src.length; if(n<4) return src;
+  const P=p=>(p==null?0.6:p);
+  const a=[src[0]];
+  for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
+    a.push({x:(p0.x+2*p1.x+p2.x)/4,y:(p0.y+2*p1.y+p2.y)/4,p:(P(p0.p)+2*P(p1.p)+P(p2.p))/4,t:p1.t});}
+  a.push(src[n-1]);
+  let cur=a;
+  for(let pass=0;pass<2;pass++){
+    const out=[cur[0]];
+    for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
+      out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
+      out.push({x:A.x*0.25+B.x*0.75,y:A.y*0.25+B.y*0.75,p:P(A.p)*0.25+P(B.p)*0.75,t:B.t});}
+    out.push(cur[cur.length-1]); cur=out;
+  }
+  return cur;
+}
+function proInkPts(o){
+  const src=o.points;
+  if(o.straight||!src||src.length<4) return src;
+  let e=_inkCache.get(o);
+  if(e&&e.n===src.length) return e.pts;
+  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,pts}); return pts;
+}
 function drawStroke(c,o){
-  const pts=o.points;if(!pts.length)return;
+  const pts=proInkPts(o);if(!pts||!pts.length)return;
   if(o.fx&&o.fx.s){drawSpray(c,o);return}                 // Air Brush özel dalı
   c.save();c.lineCap='round';c.lineJoin='round';c.strokeStyle=o.color;c.globalAlpha*=o.opacity;
   if(o.tool==='hl'){c.globalCompositeOperation='multiply';c.lineCap='butt'}
