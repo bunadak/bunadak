@@ -257,9 +257,11 @@ const _inkCache=new WeakMap();
 function proInkSmooth(src){
   const n=src.length; if(n<4) return src;
   const P=p=>(p==null?0.6:p);
+  // Hafif merkez-ağırlıklı alçak-geçiren (/8): gecikmeyi minimumda tutar,
+  // temiz kalem girişinde (XP-Pen vb.) çizgi kaleme yapışık kalır.
   const a=[src[0]];
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
-    a.push({x:(p0.x+2*p1.x+p2.x)/4,y:(p0.y+2*p1.y+p2.y)/4,p:(P(p0.p)+2*P(p1.p)+P(p2.p))/4,t:p1.t});}
+    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
   a.push(src[n-1]);
   let cur=a;
   for(let pass=0;pass<2;pass++){
