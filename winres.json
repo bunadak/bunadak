@@ -1,0 +1,21 @@
+{
+  "RT_GROUP_ICON": { "APP": { "0000": ["build/icon256.png"] } },
+  "RT_MANIFEST": { "#1": { "0409": { "identity": {}, "description": "", "manifest-path": "app.manifest" } } },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": { "file_version": "2.1.0.0", "product_version": "2.1.0.0" },
+        "info": {
+          "0409": {
+            "ProductName": "Notis Pro",
+            "FileDescription": "Notis Pro — Profesyonel dijital defter & çizim stüdyosu",
+            "FileVersion": "2.1.0",
+            "ProductVersion": "2.1.0",
+            "CompanyName": "Notis",
+            "LegalCopyright": "© 2026 Notis"
+          }
+        }
+      }
+    }
+  }
+}
