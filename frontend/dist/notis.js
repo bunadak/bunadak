@@ -111,11 +111,25 @@ function curOff(){return boardMode()?{x:0,y:0}:layout()[cur]}
 function bandAt(gy){const L=layout(),g=pageGap();for(let i=0;i<doc.pages.length;i++){if(gy<L[i].y+doc.pages[i].h+g/2)return i}return doc.pages.length-1}
 
 /* ---------- Geri al / Yinele ---------- */
-function snapshot(){const p=page();p._undo.push(JSON.stringify(p.layers));if(p._undo.length>40)p._undo.shift();p._redo.length=0;updUndoBtns();if(window.LIB)LIB.dirty()}
-function restore(json){const p=page();p.layers=JSON.parse(json);p.layers.forEach(l=>l.objects.forEach(hydrate));if(!p.layers.find(l=>l.id===curLayerId))curLayerId=p.layers[p.layers.length-1].id;selection=[];redraw();renderLayers();updUndoBtns()}
+/* PERFORMANS — undo yığını görüntü havuzu:
+   Geri-al anlık görüntüleri katmanları JSON'a çevirir. İçe aktarılmış soru
+   görselleri / PDF sayfaları MB'larca dataURL taşır; bunlar her çizgi
+   başlangıcında (snapshot) yeniden kopyalansaydı çizim belirgin şekilde
+   takılırdı ("arkamdan çiziyor" hissi). Büyük src dizeleri havuzda tek kopya
+   tutulur, undo kayıtlarına yalnız kısa kimlik yazılır. */
+const _srcPool=new Map();let _srcSeq=1;
+function _srcTok(v){if(typeof v!=='string'||v.length<512||v.startsWith('@up:'))return v;
+  let id=_srcPool.get(v);
+  if(id==null){id='@up:'+(_srcSeq++);_srcPool.set(v,id);_srcPool.set(id,v)}
+  return id}
+function packLayers(layers){return JSON.stringify(layers,(k,v)=>k==='src'?_srcTok(v):v)}
+function unpackSrc(o){if(typeof o.src==='string'&&o.src.startsWith('@up:'))o.src=_srcPool.get(o.src)||o.src;
+  if(o.type==='group')o.children.forEach(unpackSrc)}
+function snapshot(){const p=page();p._undo.push(packLayers(p.layers));if(p._undo.length>40)p._undo.shift();p._redo.length=0;updUndoBtns();if(window.LIB)LIB.dirty()}
+function restore(json){const p=page();p.layers=JSON.parse(json);p.layers.forEach(l=>l.objects.forEach(o=>{unpackSrc(o);hydrate(o)}));if(!p.layers.find(l=>l.id===curLayerId))curLayerId=p.layers[p.layers.length-1].id;selection=[];redraw();renderLayers();updUndoBtns()}
 function hydrate(o){if(o.type==='image'&&o.src&&!(o._img instanceof HTMLImageElement)){const im=new Image();im.onload=redraw;im.src=o.src;o._img=im}if(o.type==='group')o.children.forEach(hydrate)}
-function undo(){const p=page();if(!p._undo.length)return;p._redo.push(JSON.stringify(p.layers));restore(p._undo.pop())}
-function redo(){const p=page();if(!p._redo.length)return;p._undo.push(JSON.stringify(p.layers));restore(p._redo.pop())}
+function undo(){const p=page();if(!p._undo.length)return;p._redo.push(packLayers(p.layers));restore(p._undo.pop())}
+function redo(){const p=page();if(!p._redo.length)return;p._undo.push(packLayers(p.layers));restore(p._redo.pop())}
 function updUndoBtns(){const p=page();$('#undoBtn').disabled=!p._undo.length;$('#redoBtn').disabled=!p._redo.length}
 
 /* ============================================================
@@ -139,7 +153,21 @@ window.addEventListener('resize',resize);
 function toDoc(e){const r=stageRect||(stageRect=stage.getBoundingClientRect());return{x:(e.clientX-r.left-view.x)/view.s,y:(e.clientY-r.top-view.y)/view.s}}
 function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();const r=stage.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;s=clamp(s,.1,8);const k=s/view.s;view.x=cx-(cx-view.x)*k;view.y=cy-(cy-view.y)*k;view.s=s;$('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
 function fit(){const p=page(),r=stage.getBoundingClientRect();
-  if(boardMode()){view={x:r.width/2,y:r.height/3,s:1}}
+  if(boardMode()){
+    /* Sonsuz tahta: içerik VARSA ekrana ortalayarak sığdır — kütüphaneden açılan
+       çözümler köşeye kaçmaz, tam kaydedildiği görünümde karşına gelir.
+       Boş tahtada eski davranış (origin görünümü) aynen korunur. */
+    let bb=null;
+    for(const l of p.layers){if(!l.visible)continue;
+      for(const o of l.objects){const b=objBB(o);
+        if(!bb)bb={x0:b.x0,y0:b.y0,x1:b.x1,y1:b.y1};
+        else{bb.x0=Math.min(bb.x0,b.x0);bb.y0=Math.min(bb.y0,b.y0);bb.x1=Math.max(bb.x1,b.x1);bb.y1=Math.max(bb.y1,b.y1)}}}
+    if(bb&&bb.x1-bb.x0>1){
+      const pad=56;
+      const s=clamp(Math.min((r.width-pad*2)/(bb.x1-bb.x0),(r.height-pad*2)/Math.max(1,bb.y1-bb.y0)),.12,1.5);
+      view={s,x:(r.width-(bb.x0+bb.x1)*s)/2,y:(r.height-(bb.y0+bb.y1)*s)/2};
+    }else view={x:r.width/2,y:r.height/3,s:1};
+  }
   else if(presenting){fitPresent()}
   else{const s=clamp((r.width-64)/p.w,.1,4);const off=layout()[cur];view={x:(r.width-p.w*s)/2+2,y:-off.y*s+8,s}}
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
@@ -2858,7 +2886,13 @@ const LIB=(()=>{
       fillPane(); // depolama paneli açıksa sayıları tazele (sessiz)
     }catch(e){console.warn('kütüphane kaydı:',e)}
   }
-  function dirty(){if(!AS())return;clearTimeout(tmr);tmr=setTimeout(saveNow,1200)}
+  function dirty(){if(!AS())return;clearTimeout(tmr);
+    tmr=setTimeout(()=>{
+      /* PERFORMANS: kalem kâğıttayken / nesne sürüklenirken ağır serileştirme
+         çalışmasın — kayıt, el kalkana kadar sessizce ertelenir (takılma yok). */
+      if(live||drag||pinch||panning){dirty();return}
+      saveNow();
+    },1200)}
   function fresh(){saveNow();sessId=uid();kind='board';lastJson='';if(typeof bgqReset==='function')bgqReset()}
   function tag(k,name){kind=k;
     if(name&&(doc.title==='Adsız Tahta'||!doc.title))doc.title=name.replace(/\.(pdf|png|jpe?g|webp|gif)$/i,'');
@@ -3018,6 +3052,14 @@ function applyDPR(){
   /* OLED Ultra Görüntü: uygulama geneli 4K hissi — tuval her zaman en az 2× süper-
      örneklenir; çizim, PDF ve arayüz yakınlaştırmada dahi piksel göstermez. */
   if(S.oledUltra)d=Math.min(4,Math.max(d,base*2));
+  /* PİKSEL BÜTÇESİ: süper-örnekleme, tuval başına ~8.5MP'yi aşamaz. Aşarsa
+     canlı çizim kare hızı düşüp kalem gecikmeli hissettiriyordu; bütçe, büyük
+     ekranlarda netlikten görünür ödün vermeden akıcılığı garanti eder. */
+  try{const r=stage.getBoundingClientRect();
+    const px=Math.max(1,(r.width||1280)*(r.height||800));
+    d=Math.min(d,Math.sqrt(8.5e6/px));
+  }catch(_){}
+  d=Math.max(d,Math.min(base,1.5));   // temel netliğin altına asla inme
   DPR=d;
   resize();
 }

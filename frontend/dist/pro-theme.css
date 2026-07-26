@@ -284,3 +284,47 @@ body.pro-cine2 .rtool:active, body.pro-cine2 .tbtn:active { transform: scale(.94
 body.pro-cine1 #side, body.pro-cine2 #side { will-change: transform; }
 body.pro-cine1.side-open #side { animation: proDlgIn1 .24s var(--ease) both; }
 body.pro-cine2.side-open #side { animation: proDlgIn2 .38s cubic-bezier(.22,1,.36,1) both; }
+
+/* =============================================================================
+   🌐 WEB KATMANI — canlı sayfa üzerine çizim
+   iframe tuvallerin altında; mürekkep her zaman üstte. "Sayfayı Kullan"
+   modunda tuvaller tıklamayı sayfaya bırakır.
+   ========================================================================== */
+#proWebFrame { position: absolute; inset: 0; width: 100%; height: 100%;
+  border: 0; z-index: 0; background: #000; }
+body.pro-web #stage { background: #000; }
+body.pro-web #cv  { z-index: 2; }
+body.pro-web #ovl { z-index: 3; }
+body.pro-web-live #cv, body.pro-web-live #ovl { pointer-events: none !important; }
+
+#proWebBar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 96; display: none; gap: 5px; align-items: center;
+  background: color-mix(in srgb, var(--p1) 94%, transparent);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 7px;
+  box-shadow: var(--shadow); }
+body.pro-web #proWebBar { display: flex; }
+#proWebBar button { border: none; cursor: pointer; border-radius: 999px;
+  padding: 7px 13px; font-size: 12.5px; font-weight: 800; color: var(--tx);
+  background: var(--p3); transition: .14s var(--ease); white-space: nowrap; }
+#proWebBar button:hover { background: var(--acc); color: var(--acc-ink); }
+#proWebBar #pwMode { background: var(--acc); color: var(--acc-ink); }
+#proWebBar #pwMode:hover { filter: brightness(1.08); }
+body.pro-web-live #proWebBar #pwMode { background: var(--acc2); color: #06281F; }
+
+#proWebDlg { background: var(--p1); color: var(--tx); border: 1px solid var(--line);
+  border-radius: 18px; box-shadow: var(--shadow); padding: 0; width: min(560px, 94vw); }
+#proWebDlg::backdrop { background: rgba(5, 8, 22, .66); }
+#proWebDlg .pw-h { font-family: 'Sora'; font-size: 15px; font-weight: 800;
+  padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+#proWebDlg .pw-body { padding: 16px 18px; }
+#proWebDlg #pwUrl { width: 100%; box-sizing: border-box; background: var(--p2);
+  color: var(--tx); border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 13px; font-size: 13.5px; outline: none; }
+#proWebDlg #pwUrl:focus { border-color: var(--acc); }
+#proWebDlg .pw-hint { margin-top: 10px; font-size: 12px; line-height: 1.55; color: var(--mut); }
+#proWebDlg .pw-f { display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--line); }
+#proWebDlg .pw-f button { border: none; cursor: pointer; border-radius: 11px;
+  padding: 9px 16px; font-size: 13px; font-weight: 800; }
+#proWebDlg .pw-f .ghost { background: var(--p3); color: var(--tx); }
+#proWebDlg #pwGo { background: var(--acc); color: var(--acc-ink); }
