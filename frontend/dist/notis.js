@@ -293,9 +293,14 @@ function proInkPts(o){
   if(o.straight||!src||src.length<4) return src;
   // ayar değişince önbellek geçersiz olsun (güç + güzelleştirme sürümü)
   const v=(typeof S!=='undefined')?((S.inkK==null?50:S.inkK|0)*2+(S.beautify?1:0)):100;
+  /* Geçerlilik: nokta sayısı + ayar sürümü + UÇ NOKTA KOORDİNATLARI.
+     Taşı/ölçekle/döndür noktaları YERİNDE değiştirir, sayıyı değiştirmez —
+     uçlar da kontrol edilmezse tuval eski konumdaki gövdeyi çizmeye devam eder
+     (nesne "taşınmıyor" gibi görünür, uçlardan hayalet çizgiler sarkar). */
+  const h=src[0],t=src[src.length-1];
   let e=_inkCache.get(o);
-  if(e&&e.n===src.length&&e.v===v) return e.pts;
-  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts}); return pts;
+  if(e&&e.n===src.length&&e.v===v&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
+  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
 }
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
@@ -422,7 +427,7 @@ function selBBox(){let b={x0:1e9,y0:1e9,x1:-1e9,y1:-1e9};for(const o of selectio
    Redraw ve Akıllı Snap her karede binlerce noktayı taramak yerine bunu kullanır. */
 function objBB(o){return o._bb||(o._bb=bboxOf(o))}
 function transformObj(o,fn,sizeK=1){
-  o._bb=null;
+  o._bb=null;_inkCache.delete(o); // noktalar değişiyor → yumuşatma önbelleği MUTLAKA tazelensin
   if(o.type==='stroke'){o.points.forEach(p=>{const n=fn(p.x,p.y);p.x=n.x;p.y=n.y});o.size*=sizeK}
   else if(o.type==='text'){const n=fn(o.x,o.y);o.x=n.x;o.y=n.y;o.size*=sizeK}
   else if(o.type==='image'){const c=fn(o.x+o.w/2,o.y+o.h/2);o.w*=sizeK;o.h*=sizeK;o.x=c.x-o.w/2;o.y=c.y-o.h/2}
@@ -573,12 +578,25 @@ let strokePid=null;
 function localPt(e){const g=toDoc(e);const off=curOff();return{x:g.x-off.x,y:g.y-off.y}}
 function switchPage(i){if(i===cur)return;commitText();cur=i;selection=[];fixLayer();markPages();renderLayers();updUndoBtns();updCornerPg()}
 
+/* Yetim canlı çizgi sigortası: bitirme olayı herhangi bir sebeple kaybolmuşsa
+   (örn. işaretçi kaydı düşmüş, kalkış yutulmuş) canlı çizgiyi olduğu yerde mühürle.
+   Yoksa 'live' sonsuza dek açık kalır ve imleci takip eden hayalet çizgiye dönüşür. */
+function sealOrphanLive(force){
+  if(!live)return;
+  if(!force&&strokePid!=null&&pointers.has(strokePid))return;  // çizen işaretçi hâlâ aktif — dokunma
+  pointers.delete(strokePid);
+  if(live.erasing)commitErase();
+  else if(live.type==='stroke'&&live.points&&live.points.length>1)commitStroke();
+  else{live=null;drawOverlay()}
+  fwLeave();azOut();
+}
 stage.addEventListener('pointerdown',e=>{
   if(e.target!==cv&&e.target!==ovl&&e.target!==stage)return;
   commitText(); // açık metin kutusu varsa ÖNCE kaydet — yoksa blur'dan önce içerik sıfırlanıp yazı kayboluyordu
   hideMiniBar();
-  stage.setPointerCapture(e.pointerId);
-  if(e.button===2){rightPress(e);return}
+  try{stage.setPointerCapture(e.pointerId)}catch(_){} // bazı sentetik/iptal edilmiş işaretçilerde fırlatır — akışı asla kilitleme
+  if(e.button===2){sealOrphanLive(true);rightPress(e);return} // çizim ortasında sağ tık: çizgiyi mühürle, asla askıda bırakma
+  sealOrphanLive();
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:view.x,vy:view.y};live=null;fwLeave();azCancel();drawOverlay();return}
   if(!boardMode()&&!presenting){const g=toDoc(e);switchPage(bandAt(g.y))}
@@ -621,7 +639,7 @@ stage.addEventListener('pointermove',e=>{
   if(solveDraft){solveDraft.b=pt;drawOverlay();return}
   if(lineDraft){lineDraft.b=applyAngleSnap(lineDraft.a,pt,e.shiftKey);drawOverlay();return}
   if(compassDraft){compassDraft.r=dist(compassDraft.c,pt);drawOverlay();return}
-  if(live&&live.erasing){if(e.pointerId===strokePid)markEraseAt(pt);return}
+  if(live&&live.erasing){if(e.pointerId===strokePid){if(!e.buttons)sealOrphanLive(true);else markEraseAt(pt)}return}
   if(live&&live.points&&tool==='smart'&&!live.cp&&live.points.length>1){
     const a=live.points[live.points.length-2],b=live.points[live.points.length-1];
     const dt=Math.max(1,(b.t??1)-(a.t??0));const vv=dist(a,b)/dt;
@@ -630,6 +648,7 @@ stage.addEventListener('pointermove',e=>{
   }
   if(live&&live.type==='stroke'){
     if(e.pointerId!==strokePid)return; // yalnız çizgiyi başlatan işaretçi mürekkep besler
+    if(!e.buttons){sealOrphanLive(true);return} // kalkış olayı kaybolmuşsa: mühürle — imleci takip eden hayalet çizgi OLMAZ
     /* Yüksek kalite mürekkep: birleştirilmiş (coalesced) olaylar + hıza duyarlı sabitleyici.
        Yavaş çizerken titremeyi yutar, hızlı çizerken gecikmesiz takip eder (One-Euro yaklaşımı). */
     if(S.edgeScroll){
@@ -697,9 +716,11 @@ function finishPointer(e){
   if(solveDraft){finishSolve();return}
   if(lineDraft){commitLine();return}
   if(compassDraft){commitCompass();return}
-  if(live&&live.erasing){if(e.pointerId===strokePid)commitErase();return}
+  if(live&&live.erasing){if(e.pointerId===strokePid)commitErase();else if(strokePid==null||!pointers.has(strokePid))sealOrphanLive(true);return}
   if(live&&live.type==='stroke'){
-    if(e.pointerId!==strokePid)return; // yabancı işaretçinin kalkışı çizgiyi bitiremez
+    if(e.pointerId!==strokePid){ // yabancı işaretçinin kalkışı çizgiyi bitiremez…
+      if(strokePid==null||!pointers.has(strokePid))sealOrphanLive(true); // …ama çizen işaretçi kayıtlardan düşmüşse çizgiyi mühürler
+      return}
     // sabitleyicinin geride bıraktığı ucu tamamla: çizgi tam kalemin kalktığı noktada bitsin
     const pt=localPt(e),p=S.pressure?(e.pressure||0.5):0.5;
     const lp=live.points.at(-1);

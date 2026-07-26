@@ -166,7 +166,7 @@ func (a *App) ToggleFullscreen() {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.1.0",
+		"version": "2.1.2",
 		"channel": "pro",
 	}
 }
