@@ -128,7 +128,10 @@ const stage=$('#stage'), cv=$('#cv'), ovl=$('#ovl');
    Bağlam bir kez kurulduğundan tercih açılışta okunur; opsiyon değişince tam etki
    uygulama yeniden başlatıldığında gelir (süper-örnekleme kısmı anında etkindir). */
 const LOWLAT=(()=>{try{return JSON.parse(localStorage.getItem('notis_pro_opts')||'{}').hz144===true}catch(_){return false}})();
-const ctx=cv.getContext('2d',LOWLAT?{desynchronized:true}:undefined), octx=ovl.getContext('2d',LOWLAT?{desynchronized:true}:undefined);ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
+/* Düşük gecikme ipucu YALNIZ canlı önizleme tuvaline (ovl) verilir: gecikme kazancının
+   tamamı orada hissedilir; kalıcı çizim tuvali (cv) ise her sürücüde garantili
+   artefaktsız kalsın diye standart senkron sunumda tutulur. */
+const ctx=cv.getContext('2d'), octx=ovl.getContext('2d',LOWLAT?{desynchronized:true}:undefined);ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
 let DPR=Math.min(2,window.devicePixelRatio||1);
 let stageRect=null;
 function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
@@ -561,6 +564,11 @@ function updCornerPg(){$('#cornerPg').textContent=(cur+1)+'/'+doc.pages.length;
 let pointers=new Map(), pinch=null, panning=false, spaceHeld=false, hoverPt=null;
 let live=null, drag=null, lineDraft=null, compassDraft=null;
 let laserTrail=[], stabPt=null;
+/* Aktif çizgiyi BAŞLATAN işaretçinin kimliği — mürekkep hattına yalnız bu işaretçi
+   girebilir. Yoksa ikinci bir işaretçi (ör. pen çizerken yerinde duran fare imlecinin
+   mikro titremesi, avuç dokunuşu, hover) çizgiye yabancı noktalar enjekte eder ve
+   çizgide hayalet düz çizgiler + kaymış seçim kutusu oluşurdu. */
+let strokePid=null;
 
 function localPt(e){const g=toDoc(e);const off=curOff();return{x:g.x-off.x,y:g.y-off.y}}
 function switchPage(i){if(i===cur)return;commitText();cur=i;selection=[];fixLayer();markPages();renderLayers();updUndoBtns();updCornerPg()}
@@ -581,7 +589,7 @@ stage.addEventListener('pointerdown',e=>{
   if(tool==='select'){startSelect(e,pt);return}
   if(tool==='text'){openTextEditor(pt);return}
   if(tool==='sticker'){stampSticker(pt);return}
-  if(tool==='eraser'){live={erasing:true,marks:new Set()};markEraseAt(pt);return}
+  if(tool==='eraser'){live={erasing:true,marks:new Set()};strokePid=e.pointerId;markEraseAt(pt);return}
   if(tool==='solve'){solveDraft={a:pt,b:pt};return}
   if(tool==='line'){lineDraft={a:pt,b:pt};return}
   if(tool==='compass'){compassDraft={c:pt,r:0};return}
@@ -592,6 +600,7 @@ stage.addEventListener('pointerdown',e=>{
     opacity:(tool==='hl'?Math.min(penOp,.6):penOp)*(typeof pkFlowK==='function'?pkFlowK():1)*(curCP&&curCP.flow!=null?curCP.flow:1),
     pk:(typeof pkPressK==='function'?pkPressK():.8),nib:(typeof pkNibK==='function'?pkNibK():1),
     cp:curCP?{...curCP}:undefined,points:[{x:pt.x,y:pt.y,p:p0}]};
+  strokePid=e.pointerId;
   fwEnter();azIn(e); // opsiyonlar: Odaklı Yazım Modu + Otomatik Odak Zoom
 });
 stage.addEventListener('pointermove',e=>{
@@ -612,7 +621,7 @@ stage.addEventListener('pointermove',e=>{
   if(solveDraft){solveDraft.b=pt;drawOverlay();return}
   if(lineDraft){lineDraft.b=applyAngleSnap(lineDraft.a,pt,e.shiftKey);drawOverlay();return}
   if(compassDraft){compassDraft.r=dist(compassDraft.c,pt);drawOverlay();return}
-  if(live&&live.erasing){markEraseAt(pt);return}
+  if(live&&live.erasing){if(e.pointerId===strokePid)markEraseAt(pt);return}
   if(live&&live.points&&tool==='smart'&&!live.cp&&live.points.length>1){
     const a=live.points[live.points.length-2],b=live.points[live.points.length-1];
     const dt=Math.max(1,(b.t??1)-(a.t??0));const vv=dist(a,b)/dt;
@@ -620,6 +629,7 @@ stage.addEventListener('pointermove',e=>{
     b.p=(a.p??0.7)*0.6+raw*0.4;
   }
   if(live&&live.type==='stroke'){
+    if(e.pointerId!==strokePid)return; // yalnız çizgiyi başlatan işaretçi mürekkep besler
     /* Yüksek kalite mürekkep: birleştirilmiş (coalesced) olaylar + hıza duyarlı sabitleyici.
        Yavaş çizerken titremeyi yutar, hızlı çizerken gecikmesiz takip eder (One-Euro yaklaşımı). */
     if(S.edgeScroll){
@@ -667,6 +677,7 @@ function inkFeed(evs){
 if('onpointerrawupdate' in window){
   stage.addEventListener('pointerrawupdate',e=>{
     if(!S.hz144||!live||live.type!=='stroke'||live.erasing||rightState||pinch||panning||drag)return;
+    if(e.pointerId!==strokePid||!e.buttons)return; // yabancı işaretçi / hover asla mürekkep beslemez
     inkFeed((e.getCoalescedEvents&&e.getCoalescedEvents().length)?e.getCoalescedEvents():[e]);
     requestLiveDraw(e);
   });
@@ -686,8 +697,9 @@ function finishPointer(e){
   if(solveDraft){finishSolve();return}
   if(lineDraft){commitLine();return}
   if(compassDraft){commitCompass();return}
-  if(live&&live.erasing){commitErase();return}
+  if(live&&live.erasing){if(e.pointerId===strokePid)commitErase();return}
   if(live&&live.type==='stroke'){
+    if(e.pointerId!==strokePid)return; // yabancı işaretçinin kalkışı çizgiyi bitiremez
     // sabitleyicinin geride bıraktığı ucu tamamla: çizgi tam kalemin kalktığı noktada bitsin
     const pt=localPt(e),p=S.pressure?(e.pressure||0.5):0.5;
     const lp=live.points.at(-1);
