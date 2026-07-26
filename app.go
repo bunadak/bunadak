@@ -162,11 +162,19 @@ func (a *App) ToggleFullscreen() {
 	}
 }
 
+// CaptureRegion grabs a physical-pixel region of the screen and returns it as
+// a PNG data URL. The web layer's solve-mode uses this to carry the framed
+// portion of an embedded page/video onto the board (cross-origin iframes are
+// unreadable from JS, so the capture happens natively).
+func (a *App) CaptureRegion(x, y, w, h int) (string, error) {
+	return captureScreenRegion(x, y, w, h)
+}
+
 // AppInfo exposes version metadata to the About screen.
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.2.0",
+		"version": "2.3.0",
 		"channel": "pro",
 	}
 }

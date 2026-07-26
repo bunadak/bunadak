@@ -341,6 +341,16 @@ function drawStroke(c,o){
      0 sivri (uçlarda incelir) · 1 ince · 2 dolgun (%18 geniş) · 3 keski (düz kesim) */
   const NIB=o.nib??1, NW=NIB===2?1.18:1, PKK=o.pk==null?1:clamp(o.pk/.8,0,1.75);
   if(NIB===3&&o.tool!=='hl')c.lineCap='butt';
+  /* GEOMETRİK NESNELER (şekil düzelt, şekiller paneli, cetvel, pergel):
+     hangi kalemle çizilirse çizilsin DAİMA temiz, sabit kalınlıkta çizgi.
+     Aşağıdaki kalem-özel dallar (değişken kalınlık, uç inceltme, nefes)
+     bunlara uygulanırsa kare gözyaşı damlasına döner. */
+  if(o.straight){
+    c.lineWidth=o.size*NW;
+    c.beginPath();c.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y);
+    c.stroke();c.restore();return;
+  }
   const nibEnd=(i,L)=>NIB===0?(.3+.7*Math.min(1,i/6,(L-i)/6)):1;
   if(o.tool==='smart'){const L=pts.length,EG=ENGINE_DEFAULTS,FX=o.fx;
     const PRO=S.proPens?1.12:1;               // Pro: kalınlık tepkisi zenginleşir
@@ -811,7 +821,11 @@ function commitStroke(){
     if(cp.spray)fx.s={r:cp.sprayR||18,d:clamp(cp.sprayD||.7,.05,1),sp:Math.max(.005,cp.sp||.01)};
     if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
-  else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
+  else if(o.tool==='smart'){
+    /* Şekil düzelt AÇIKSA akıllı kalemde de çalışır — önceden matisInk zinciri
+       şekil tanımayı yutuyordu, akıllı kalemle çizilen kare/daire hiç düzelmiyordu. */
+    const f=S.shapeFix?recognizeShape(o):null;
+    o=f||matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
@@ -897,10 +911,16 @@ function recognizeShape(o){
   if(closed){
     const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;let mr=0;for(const p of pts)mr+=Math.hypot(p.x-cx,p.y-cy);mr/=pts.length;
     let varr=0;for(const p of pts)varr+=Math.abs(Math.hypot(p.x-cx,p.y-cy)-mr);varr/=pts.length;
-    if(varr/mr<.16){const np=[];for(let a2=0;a2<=64;a2++){const t=a2/64*Math.PI*2;np.push({x:cx+Math.cos(t)*W/2,y:cy+Math.sin(t)*H/2,p:.5})}return{...o,straight:true,points:np}}
+    /* DİKDÖRTGEN ↔ ELİPS AYRIMI: yarıçap sapması dikdörtgende de düşük çıkar,
+       bu yüzden tek başına güvenilmez (elle çizilen kareler elipse dönüşüyordu).
+       Ayırt edici ölçü, kapalı alanın bbox alanına oranıdır (shoelace):
+       dörtgen ~0.95 · elips ~0.785 · üçgen ~0.5. Önce köşe sayısı + doluluk. */
+    let area=0;for(let i2=0;i2<pts.length-1;i2++)area+=pts[i2].x*pts[i2+1].y-pts[i2+1].x*pts[i2].y;
+    const fill=Math.abs(area/2)/Math.max(1,W*H);
     const corners=simp.length-1;
-    if(corners===3)return{...o,straight:true,points:[...simp.slice(0,3).map(mk),mk(simp[0])]};
-    if(corners===4||corners===5)return{...o,straight:true,points:[{x:b.x0,y:b.y0,p:.5},{x:b.x1,y:b.y0,p:.5},{x:b.x1,y:b.y1,p:.5},{x:b.x0,y:b.y1,p:.5},{x:b.x0,y:b.y0,p:.5}]};
+    if(corners===3&&fill<.72)return{...o,straight:true,points:[...simp.slice(0,3).map(mk),mk(simp[0])]};
+    if(corners===4||corners===5||fill>.86)return{...o,straight:true,points:[{x:b.x0,y:b.y0,p:.5},{x:b.x1,y:b.y0,p:.5},{x:b.x1,y:b.y1,p:.5},{x:b.x0,y:b.y1,p:.5},{x:b.x0,y:b.y0,p:.5}]};
+    if(varr/mr<.16&&fill<.86){const np=[];for(let a2=0;a2<=64;a2++){const t=a2/64*Math.PI*2;np.push({x:cx+Math.cos(t)*W/2,y:cy+Math.sin(t)*H/2,p:.5})}return{...o,straight:true,points:np}}
   }
   return null;
 }

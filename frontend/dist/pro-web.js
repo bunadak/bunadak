@@ -94,18 +94,73 @@
     bar();
     WEB.on = true;
     document.body.classList.add("pro-web");
+    /* YouTube: video tam ekrana yayılmaz — tahtanın sol üstünde gerçek bir
+       oynatıcı kutusuna (16:9) oturur; sağı ve altı not alanı olarak kalır. */
+    WEB.yt = /youtube-nocookie\.com\/embed/.test(url);
+    document.body.classList.toggle("pro-web-yt", WEB.yt);
+    /* Sahne zemini tahtanın kendi renginde kalsın (siyah boşluk hissi olmasın) */
+    try { stage.style.background = (typeof _bg === "function") ? _bg() : ""; } catch (_) {}
     try { localStorage.setItem("notis_web_url", raw); } catch (_) {}
     setLive(false);
     try { redraw(); } catch (_) {}
   }
   function closeWeb() {
-    WEB.on = false; WEB.live = false;
-    document.body.classList.remove("pro-web", "pro-web-live");
+    WEB.on = false; WEB.live = false; WEB.yt = false;
+    document.body.classList.remove("pro-web", "pro-web-live", "pro-web-yt");
     var f = $id("proWebFrame"); if (f) { f.src = "about:blank"; f.remove(); }
     var b = $id("proWebBar"); if (b) b.remove();
+    try { stage.style.background = ""; } catch (_) {}
     syncUI();
     try { redraw(); } catch (_) {}
   }
+
+  /* ------------------------------------------- ÇÖZÜM MODU × WEB KATMANI ----
+     Çözüm çerçevesine alınan bölgenin GÖRÜNTÜSÜ (video karesi dahil) Go
+     tarafındaki ekran yakalamayla alınır ve çerçeve içine görüntü nesnesi
+     olarak eklenir — sonra normal çözüm akışı onu da tahtaya taşır.
+     Yakalama yoksa (tarayıcı/dev) akış birebir eskisi gibi devam eder. */
+  window.addEventListener("pointerdown", function (e) {
+    WEB.offX = e.screenX - e.clientX; WEB.offY = e.screenY - e.clientY;
+  }, true);
+  var _fs = window.finishSolve;
+  if (typeof _fs === "function") window.finishSolve = function () {
+    try {
+      var cap = window.go && window.go.main && window.go.main.App && window.go.main.App.CaptureRegion;
+      var d = solveDraft;
+      if (!WEB.on || !cap || !d) return _fs();
+      var x0 = Math.min(d.a.x, d.b.x), y0 = Math.min(d.a.y, d.b.y),
+          x1 = Math.max(d.a.x, d.b.x), y1 = Math.max(d.a.y, d.b.y);
+      if (x1 - x0 < 24 || y1 - y0 < 24) return _fs();
+      var off = curOff(), r = stage.getBoundingClientRect();
+      var cx0 = r.left + (x0 + off.x) * view.s + view.x;
+      var cy0 = r.top + (y0 + off.y) * view.s + view.y;
+      var dpr = window.devicePixelRatio || 1;
+      var sx = Math.round((cx0 + (WEB.offX || 0)) * dpr);
+      var sy = Math.round((cy0 + (WEB.offY || 0)) * dpr);
+      var sw = Math.round((x1 - x0) * view.s * dpr);
+      var sh = Math.round((y1 - y0) * view.s * dpr);
+      /* Mürekkep tuvallerini bir karelik gizle — yakalanan görüntü yalnız
+         sayfayı/videoyu içersin; çizimler zaten nesne olarak taşınıyor. */
+      cv.style.visibility = "hidden"; ovl.style.visibility = "hidden";
+      var restore = function () { cv.style.visibility = ""; ovl.style.visibility = ""; };
+      setTimeout(function () {
+        cap(sx, sy, sw, sh).then(function (url) {
+          restore();
+          if (!url) return _fs();
+          var im = new Image();
+          im.onload = function () {
+            try {
+              layer().objects.push({ type: "image", x: x0, y: y0, w: x1 - x0, h: y1 - y0,
+                rot: 0, src: url, _img: im, opacity: 1 });
+            } catch (_) {}
+            _fs();
+          };
+          im.onerror = function () { _fs(); };
+          im.src = url;
+        }).catch(function () { restore(); _fs(); });
+      }, 60);
+    } catch (_) { try { cv.style.visibility = ""; ovl.style.visibility = ""; } catch (__) {} _fs(); }
+  };
 
   /* Zemin şeffaflığı: web katmanı açıkken tahta zemini ve kâğıt deseni çizilmez —
      sayfa, mürekkebin altından aynen görünür. Katman kapanınca birebir eski hâl. */
