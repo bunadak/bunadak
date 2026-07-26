@@ -205,3 +205,82 @@ body.pro-stream #presentBar { background: var(--p1) !important;
 ::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--mut); background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* =============================================================================
+   🖥️ OLED ULTRA GÖRÜNTÜ — uygulama geneli premium ekran hissi
+   Motor tarafı (kalıcı süper-örnekleme + 4K PDF) notis.js'te; burada görsel katman:
+   gerçek siyah zemin, keskin metin, derin kontrast, zengin gölgeler.
+   ========================================================================== */
+body.pro-oled {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body.pro-oled #cv, body.pro-oled #ovl { image-rendering: high-quality; }
+/* koyu temalarda zemin gerçek OLED siyahına iner, paneller zeminden kopar */
+:root:not([data-theme="light"]):not([data-theme="youtube"]) body.pro-oled {
+  --bg: #000000;
+  --shadow: 0 14px 44px rgba(0,0,0,.72);
+}
+:root:not([data-theme="light"]):not([data-theme="youtube"]) body.pro-oled #stage {
+  background: #000000;
+}
+/* aydınlık temalarda: daha berrak beyaz + belirgin derinlik */
+:root[data-theme="light"] body.pro-oled,
+:root[data-theme="youtube"] body.pro-oled {
+  --shadow: 0 12px 36px rgba(20,28,60,.20);
+}
+/* metin ve göstergeler bir tık daha keskin */
+body.pro-oled #toolName,
+body.pro-oled .set-row .t,
+body.pro-oled .tip,
+body.pro-oled .toast { letter-spacing: .1px; }
+/* aktif araç ve vurgular OLED parlaklığı hissi verir (çok hafif ışıma) */
+body.pro-oled .rtool.on,
+body.pro-oled .rtool.on2 { box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 55%, transparent),
+  0 0 14px color-mix(in srgb, var(--acc) 28%, transparent); }
+body.pro-oled .sw-toggle input:checked + i { box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 45%, transparent); }
+
+/* =============================================================================
+   🎬 SİNEMA VİNYETİ — yalnız görüntüleme katmanı; tuvale/kayda çizilmez
+   ========================================================================== */
+body.pro-vignette #stage::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 6;
+  background: radial-gradient(120% 90% at 50% 46%, transparent 58%, rgba(0,0,0,.05) 76%, rgba(0,0,0,.17) 100%);
+}
+:root[data-theme="light"] body.pro-vignette #stage::before,
+:root[data-theme="youtube"] body.pro-vignette #stage::before {
+  background: radial-gradient(120% 90% at 50% 46%, transparent 60%, rgba(25,32,60,.04) 78%, rgba(25,32,60,.12) 100%);
+}
+
+/* =============================================================================
+   ✨ SİNEMATİK GEÇİŞLER — yalnız arayüz kabuğu; çizim hattına dokunmaz
+   pro-cine1 = Zarif (ince, hızlı) · pro-cine2 = Belirgin (yaylı, gösterişli)
+   ========================================================================== */
+@keyframes proDlgIn1 { from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: none; } }
+@keyframes proDlgIn2 { 0% { opacity: 0; transform: translateY(22px) scale(.94); }
+  60% { opacity: 1; transform: translateY(-3px) scale(1.006); }
+  100% { opacity: 1; transform: none; } }
+@keyframes proToastIn { from { opacity: 0; transform: translate(-50%,-12px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+
+body.pro-cine1 dialog[open] { animation: proDlgIn1 .26s var(--ease) both; }
+body.pro-cine2 dialog[open] { animation: proDlgIn2 .42s cubic-bezier(.22,1,.36,1) both; }
+body.pro-cine1 .pop { animation: proDlgIn1 .2s var(--ease) both; }
+body.pro-cine2 .pop { animation: proDlgIn2 .34s cubic-bezier(.22,1,.36,1) both; }
+body.pro-cine1 .toast { animation: proToastIn .24s var(--ease) both; }
+body.pro-cine2 .toast { animation: proToastIn .34s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* araç rayı ve üst çubuk düğmeleri: yumuşak kalkış hissi */
+body.pro-cine1 .rtool, body.pro-cine1 .tbtn, body.pro-cine1 .chip, body.pro-cine1 .cbtn,
+body.pro-cine2 .rtool, body.pro-cine2 .tbtn, body.pro-cine2 .chip, body.pro-cine2 .cbtn {
+  transition: transform .16s var(--ease), box-shadow .16s var(--ease),
+    background .16s var(--ease), color .16s var(--ease);
+}
+body.pro-cine1 .rtool:hover, body.pro-cine1 .tbtn:hover { transform: translateY(-1px); }
+body.pro-cine2 .rtool:hover, body.pro-cine2 .tbtn:hover { transform: translateY(-2px) scale(1.05); }
+body.pro-cine2 .rtool:active, body.pro-cine2 .tbtn:active { transform: scale(.94); transition-duration: .07s; }
+/* yan panel yumuşak süzülür */
+body.pro-cine1 #side, body.pro-cine2 #side { will-change: transform; }
+body.pro-cine1.side-open #side { animation: proDlgIn1 .24s var(--ease) both; }
+body.pro-cine2.side-open #side { animation: proDlgIn2 .38s cubic-bezier(.22,1,.36,1) both; }

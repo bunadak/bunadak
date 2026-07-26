@@ -68,9 +68,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',present:'F5',focus:'z',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',present:'F5',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır',present:'Sunum modu',focus:'Odak modu',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır',present:'Sunum modu',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -122,7 +122,13 @@ function updUndoBtns(){const p=page();$('#undoBtn').disabled=!p._undo.length;$('
    GÖRÜNÜM
 ============================================================ */
 const stage=$('#stage'), cv=$('#cv'), ovl=$('#ovl');
-const ctx=cv.getContext('2d'), octx=ovl.getContext('2d');ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
+/* 144Hz GPU Mürekkep Motoru açıkken tuval GPU'ya düşük gecikme (desynchronized)
+   ipucuyla bağlanır: kare, birleştiriciyi (compositor) beklemeden ekrana sürülür —
+   donanım ivmeli sistemlerde (ör. NVIDIA) kalem gecikmesi gözle görülür düşer.
+   Bağlam bir kez kurulduğundan tercih açılışta okunur; opsiyon değişince tam etki
+   uygulama yeniden başlatıldığında gelir (süper-örnekleme kısmı anında etkindir). */
+const LOWLAT=(()=>{try{return JSON.parse(localStorage.getItem('notis_pro_opts')||'{}').hz144===true}catch(_){return false}})();
+const ctx=cv.getContext('2d',LOWLAT?{desynchronized:true}:undefined), octx=ovl.getContext('2d',LOWLAT?{desynchronized:true}:undefined);ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
 let DPR=Math.min(2,window.devicePixelRatio||1);
 let stageRect=null;
 function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
@@ -627,7 +633,13 @@ stage.addEventListener('pointermove',e=>{
           view.x+=ES.dx;view.y+=ES.dy;ES.dx=ES.dy=0;
           if(azBase)azCancel();redraw()})}
     }
-    const evs=(e.getCoalescedEvents&&e.getCoalescedEvents().length)?e.getCoalescedEvents():[e];
+    inkFeed((e.getCoalescedEvents&&e.getCoalescedEvents().length)?e.getCoalescedEvents():[e]);
+    requestLiveDraw(e);
+  }
+});
+/* Canlı çizgi örnekleyici — pointermove ve (144Hz modunda) pointerrawupdate
+   aynı hattı besler; nokta-aralığı eşiği yinelenen olayları kendiliğinden eler. */
+function inkFeed(evs){
     for(const ce of evs){
       const cp=localPt(ce);
       if(live.cp){
@@ -647,9 +659,18 @@ stage.addEventListener('pointermove',e=>{
       const lp=live.points.at(-1);
       if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
     }
+}
+/* ⚡ 144Hz GPU Mürekkep: pointerrawupdate — girişler ekran karesini BEKLEMEDEN,
+   kalem/fare donanımının kendi hızında (120–1000Hz) akar. 144Hz+ panellerde çizgi
+   imlecin dibinden ayrılmaz. Yalnız canlı çizgi beslenir; pan/pinch/hover ve tüm
+   diğer durumlar normal pointermove hattında kalır. */
+if('onpointerrawupdate' in window){
+  stage.addEventListener('pointerrawupdate',e=>{
+    if(!S.hz144||!live||live.type!=='stroke'||live.erasing||rightState||pinch||panning||drag)return;
+    inkFeed((e.getCoalescedEvents&&e.getCoalescedEvents().length)?e.getCoalescedEvents():[e]);
     requestLiveDraw(e);
-  }
-});
+  });
+}
 /* canlı çizimi kare hızına (rAF) kilitle — pointermove seli overlay'i boğmasın */
 let liveRaf=false,liveEv=null;
 function requestLiveDraw(e){liveEv=e;if(liveRaf)return;liveRaf=true;
@@ -1341,7 +1362,6 @@ function buildRail(){const el=$('#rail');el.innerHTML='';
       if(t.id==='shapes'){toggleShapePop(b);return}
       if(t.id==='wipe'){wipeBoard();return}
       if(t.id==='spot'){toggleSpot();return}
-      if(t.id==='focus'){toggleFocus();return}
       if(t.id==='solve'){solveClick();return}
       setTool(t.id);
     });
@@ -1353,7 +1373,6 @@ function toDocCenterLocal(){const r=stage.getBoundingClientRect();const off=curO
   return{x:(r.width/2-view.x)/view.s-off.x,y:(r.height/2-view.y)/view.s-off.y}}
 function markRail(){$$('.rtool').forEach(b=>{b.classList.toggle('on',b.dataset.t===tool);
   if(b.dataset.t==='spot')b.classList.toggle('on2',spotOn);
-  if(b.dataset.t==='focus')b.classList.toggle('on2',focusMode);
   if(b.dataset.t==='solve')b.classList.toggle('on2',!!scratch||tool==='solve')})}
 const TOOLNAMES={select:'Seçim',smart:'Akıllı Kalem',ball:'Tükenmez',fountain:'Dolma Kalem',pencil:'Kurşun Kalem',hl:'Fosforlu',eraser:'Akıllı Silgi',text:'Metin',line:'Akıllı Cetvel',compass:'Pergel',laser:'Lazer',spot:'Spot',pan:'Kaydır',sticker:'Çıkartma',solve:'Soru Taşı'};
 function setTool(t){const _PENS=['smart','ball','fountain','pencil','hl'];if(_PENS.includes(tool)&&tool!==t)prevPen=tool;curCP=null;tool=t;if(t!=='select'){selection=[];renderSelInfo();redraw()}
@@ -1628,6 +1647,9 @@ async function importPDF(f){
     const LB=window.__NOTIS_SRV?(location.origin+'/libs'):'https://cdnjs.cloudflare.com/ajax/libs';
     const N0=2000;
     let targetW=Math.min(2400,Math.max(1600,(screen.width||1920)*(window.devicePixelRatio||1)));
+    /* OLED Ultra Görüntü: PDF sayfaları 4K dokuya kadar yüksek çözünürlükte
+       örneklenir — yakınlaştırmada metinler jilet gibi kalır (video kaydı kalitesi). */
+    if(S.oledUltra)targetW=Math.min(3840,Math.round(targetW*1.6));
     const buf=await f.arrayBuffer();
     const title=f.name.replace(/\.pdf$/i,'');
     const workId=uid();let chunk=[],total=0,atlanan=0,N=0;
@@ -1960,7 +1982,6 @@ window.addEventListener('keydown',e=>{
     if(act==='shapes'){toggleShapePop();return}
     if(act==='fit'){fit();return}
     if(act==='present'){presenting?exitPresent():enterPresent();return}
-    if(act==='focus'){toggleFocus();return}
     if(act==='solve'){solveClick();return}
   }
   if(k==='x'&&!Object.values(KEYMAP).includes('x')){swapPen();return}
@@ -2182,7 +2203,6 @@ function PAL_CMDS(){return[
  {t:'PDF / Görsel içe aktar',sec:'Eylem',fn:()=>$('#importBtn').click()},
  {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>expDlg.showModal()},
  {t:'Sunum modu',k:'F5',sec:'Eylem',fn:enterPresent},
- {t:'Odak modu',k:(KEYMAP.focus||'').toUpperCase(),sec:'Eylem',fn:()=>toggleFocus()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
  {t:'Sığdır',k:'0',sec:'Eylem',fn:fit},
@@ -2962,6 +2982,9 @@ function applyDPR(){
   /* 144Hz Ultra HD: tuval ekran çözünürlüğünün çok üzerinde örneklenir —
      yüksek tazeleme hızlı ekranlarda kenarlar jilet gibi, piksel kırılması yok. */
   if(S.hz144)d=Math.min(4,Math.max(d,base*2.2));
+  /* OLED Ultra Görüntü: uygulama geneli 4K hissi — tuval her zaman en az 2× süper-
+     örneklenir; çizim, PDF ve arayüz yakınlaştırmada dahi piksel göstermez. */
+  if(S.oledUltra)d=Math.min(4,Math.max(d,base*2));
   DPR=d;
   resize();
 }

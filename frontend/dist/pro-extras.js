@@ -17,10 +17,13 @@
     accent: "",            // 🎨 vurgu rengi (boş = temanın kendi rengi)
     palette: "klasik",     // 🌈 kalem paleti şeması
     warm: 0,               // 🌡️ gece ışığı (0–100)
-    hz144: false,          // ⚡ 144Hz Ultra HD mürekkep
+    hz144: false,          // ⚡ 144Hz GPU mürekkep motoru
     inkK: 50,              // 🎚️ mürekkep dengeleyici gücü (0–100)
     beautify: false,       // ✍️ el yazısı güzelleştirme
-    handFont: false        // ✒️ güzel el yazısı fontu (Excalifont)
+    handFont: false,       // ✒️ güzel el yazısı fontu (Excalifont)
+    oled: false,           // 🖥️ OLED Ultra Görüntü (uygulama geneli 4K his)
+    cine: "0",             // ✨ sinematik geçişler: 0=kapalı, 1=zarif, 2=belirgin
+    vignette: false        // 🎬 sinema vinyeti (kayıt görünümü)
   };
   var PS = load();
 
@@ -48,7 +51,24 @@
   /* ------------------------------------------------------------- UYGULAYICI */
   function applyAll() {
     applyGlass(); applyStream(); applyAccent(); applyWarm(); applyPalette();
+    applyOled(); applyCine(); applyVignette();
     applyEngine(); applyAutoNight();
+  }
+  /* 🖥️ OLED Ultra Görüntü — uygulama geneli premium netlik:
+     motor tarafında S.oledUltra tuvali kalıcı süper-örneklemeye alır (applyDPR)
+     ve PDF içe aktarımını 4K dokuya yükseltir; CSS tarafında pro-theme.css'teki
+     .pro-oled sınıfı gerçek siyah zemin, keskin metin ve zengin kontrast verir. */
+  function applyOled() {
+    document.body.classList.toggle("pro-oled", !!PS.oled);
+  }
+  /* ✨ Sinematik Geçişler — panel/diyalog/araç animasyonlarının karakteri */
+  function applyCine() {
+    document.body.classList.toggle("pro-cine1", PS.cine === "1");
+    document.body.classList.toggle("pro-cine2", PS.cine === "2");
+  }
+  /* 🎬 Sinema Vinyeti — kayıtlara derinlik katan kenar karartması (tuvale çizilmez) */
+  function applyVignette() {
+    document.body.classList.toggle("pro-vignette", !!PS.vignette);
   }
   function applyGlass() { root().style.setProperty("--glass", (PS.glass | 0) + "px"); }
   function applyStream() { document.body.classList.toggle("pro-stream", !!PS.stream); }
@@ -81,6 +101,7 @@
     try {
       if (typeof S === "undefined") return;
       S.hz144 = !!PS.hz144;
+      S.oledUltra = !!PS.oled;
       S.inkK = PS.inkK | 0;
       S.beautify = !!PS.beautify;
       S.handFont = !!PS.handFont;
@@ -165,6 +186,19 @@
     ui.appendChild(rowToggle("oStream", "📺 Yayın Modu",
       "Video kaydı için: kenarlar belirginleşir, yazılar netleşir, arayüz ekranda daha okunur olur.",
       PS.stream, function (v) { PS.stream = v; applyStream(); note(v ? "Yayın modu açık 📺" : "Yayın modu kapalı"); }));
+    ui.appendChild(rowToggle("oOled", "🖥️ OLED Ultra Görüntü",
+      "Uygulamanın TAMAMI premium ekran hissine geçer: tuval kalıcı olarak en az 2× süper-örneklenir (4K his — çizimler, tahta ve arayüz yakınlaştırmada asla piksellenmez), koyu temalarda zemin gerçek OLED siyahına iner, metinler keskinleşir, renkler derinleşir. Bu opsiyon AÇIKKEN içe aktarılan PDF'ler 4K dokuya kadar yüksek çözünürlükte işlenir. YouTube kayıtları için birebir.",
+      PS.oled, function (v) {
+        PS.oled = v; applyOled(); applyEngine();
+        note(v ? "OLED Ultra Görüntü açık 🖥️ — 4K his aktif" : "OLED Ultra Görüntü kapalı");
+      }));
+    ui.appendChild(rowSeg("oCine", "✨ Sinematik Geçişler",
+      "Panel, diyalog ve araçların açılış-kapanışına yumuşak, yaylı premium animasyonlar katar. 'Zarif' incecik hissettirir; 'Belirgin' video anlatımlarında göze görünür şıklık verir.",
+      [["0", "Kapalı"], ["1", "Zarif"], ["2", "Belirgin"]], PS.cine,
+      function (v) { PS.cine = v; applyCine(); }));
+    ui.appendChild(rowToggle("oVignette", "🎬 Sinema Vinyeti",
+      "Ekranın kenarlarına çok hafif bir karartma ekler — göz merkeze odaklanır, kayıtlar sinema karesi gibi derinlik kazanır. Tuvale çizilmez, dışa aktarımları etkilemez.",
+      PS.vignette, function (v) { PS.vignette = v; applyVignette(); note(v ? "Sinema vinyeti açık 🎬" : "Sinema vinyeti kapalı"); }));
 
     /* ---------------- RENK & ŞEMA ---------------- */
     ui.appendChild(sec("Pro Renk & Şema"));
@@ -182,9 +216,12 @@
 
     /* ---------------- KALEM ---------------- */
     draw.appendChild(sec("Pro Kalem"));
-    draw.appendChild(rowToggle("oHz144", "⚡ 144Hz Ultra HD Mürekkep",
-      "Tuval, ekranın çözünürlüğünün çok üzerinde örneklenir. Yüksek tazeleme hızlı (120–144Hz) ekranlarda kalem kenarları jilet gibi kalır, yakınlaştırmada piksel kırılmaz. Tüm kalemlerde geçerlidir.",
-      PS.hz144, function (v) { PS.hz144 = v; applyEngine(); note(v ? "144Hz Ultra HD açık ⚡" : "144Hz Ultra HD kapalı"); }));
+    draw.appendChild(rowToggle("oHz144", "⚡ 144Hz GPU Mürekkep Motoru",
+      "Efsanevi dokunuş hissi — üç teknoloji birden: <b>1)</b> Tuval ekran çözünürlüğünün çok üzerinde süper-örneklenir; kalem kenarları jilet gibi, yakınlaştırmada sıfır piksel. <b>2)</b> Ham giriş örneklemesi (pointerrawupdate): kalem/fare, ekran karesini beklemeden donanım hızında (120–1000Hz) okunur — 144Hz panellerde çizgi imlecin dibinden ayrılmaz. <b>3)</b> Düşük gecikmeli GPU tuvali: ekran kartından (ör. NVIDIA) doğrudan sunum istenir; bu son parça uygulama yeniden başlatılınca tam etkin olur. Tüm kalemlerde geçerlidir.",
+      PS.hz144, function (v) {
+        PS.hz144 = v; applyEngine();
+        note(v ? "144Hz GPU Mürekkep Motoru açık ⚡ (GPU tuvali için yeniden başlatma önerilir)" : "144Hz GPU Mürekkep Motoru kapalı");
+      }));
     draw.appendChild(rowRange("oInkK", "🎚️ Mürekkep Dengeleyici Gücü",
       inkLabel(PS.inkK), PS.inkK, 0, 100, function (v, out) {
         PS.inkK = v; applyEngine(); if (out) out.textContent = inkLabel(v); save();
