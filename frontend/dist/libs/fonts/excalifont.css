@@ -1,0 +1,17 @@
+/* Excalifont — Excalidraw el yazısı fontu (MIT lisanslı, açık kaynak) */
+@font-face {
+  font-family: 'Excalifont';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/libs/fonts/files/excalifont-latin.woff2) format('woff2');
+  unicode-range: U+0020-007E, U+00A0-00A3, U+00A5-00A6, U+00A8-00AB, U+00AD-00B1, U+00B4, U+00B6-00B8, U+00BA-00FF, U+0131, U+0152-0153, U+02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+2013-2014, U+2018-201A, U+201C-201E, U+2020, U+2022, U+2024-2026, U+2030, U+2039-203A, U+20AC, U+2122, U+2212;
+}
+@font-face {
+  font-family: 'Excalifont';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/libs/fonts/files/excalifont-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-0130, U+0132-0137, U+0139-0149, U+014C-0151, U+0154-017E, U+0192, U+01FC-01FF, U+0218-021B, U+0237, U+1E80-1E85, U+1EF2-1EF3, U+2113;
+}

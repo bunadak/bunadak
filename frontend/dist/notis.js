@@ -257,14 +257,20 @@ const _inkCache=new WeakMap();
 function proInkSmooth(src){
   const n=src.length; if(n<4) return src;
   const P=p=>(p==null?0.6:p);
-  // Hafif merkez-ağırlıklı alçak-geçiren (/8): gecikmeyi minimumda tutar,
-  // temiz kalem girişinde (XP-Pen vb.) çizgi kaleme yapışık kalır.
+  /* Dengeleyici gücü (Ayarlar › Çizim): 0 = ham giriş … 100 = maksimum yumuşak.
+     Merkez ağırlığı büyüdükçe çizgi kaleme daha yapışık (az gecikme) olur. */
+  const K=(typeof S!=='undefined'&&S.inkK!=null)?Math.max(0,Math.min(100,S.inkK)):50;
+  if(K<=0) return src;
+  const cw=14-0.12*K;                 // K=0→14 (neredeyse ham) · K=100→2 (çok yumuşak)
+  const d=cw+2;
   const a=[src[0]];
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
-    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
+    a.push({x:(p0.x+cw*p1.x+p2.x)/d,y:(p0.y+cw*p1.y+p2.y)/d,p:(P(p0.p)+cw*P(p1.p)+P(p2.p))/d,t:p1.t});}
   a.push(src[n-1]);
   let cur=a;
-  for(let pass=0;pass<2;pass++){
+  /* El Yazısı Güzelleştirme: bir tur fazla köşe-kesme → yuvarlak, zarif harfler */
+  const passes=(typeof S!=='undefined'&&S.beautify)?3:2;
+  for(let pass=0;pass<passes;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
       out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
@@ -276,9 +282,11 @@ function proInkSmooth(src){
 function proInkPts(o){
   const src=o.points;
   if(o.straight||!src||src.length<4) return src;
+  // ayar değişince önbellek geçersiz olsun (güç + güzelleştirme sürümü)
+  const v=(typeof S!=='undefined')?((S.inkK==null?50:S.inkK|0)*2+(S.beautify?1:0)):100;
   let e=_inkCache.get(o);
-  if(e&&e.n===src.length) return e.pts;
-  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,pts}); return pts;
+  if(e&&e.n===src.length&&e.v===v) return e.pts;
+  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts}); return pts;
 }
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
@@ -385,7 +393,10 @@ function drawStroke(c,o){
     }}
   c.restore();
 }
-function drawText(c,o){c.save();c.globalAlpha*=o.opacity??1;c.fillStyle=o.color;c.font=`600 ${o.size}px Manrope, sans-serif`;c.textBaseline='top';
+/* Yazı tipi: "Güzel El Yazısı" açıkken metin, Excalifont el yazısı fontuyla çizilir */
+function textFontCSS(size,scale){const s=size*(scale||1);
+  return (typeof S!=='undefined'&&S.handFont)?`400 ${s}px Excalifont, Manrope, sans-serif`:`600 ${s}px Manrope, sans-serif`}
+function drawText(c,o){c.save();c.globalAlpha*=o.opacity??1;c.fillStyle=o.color;c.font=textFontCSS(o.size);c.textBaseline='top';
   o.text.split('\n').forEach((ln,i)=>c.fillText(ln,o.x,o.y+i*o.size*1.25));c.restore()}
 function drawImage(c,o){if(!o._img||!o._img.complete)return;c.save();c.globalAlpha*=o.opacity??1;
   c.translate(o.x+o.w/2,o.y+o.h/2);c.rotate(o.rot||0);c.drawImage(o._img,-o.w/2,-o.h/2,o.w,o.h);c.restore()}
@@ -1046,7 +1057,7 @@ function openTextEditor(pt,obj){
   textEdit.style.display='block';
   textEdit.style.left=((pt.x+off.x)*view.s+view.x)+'px';
   textEdit.style.top=((pt.y+off.y)*view.s+view.y-4)+'px';
-  textEdit.style.font=`600 ${size*view.s}px Manrope`;
+  textEdit.style.font=textFontCSS(size,view.s);
   textEdit.style.color=obj?obj.color:penColor;
   textEdit.style.width='260px';textEdit.style.height=(size*view.s*1.6)+'px';
   setTimeout(()=>textEdit.focus(),0);
@@ -1247,6 +1258,7 @@ function enterScratch(x0,y0,w,h){
 }
 function exitScratch(){
   if(!scratch)return;
+  const solved=scratch.page;
   view=scratch.backView;curLayerId=scratch.backLayer;
   scratch=null;solveDraft=null;selection=[];
   document.body.classList.remove('scratch');
@@ -1254,6 +1266,35 @@ function exitScratch(){
   fixLayer();updUndoBtns();renderLayers();markPages();updCornerPg();
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';
   redraw();
+  saveSolveToLibrary(solved);
+}
+/* Çözüm modundan çıkarken çözülen soruyu kütüphaneye kaydet.
+   Küçük resim, çözümün gerçek sınırlarından (bbox) yakalanır. */
+function saveSolveToLibrary(sp){
+  try{
+    if(localStorage.getItem('notis_solve_save')==='0')return;   // opsiyonel: kapatılabilir
+    if(!sp||!sp.layers||!sp.layers.some(l=>l.objects&&l.objects.length))return;
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for(const l of sp.layers)for(const o of l.objects){
+      const b=bboxOf(o);if(!b)continue;
+      x0=Math.min(x0,b.x0);y0=Math.min(y0,b.y0);x1=Math.max(x1,b.x1);y1=Math.max(y1,b.y1)}
+    if(!isFinite(x0)){x0=0;y0=0;x1=sp.w;y1=sp.h}
+    const pad=28;x0-=pad;y0-=pad;x1+=pad;y1+=pad;
+    const w=Math.max(8,x1-x0),h=Math.max(8,y1-y0);
+    const title='Çözüm · '+new Date().toLocaleString('tr-TR',
+      {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const done=()=>toast('Çözüm kütüphaneye kaydedildi ✓');
+    let url='';try{url=capturePageRegion(sp,x0,y0,w,h)}catch(e){}
+    if(!url){LIB.saveExternal(title,[sp],'solve').then(done).catch(()=>{});return}
+    const tw=220,th=Math.max(80,Math.min(300,Math.round(tw*h/w)));
+    const c=document.createElement('canvas');c.width=tw;c.height=th;
+    const g=c.getContext('2d');g.fillStyle='#FBF8F0';g.fillRect(0,0,tw,th);
+    const im=new Image();
+    im.onload=()=>{try{g.drawImage(im,0,0,tw,th)}catch(e){}
+      LIB.saveExternal(title,[sp],'solve',null,c.toDataURL('image/jpeg',.72)).then(done).catch(()=>{})};
+    im.onerror=()=>LIB.saveExternal(title,[sp],'solve').then(done).catch(()=>{});
+    im.src=url;
+  }catch(e){console.warn('çözüm kaydı:',e)}
 }
 $('#scBack').addEventListener('click',exitScratch);
 $('#scWipe').addEventListener('click',()=>{if(!scratch)return;
@@ -1288,7 +1329,7 @@ const TOOLS=[
  {id:'smart',n:'Akıllı Kalem',k:'smart'},{id:'ball',n:'Tükenmez Kalem',k:'ball'},{id:'fountain',n:'Dolma Kalem',k:'fountain'},{id:'pencil',n:'Kurşun Kalem',k:'pencil'},{id:'hl',n:'Fosforlu Kalem',k:'hl'},{id:'eraser',n:'Akıllı Silgi',k:'eraser'},{id:'wipe',n:'Tahtayı Temizle',k:''},'—',
  {id:'text',n:'Metin',k:'text'},{id:'line',n:'Akıllı Cetvel',k:'line'},{id:'compass',n:'Dijital Pergel',k:'compass'},{id:'shapes',n:'Şekiller & Figürler',k:'shapes'},'—',
  {id:'laser',n:'Lazer İşaretçi',k:''},{id:'spot',n:'Spot Işığı',k:''},'—',
- {id:'focus',n:'Odak Modu',k:'focus'},{id:'solve',n:'Çözüm Modu',k:'solve'}
+ {id:'solve',n:'Çözüm Modu',k:'solve'}
 ];
 function buildRail(){const el=$('#rail');el.innerHTML='';
   for(const t of TOOLS){
@@ -2802,19 +2843,19 @@ const LIB=(()=>{
     }
   }
   /* Dış kayıt: mevcut belgeye dokunmadan doğrudan kütüphaneye yaz (PDF içe aktarımı) */
-  async function saveExternal(title,pages,knd,fixedId){
+  async function saveExternal(title,pages,knd,fixedId,thumbOverride){
     const id=fixedId||uid();
     const json=JSON.stringify({title,cur:0,
       pages:pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined}))});
-    let th='';
-    try{const p=pages[0];const w=220,h=Math.max(80,Math.min(300,Math.round(w*p.h/p.w)));
+    let th=thumbOverride||'';
+    try{if(!th){const p=pages[0];const w=220,h=Math.max(80,Math.min(300,Math.round(w*p.h/p.w)));
       const c=document.createElement('canvas');c.width=w;c.height=h;
       const g=c.getContext('2d');g.fillStyle='#FBF8F0';g.fillRect(0,0,w,h);
       if(p.bgImg&&p.bgImg.complete)g.drawImage(p.bgImg,0,0,w,h);
       else if(p.bg){const im=new Image();
         await new Promise(r=>{im.onload=r;im.onerror=r;im.src=p.bg});
         g.drawImage(im,0,0,w,h)}
-      th=c.toDataURL('image/jpeg',.72)}catch{}
+      th=c.toDataURL('image/jpeg',.72)}}catch{}
     const meta={id,title:title||'PDF',updatedAt:Date.now(),pages:pages.length,kind:knd||'pdf',thumb:th};
     if(SRV)await api('/lib/put',{meta,json});
     else{await tx('data','readwrite',s=>s.put({id,json}));
@@ -2917,7 +2958,11 @@ function applyPanels(refit){
 }
 function applyDPR(){
   const base=Math.min(2,window.devicePixelRatio||1);
-  DPR=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
+  let d=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
+  /* 144Hz Ultra HD: tuval ekran çözünürlüğünün çok üzerinde örneklenir —
+     yüksek tazeleme hızlı ekranlarda kenarlar jilet gibi, piksel kırılması yok. */
+  if(S.hz144)d=Math.min(4,Math.max(d,base*2.2));
+  DPR=d;
   resize();
 }
 $('#oHideLeft').addEventListener('change',e=>{S.hideLeft=e.target.checked;saveOpts();applyPanels(true)});
