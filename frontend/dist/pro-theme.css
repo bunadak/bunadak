@@ -297,6 +297,12 @@ body.pro-web #stage { background: #000; }
 body.pro-web-yt #proWebFrame { inset: auto; left: 20px; top: 20px;
   width: min(58%, 1100px); height: auto; aspect-ratio: 16 / 9;
   border-radius: 14px; box-shadow: 0 18px 54px rgba(0, 0, 0, .5); }
+/* Diğer web siteleri: ekran İKİYE bölünür — sol yarı sayfa, sağ yarı tahta */
+body.pro-web:not(.pro-web-yt) #proWebFrame { inset: auto; left: 0; top: 0;
+  width: 50%; height: 100%; border-radius: 0;
+  box-shadow: 10px 0 34px rgba(0, 0, 0, .28); }
+/* Üst paneldeki 🌐 düğmesi web katmanı açıkken vurgulanır */
+#webBtn.on2 { color: var(--acc); }
 body.pro-web #cv  { z-index: 2; }
 body.pro-web #ovl { z-index: 3; }
 body.pro-web-live #cv, body.pro-web-live #ovl { pointer-events: none !important; }

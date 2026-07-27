@@ -3,7 +3,7 @@
  *
  * notis.js'ten SONRA yüklenir. Çizim motorunu değiştirmez; var olan ayar
  * panellerine yeni seçenekler ekler ve bunları motorun kendi bayrakları
- * (S.hz144, S.inkK, S.beautify, S.handFont) ile CSS değişkenleri üzerinden
+ * (S.oledUltra) ile CSS değişkenleri üzerinden
  * uygular. Tüm tercihler localStorage'da 'notis_pro_opts' altında saklanır.
  * ========================================================================== */
 (function () {
@@ -17,10 +17,6 @@
     accent: "",            // 🎨 vurgu rengi (boş = temanın kendi rengi)
     palette: "klasik",     // 🌈 kalem paleti şeması
     warm: 0,               // 🌡️ gece ışığı (0–100)
-    hz144: false,          // ⚡ 144Hz GPU mürekkep motoru
-    inkK: 50,              // 🎚️ mürekkep dengeleyici gücü (0–100)
-    beautify: false,       // ✍️ el yazısı güzelleştirme
-    handFont: false,       // ✒️ güzel el yazısı fontu (Excalifont)
     oled: false,           // 🖥️ OLED Ultra Görüntü (uygulama geneli 4K his)
     cine: "0",             // ✨ sinematik geçişler: 0=kapalı, 1=zarif, 2=belirgin
     vignette: false        // 🎬 sinema vinyeti (kayıt görünümü)
@@ -100,12 +96,11 @@
   function applyEngine() {
     try {
       if (typeof S === "undefined") return;
-      S.hz144 = !!PS.hz144;
       S.oledUltra = !!PS.oled;
-      S.inkK = PS.inkK | 0;
-      S.beautify = !!PS.beautify;
-      S.handFont = !!PS.handFont;
-      if (typeof applyDPR === "function") applyDPR();  // 144Hz Ultra HD → tuvali yeniden ölçekler
+      /* ORİJİNAL KALEM TEKNOLOJİSİ: pro kalem deney bayrakları kalıcı kapalı —
+         eski bir kayıtta açık kalmış olsalar bile motor orijinal davranır. */
+      S.hz144 = false; S.beautify = false; S.handFont = false; S.inkK = 50;
+      if (typeof applyDPR === "function") applyDPR();  // OLED → tuvali yeniden ölçekler
       redrawSafe();
     } catch (_) {}
   }
@@ -214,25 +209,6 @@
         PS.warm = v; applyWarm(); if (out) out.textContent = warmLabel(v); save();
       }));
 
-    /* ---------------- KALEM ---------------- */
-    draw.appendChild(sec("Pro Kalem"));
-    draw.appendChild(rowToggle("oHz144", "⚡ 144Hz GPU Mürekkep Motoru",
-      "Efsanevi dokunuş hissi — üç teknoloji birden: <b>1)</b> Tuval ekran çözünürlüğünün çok üzerinde süper-örneklenir; kalem kenarları jilet gibi, yakınlaştırmada sıfır piksel. <b>2)</b> Ham giriş örneklemesi (pointerrawupdate): kalem/fare, ekran karesini beklemeden donanım hızında (120–1000Hz) okunur — 144Hz panellerde çizgi imlecin dibinden ayrılmaz. <b>3)</b> Düşük gecikmeli GPU tuvali: ekran kartından (ör. NVIDIA) doğrudan sunum istenir; bu son parça uygulama yeniden başlatılınca tam etkin olur. Tüm kalemlerde geçerlidir.",
-      PS.hz144, function (v) {
-        PS.hz144 = v; applyEngine();
-        note(v ? "144Hz GPU Mürekkep Motoru açık ⚡ (GPU tuvali için yeniden başlatma önerilir)" : "144Hz GPU Mürekkep Motoru kapalı");
-      }));
-    draw.appendChild(rowRange("oInkK", "🎚️ Mürekkep Dengeleyici Gücü",
-      inkLabel(PS.inkK), PS.inkK, 0, 100, function (v, out) {
-        PS.inkK = v; applyEngine(); if (out) out.textContent = inkLabel(v); save();
-      }));
-    draw.appendChild(rowToggle("oBeautify", "✍️ El Yazısı Güzelleştirme",
-      "Harflerin köşeleri fazladan yuvarlatılır — el yazısı daha zarif ve akıcı görünür.",
-      PS.beautify, function (v) { PS.beautify = v; applyEngine(); note(v ? "El yazısı güzelleştirme açık ✍️" : "Güzelleştirme kapalı"); }));
-    draw.appendChild(rowToggle("oHandFont", "✒️ Güzel El Yazısı Fontu",
-      "Metin aracıyla yazdıkların, Excalidraw'ın ünlü <b>Excalifont</b> el yazısı fontuyla görünür (Türkçe karakterler dahil).",
-      PS.handFont, function (v) { PS.handFont = v; applyEngine(); note(v ? "Güzel el yazısı fontu açık ✒️" : "El yazısı fontu kapalı"); }));
-
     /* ---------------- DEPOLAMA: çözüm kaydı ---------------- */
     var st = document.getElementById("sp-storage");
     if (st && !st.dataset.proExtras) {
@@ -245,19 +221,11 @@
     }
   }
   function warmLabel(v) { return v <= 0 ? "Kapalı — doğal renkler" : "%" + v + " sıcaklık · gece için göz dostu"; }
-  function inkLabel(v) {
-    return v <= 0 ? "Kapalı — ham giriş (en hızlı tepki)"
-      : v < 35 ? "%" + v + " — kaleme çok yapışık"
-      : v < 70 ? "%" + v + " — dengeli (önerilen)"
-      : "%" + v + " — maksimum pürüzsüz";
-  }
 
   /* ------------------------------------------------------------------- BOOT */
   function boot() {
     build();
     applyAll();
-    // Excalifont'u önden yükle ki ilk yazımda gecikme olmasın
-    try { if (document.fonts && document.fonts.load) document.fonts.load('400 24px Excalifont', 'Ağ'); } catch (_) {}
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () { setTimeout(boot, 600); });

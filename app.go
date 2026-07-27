@@ -174,7 +174,7 @@ func (a *App) CaptureRegion(x, y, w, h int) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.3.0",
+		"version": "2.4.0",
 		"channel": "pro",
 	}
 }

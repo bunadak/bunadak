@@ -68,9 +68,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',present:'F5',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır',present:'Sunum modu',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır',randColor:'Rastgele renge geç',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -136,16 +136,7 @@ function updUndoBtns(){const p=page();$('#undoBtn').disabled=!p._undo.length;$('
    GÖRÜNÜM
 ============================================================ */
 const stage=$('#stage'), cv=$('#cv'), ovl=$('#ovl');
-/* 144Hz GPU Mürekkep Motoru açıkken tuval GPU'ya düşük gecikme (desynchronized)
-   ipucuyla bağlanır: kare, birleştiriciyi (compositor) beklemeden ekrana sürülür —
-   donanım ivmeli sistemlerde (ör. NVIDIA) kalem gecikmesi gözle görülür düşer.
-   Bağlam bir kez kurulduğundan tercih açılışta okunur; opsiyon değişince tam etki
-   uygulama yeniden başlatıldığında gelir (süper-örnekleme kısmı anında etkindir). */
-const LOWLAT=(()=>{try{return JSON.parse(localStorage.getItem('notis_pro_opts')||'{}').hz144===true}catch(_){return false}})();
-/* Düşük gecikme ipucu YALNIZ canlı önizleme tuvaline (ovl) verilir: gecikme kazancının
-   tamamı orada hissedilir; kalıcı çizim tuvali (cv) ise her sürücüde garantili
-   artefaktsız kalsın diye standart senkron sunumda tutulur. */
-const ctx=cv.getContext('2d'), octx=ovl.getContext('2d',LOWLAT?{desynchronized:true}:undefined);ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
+const ctx=cv.getContext('2d'), octx=ovl.getContext('2d');ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
 let DPR=Math.min(2,window.devicePixelRatio||1);
 let stageRect=null;
 function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
@@ -294,20 +285,14 @@ const _inkCache=new WeakMap();
 function proInkSmooth(src){
   const n=src.length; if(n<4) return src;
   const P=p=>(p==null?0.6:p);
-  /* Dengeleyici gücü (Ayarlar › Çizim): 0 = ham giriş … 100 = maksimum yumuşak.
-     Merkez ağırlığı büyüdükçe çizgi kaleme daha yapışık (az gecikme) olur. */
-  const K=(typeof S!=='undefined'&&S.inkK!=null)?Math.max(0,Math.min(100,S.inkK)):50;
-  if(K<=0) return src;
-  const cw=14-0.12*K;                 // K=0→14 (neredeyse ham) · K=100→2 (çok yumuşak)
-  const d=cw+2;
+  // ORİJİNAL kalem teknolojisi: hafif merkez-ağırlıklı alçak-geçiren (/8) —
+  // gecikmeyi minimumda tutar, temiz kalem girişinde çizgi kaleme yapışık kalır.
   const a=[src[0]];
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
-    a.push({x:(p0.x+cw*p1.x+p2.x)/d,y:(p0.y+cw*p1.y+p2.y)/d,p:(P(p0.p)+cw*P(p1.p)+P(p2.p))/d,t:p1.t});}
+    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
   a.push(src[n-1]);
   let cur=a;
-  /* El Yazısı Güzelleştirme: bir tur fazla köşe-kesme → yuvarlak, zarif harfler */
-  const passes=(typeof S!=='undefined'&&S.beautify)?3:2;
-  for(let pass=0;pass<passes;pass++){
+  for(let pass=0;pass<2;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
       out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
@@ -319,9 +304,8 @@ function proInkSmooth(src){
 function proInkPts(o){
   const src=o.points;
   if(o.straight||!src||src.length<4) return src;
-  // ayar değişince önbellek geçersiz olsun (güç + güzelleştirme sürümü)
-  const v=(typeof S!=='undefined')?((S.inkK==null?50:S.inkK|0)*2+(S.beautify?1:0)):100;
-  /* Geçerlilik: nokta sayısı + ayar sürümü + UÇ NOKTA KOORDİNATLARI.
+  const v=1; // orijinal motor: ayar bağımlılığı yok
+  /* Geçerlilik: nokta sayısı + UÇ NOKTA KOORDİNATLARI.
      Taşı/ölçekle/döndür noktaları YERİNDE değiştirir, sayıyı değiştirmez —
      uçlar da kontrol edilmezse tuval eski konumdaki gövdeyi çizmeye devam eder
      (nesne "taşınmıyor" gibi görünür, uçlardan hayalet çizgiler sarkar). */
@@ -726,18 +710,6 @@ function inkFeed(evs){
       const lp=live.points.at(-1);
       if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
     }
-}
-/* ⚡ 144Hz GPU Mürekkep: pointerrawupdate — girişler ekran karesini BEKLEMEDEN,
-   kalem/fare donanımının kendi hızında (120–1000Hz) akar. 144Hz+ panellerde çizgi
-   imlecin dibinden ayrılmaz. Yalnız canlı çizgi beslenir; pan/pinch/hover ve tüm
-   diğer durumlar normal pointermove hattında kalır. */
-if('onpointerrawupdate' in window){
-  stage.addEventListener('pointerrawupdate',e=>{
-    if(!S.hz144||!live||live.type!=='stroke'||live.erasing||rightState||pinch||panning||drag)return;
-    if(e.pointerId!==strokePid||!e.buttons)return; // yabancı işaretçi / hover asla mürekkep beslemez
-    inkFeed((e.getCoalescedEvents&&e.getCoalescedEvents().length)?e.getCoalescedEvents():[e]);
-    requestLiveDraw(e);
-  });
 }
 /* canlı çizimi kare hızına (rAF) kilitle — pointermove seli overlay'i boğmasın */
 let liveRaf=false,liveEv=null;
@@ -1929,7 +1901,22 @@ function exitPresent(){presenting=false;
   toggleSpot(false);setTool('smart');fit()}
 function armFade(){clearTimeout(fadeTimer);$('#presentBar').classList.remove('fade');
   fadeTimer=setTimeout(()=>$('#presentBar').classList.add('fade'),2600)}
-$('#presentBtn').addEventListener('click',enterPresent);
+{const wb=$('#webBtn');if(wb)wb.addEventListener('click',()=>{if(window.proWebAsk)window.proWebAsk()});}
+/* 🎲 Rastgele renge geç (kısayul atanabilir: Ayarlar › Kısayollar) —
+   canlı, doygun ve mevcut renkten belirgin şekilde farklı bir renk üretir */
+function randPenColor(){
+  const cur=penColor;
+  let hex=cur,guard=0;
+  while(hex.toLowerCase()===cur.toLowerCase()&&guard++<8){
+    const h=Math.floor(Math.random()*360),s=.62+Math.random()*.28,l=.34+Math.random()*.2;
+    const f=n=>{const k=(n+h/30)%12;const a=s*Math.min(l,1-l);
+      return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))))};
+    hex='#'+[f(0),f(8),f(4)].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  penColor=hex;buildSwatches();
+  if(typeof buildMiniBar==='function')try{buildMiniBar()}catch(_){}
+  drawOverlay();
+}
 $('#prExit').addEventListener('click',exitPresent);
 $('#prSmart').addEventListener('click',()=>{setTool('smart');markPr()});
 $('#prPen').addEventListener('click',()=>{setTool('ball');markPr()});
@@ -2062,7 +2049,7 @@ window.addEventListener('keydown',e=>{
     if(tm[act]){setTool(act);return}
     if(act==='shapes'){toggleShapePop();return}
     if(act==='fit'){fit();return}
-    if(act==='present'){presenting?exitPresent():enterPresent();return}
+    if(act==='randColor'){randPenColor();return}
     if(act==='solve'){solveClick();return}
   }
   if(k==='x'&&!Object.values(KEYMAP).includes('x')){swapPen();return}
@@ -2283,7 +2270,7 @@ function PAL_CMDS(){return[
  {t:'Sayfayı çoğalt',sec:'Eylem',fn:()=>dupPage(cur)},
  {t:'PDF / Görsel içe aktar',sec:'Eylem',fn:()=>$('#importBtn').click()},
  {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>expDlg.showModal()},
- {t:'Sunum modu',k:'F5',sec:'Eylem',fn:enterPresent},
+ {t:'Rastgele renge geç',k:(KEYMAP.randColor||'').toUpperCase(),sec:'Eylem',fn:()=>randPenColor()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
  {t:'Sığdır',k:'0',sec:'Eylem',fn:fit},
@@ -3068,7 +3055,6 @@ function applyDPR(){
   let d=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
   /* 144Hz Ultra HD: tuval ekran çözünürlüğünün çok üzerinde örneklenir —
      yüksek tazeleme hızlı ekranlarda kenarlar jilet gibi, piksel kırılması yok. */
-  if(S.hz144)d=Math.min(4,Math.max(d,base*2.2));
   /* OLED Ultra Görüntü: uygulama geneli 4K hissi — tuval her zaman en az 2× süper-
      örneklenir; çizim, PDF ve arayüz yakınlaştırmada dahi piksel göstermez. */
   if(S.oledUltra)d=Math.min(4,Math.max(d,base*2));

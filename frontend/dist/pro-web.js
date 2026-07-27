@@ -77,7 +77,7 @@
       m.title = WEB.live ? "Kalem sende: sayfa kilitlenir, çizim açılır"
         : "Sayfayla etkileşim: video oynat/durdur, sayfayı kaydır";
     }
-    var rb = document.querySelector('#rail [data-t="weblayer"]');
+    var rb = document.getElementById("webBtn");
     if (rb) rb.classList.toggle("on2", WEB.on);
   }
   function setLive(v) {
@@ -178,7 +178,7 @@
       '<div class="pw-h">🌐 Web Sayfasını Tahtaya Yansıt</div>' +
       '<div class="pw-body">' +
       '<input id="pwUrl" type="text" placeholder="https://www.youtube.com/watch?v=…  veya  site adresi" spellcheck="false" autocomplete="off">' +
-      '<div class="pw-hint">Sayfa tahtanın arkasında açılır; tüm kalemler, silgi, seçim ve <b>çözüm modu</b> üzerinde aynen çalışır. YouTube bağlantıları otomatik oynatıcıya çevrilir. Üstteki kapsülden <b>🖱️ Sayfayı Kullan</b> / <b>✏️ Çizime Dön</b> arasında geçiş yapılır. Not: bazı siteler gömülmeye izin vermez — YouTube her zaman çalışır.</div>' +
+      '<div class="pw-hint">YouTube bağlantıları sol üstte <b>16:9 oynatıcı kutusunda</b>, diğer siteler <b>ekranın sol yarısında</b> açılır — sağ taraf çalışma alanın olarak kalır. Tüm kalemler, silgi, seçim ve <b>çözüm modu</b> sayfanın üzerinde aynen çalışır. Sağ üstteki kapsülden <b>🖱️ Sayfayı Kullan</b> / <b>✏️ Çizime Dön</b> arasında geçiş yapılır. Not: bazı siteler gömülmeye izin vermez — YouTube her zaman çalışır.</div>' +
       '</div>' +
       '<div class="pw-f"><button type="button" class="ghost" id="pwCancel">Vazgeç</button>' +
       '<button type="button" id="pwGo">Tahtaya Yansıt</button></div>';
@@ -199,25 +199,6 @@
     setTimeout(function () { i.focus(); i.select(); }, 60);
   }
 
-  /* ------------------------------------------- SOL RAY DÜĞMESİ (sondan 2.) */
-  var ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15.3 15.3 0 0 1 0 18M12 3a15.3 15.3 0 0 0 0 18"/></svg>';
-  function inject() {
-    var rail = $id("rail");
-    if (!rail || rail.querySelector('[data-t="weblayer"]')) return;
-    var solve = rail.querySelector('[data-t="solve"]');
-    var b = document.createElement("button");
-    b.className = "rtool";
-    b.dataset.t = "weblayer";
-    b.innerHTML = ICON + '<span class="tip">Web Sayfası — tahtaya yansıt & üzerine çiz</span>';
-    b.addEventListener("click", ask);
-    if (solve) rail.insertBefore(b, solve); else rail.appendChild(b);
-    syncUI();
-  }
-  var _br = window.buildRail; // kısayol düzenlenince ray yeniden kurulur — düğme her seferinde geri gelir
-  if (typeof _br === "function") window.buildRail = function () { _br.apply(this, arguments); inject(); };
-
-  function boot() { inject(); }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(boot, 700); });
-  } else setTimeout(boot, 700);
+  /* Üst paneldeki 🌐 düğmesi (index.html #webBtn) bu diyaloğu açar */
+  window.proWebAsk = ask;
 })();
