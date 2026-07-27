@@ -74,8 +74,9 @@ STYLE_SECENEK = ParagraphStyle(
     "secenek", fontName=FONT, fontSize=10.5, leading=15, textColor=METIN)
 
 
-def wordmark(c, x, y, size, renk=GOLD):
+def wordmark(c, x, y, size, renk=None):
     """Logo: Julius Sans One + ince kontur (dolgunluk) + harf aralığı."""
+    renk = renk if renk is not None else GOLD
     cs = size * 0.22
     c.saveState()
     c.setFont(LOGO_FONT, size)
