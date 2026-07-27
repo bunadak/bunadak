@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 MATHERA — Soru PDF Taslağı
-Yayınevi tarzında, sade ve logolu soru PDF'i üretir.
-Her sayfada 2 soru, alt alta yerleşir.
+Seçilen tasarım: solda logo + tek ince çizgi, altın soru numaraları.
+Renkler uzun çalışma seansları için göz yormayacak şekilde ayarlandı:
+  - Zemin: hafif krem (ekranda parlamayı azaltır, baskıda beyaza yakındır)
+  - Metin: saf siyah yerine yumuşak koyu antrasit (keskin kontrastı azaltır)
+  - Vurgular: mat altın + yumuşatılmış lacivert (düşük doygunluk, dinlendirici)
 
 Kullanım:
     python3 soru_pdf.py            -> MATHERA_soru_taslagi.pdf üretir
 
-Soruları aşağıdaki SORULAR listesine ekleyin; sayfalama otomatiktir.
+Soruları aşağıdaki SORULAR listesine ekleyin; sayfalama otomatiktir
+(her sayfaya 2 soru, alt alta).
 """
 
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.colors import HexColor, white
+from reportlab.lib.colors import HexColor
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -21,17 +25,20 @@ from reportlab.platypus import Paragraph
 # ---------------------------------------------------------------- ayarlar
 
 PAGE_W, PAGE_H = A4
-MARGIN = 42
+MARGIN = 46
 
-NAVY = HexColor("#0E2038")      # üst bant lacivertisi
-LILA = HexColor("#B57EDC")      # lila: logo + soru numarası
-INK = HexColor("#1C2530")       # soru metni rengi
-SIYAH = HexColor("#000000")
+ZEMIN = HexColor("#FBF8F2")     # hafif krem: beyaz parlamasını alır
+METIN = HexColor("#2E3742")     # yumuşak antrasit: saf siyahtan dinlendirici
+NAVY = HexColor("#26364F")      # yumuşatılmış lacivert (çizgi)
+GOLD = HexColor("#B98F63")      # mat altın (logo + numaralar)
+SIK = HexColor("#3A4450")       # şık harfleri: koyu ama keskin olmayan
 
 FONT = "DejaVuSans"
 FONT_BOLD = "DejaVuSans-Bold"
+LOGO_FONT = "JuliusSansOne"     # logodaki font (OFL lisanslı)
 pdfmetrics.registerFont(TTFont(FONT, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
 pdfmetrics.registerFont(TTFont(FONT_BOLD, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+pdfmetrics.registerFont(TTFont(LOGO_FONT, "fonts/JuliusSansOne-Regular.ttf"))
 
 CIKTI = "MATHERA_soru_taslagi.pdf"
 
@@ -62,45 +69,40 @@ SORULAR = [
 # ---------------------------------------------------------------- çizimler
 
 STYLE_SORU = ParagraphStyle(
-    "soru", fontName=FONT, fontSize=10.5, leading=16, textColor=INK)
+    "soru", fontName=FONT, fontSize=10.5, leading=16.5, textColor=METIN)
 STYLE_SECENEK = ParagraphStyle(
-    "secenek", fontName=FONT, fontSize=10.5, leading=15, textColor=INK)
+    "secenek", fontName=FONT, fontSize=10.5, leading=15, textColor=METIN)
 
 
-def wordmark(c, x, y, size, renk=LILA):
-    """MATHERA yazı logosunu harf aralıklı, lila renkte çizer."""
+def wordmark(c, x, y, size, renk=GOLD):
+    """Logo: Julius Sans One + ince kontur (dolgunluk) + harf aralığı."""
+    cs = size * 0.22
     c.saveState()
-    c.setFont(FONT_BOLD, size)
+    c.setFont(LOGO_FONT, size)
     c.setFillColor(renk)
+    c.setStrokeColor(renk)
+    c.setLineWidth(size * 0.022)
     tx = c.beginText(x, y)
-    tx.setCharSpace(size * 0.32)
+    tx.setTextRenderMode(2)
+    tx.setCharSpace(cs)
     tx.textOut("MATHERA")
     c.drawText(tx)
     c.restoreState()
 
 
-def wordmark_genislik(size):
-    w = pdfmetrics.stringWidth("MATHERA", FONT_BOLD, size)
-    return w + 6 * size * 0.32  # 7 harf arası 6 boşluk
-
-
 def sayfa_iskeleti(c):
-    """Sayfanın sabit öğeleri: üst bant, logo ve logo altı çizgi."""
-    # --- üst: lacivert ince bant + logo
-    bant_h = 6
-    c.setFillColor(NAVY)
-    c.rect(0, PAGE_H - bant_h, PAGE_W, bant_h, stroke=0, fill=1)
+    """Krem zemin, solda logo, altında tek ince çizgi."""
+    c.setFillColor(ZEMIN)
+    c.rect(0, 0, PAGE_W, PAGE_H, stroke=0, fill=1)
 
-    logo_y = PAGE_H - 52
-    wordmark(c, MARGIN, logo_y, 19)
+    logo_y = PAGE_H - 56
+    wordmark(c, MARGIN, logo_y, 15)
 
-    # logo altı ince siyah çizgi
-    c.setStrokeColor(SIYAH)
-    c.setLineWidth(1.2)
-    c.line(MARGIN, logo_y - 16, PAGE_W - MARGIN, logo_y - 16)
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(0.8)
+    c.line(MARGIN, logo_y - 12, PAGE_W - MARGIN, logo_y - 12)
 
-    alt_y = 40
-    return logo_y - 16, alt_y  # içerik üst / alt sınırı
+    return logo_y - 12, 36  # içerik üst / alt sınırı
 
 
 def soru_ciz(c, soru, no, ust_y, alt_y):
@@ -108,16 +110,12 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     x = MARGIN
     genislik = PAGE_W - 2 * MARGIN
 
-    # numara rozeti: lila yuvarlak köşeli kare, beyaz numara
-    kutu = 22
-    ky = ust_y - kutu
-    c.setFillColor(LILA)
-    c.roundRect(x, ky, kutu, kutu, 5, stroke=0, fill=1)
-    c.setFillColor(white)
-    c.setFont(FONT_BOLD, 12)
-    c.drawCentredString(x + kutu / 2, ky + 6, str(no))
+    # numara: mat altın, sade "1." biçimi
+    c.setFillColor(GOLD)
+    c.setFont(FONT_BOLD, 13)
+    c.drawString(x, ust_y - 15, str(no) + ".")
+    kutu = 20
 
-    # soru metni (rozetin sağından başlar, altına sarkabilir)
     metin_x = x + kutu + 12
     metin_w = genislik - kutu - 12
     p = Paragraph(soru["metin"], STYLE_SORU)
@@ -127,10 +125,9 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     # şıklar
     y = ust_y - h - 18
     for i, s in enumerate(soru.get("secenekler", [])):
-        harf = "ABCDE"[i]
         c.setFont(FONT_BOLD, 10.5)
-        c.setFillColor(SIYAH)
-        c.drawString(metin_x, y, harf + ")")
+        c.setFillColor(SIK)
+        c.drawString(metin_x, y, "ABCDE"[i] + ")")
         ps = Paragraph(s, STYLE_SECENEK)
         w2, h2 = ps.wrap(metin_w - 22, 40)
         ps.drawOn(c, metin_x + 20, y - (h2 - 12))
@@ -147,7 +144,7 @@ def uret(dosya=CIKTI):
         icerik_ust, icerik_alt = sayfa_iskeleti(c)
         orta = (icerik_ust + icerik_alt) / 2
 
-        soru_ciz(c, SORULAR[i], i + 1, icerik_ust - 30, orta + 15)
+        soru_ciz(c, SORULAR[i], i + 1, icerik_ust - 32, orta + 15)
         if i + 1 < len(SORULAR):
             soru_ciz(c, SORULAR[i + 1], i + 2, orta - 30, icerik_alt + 15)
 
