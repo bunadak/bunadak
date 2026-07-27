@@ -22,31 +22,43 @@ import numpy as np
 W, H = 1920, 1080
 FPS = 60
 
-LOGO_FONT = "Julius Sans One"     # logodaki font
+LOGO_FONT = "Mathera Wordmark"    # logodaki kalın geometrik harfler (Exo 2 700)
 UI_FONT = "Montserrat"            # Türkçe alt yazılar (tam karakter desteği)
 
-# zemin
-BG_MERKEZ = (0.086, 0.196, 0.318)   # #163251
-BG_KENAR = (0.027, 0.063, 0.114)    # #07101D
+IZ_ORANI = 0.07                   # logodaki harf aralığı (em cinsinden)
 
-# bakır / roze altın metal bandı (logodaki harflerden alındı)
+# --- renk paleti -------------------------------------------------------
+# Kurgu: soğuk ve derin lacivert ↔ sıcak bakır. Birbirinin tamamlayıcısı
+# olan bu iki uç, aradaki koyu düşüşle birlikte metale derinlik verir.
+# Zeminin kenarları neredeyse siyaha inince bakır kendiliğinden parlar.
+
+BG_MERKEZ = (0.078, 0.184, 0.310)   # #142F4F — derin ama canlı lacivert
+BG_KENAR = (0.016, 0.043, 0.078)    # #040B14 — neredeyse siyah düşüş
+
+# bakır / roze altın: logodaki gibi üstte sıcak bakır, ortada parlak
+# yatay bant, altta koyu bronz
 BAKIR = [
-    (0.00, 0.788, 0.561, 0.388),
-    (0.18, 0.906, 0.753, 0.608),
-    (0.42, 0.953, 0.847, 0.737),
-    (0.50, 0.722, 0.494, 0.322),
-    (0.72, 0.851, 0.659, 0.494),
-    (1.00, 0.647, 0.416, 0.259),
+    (0.00, 0.541, 0.341, 0.188),    # #8A5730 üst kenar
+    (0.09, 0.753, 0.541, 0.341),    # #C08A57
+    (0.30, 0.878, 0.690, 0.522),    # #E0B085
+    (0.44, 0.965, 0.890, 0.792),    # #F6E3CA parlak bant
+    (0.50, 0.725, 0.471, 0.271),    # #B97845 eğim çizgisi
+    (0.62, 0.851, 0.635, 0.447),    # #D9A272
+    (0.85, 0.663, 0.416, 0.235),    # #A96A3C
+    (1.00, 0.486, 0.271, 0.137),    # #7C4523 alt kenar
 ]
 
-# fırçalanmış çelik
+# çelik: bakırla yarışmaması için mavimsi soğuk ton
 CELIK = [
-    (0.00, 0.725, 0.745, 0.765),
-    (0.25, 0.541, 0.565, 0.588),
-    (0.50, 0.784, 0.804, 0.824),
-    (0.75, 0.463, 0.486, 0.510),
-    (1.00, 0.659, 0.682, 0.706),
+    (0.00, 0.682, 0.745, 0.800),
+    (0.22, 0.333, 0.388, 0.435),
+    (0.48, 0.824, 0.871, 0.910),
+    (0.72, 0.255, 0.302, 0.345),
+    (1.00, 0.612, 0.675, 0.729),
 ]
+
+ORTAM = (0.306, 0.482, 0.659)       # ızgara / süzülen semboller (soğuk mavi)
+HALE = (0.98, 0.76, 0.48)           # logonun arkasındaki sıcak amber ışık
 
 
 # ---------------------------------------------------------------- yardımcılar
@@ -111,7 +123,7 @@ def izgara(ctx, alfa, kayma=0.0, aralik=96):
         return
     ctx.push_group()
     ctx.set_line_width(1.0)
-    ctx.set_source_rgba(0.45, 0.60, 0.78, 1.0)
+    ctx.set_source_rgba(*ORTAM, 1.0)
     x = -aralik + (kayma % aralik)
     while x < W + aralik:
         ctx.move_to(x, 0)
@@ -175,7 +187,7 @@ def sembolleri_ciz(ctx, alan, t, alfa=1.0):
         y = (y % (H + 160)) - 80
         salinim = math.sin(t * 0.6 + p["faz"]) * 12
         ctx.set_font_size(p["boy"])
-        ctx.set_source_rgba(0.62, 0.76, 0.92, p["a"] * alfa)
+        ctx.set_source_rgba(*ORTAM, p["a"] * alfa)
         e = ctx.text_extents(p["s"])
         ctx.move_to(p["x"] + salinim - e.width / 2, y)
         ctx.show_text(p["s"])
@@ -195,13 +207,34 @@ def _harf_ilerlemeleri(ctx, boy, iz_orani):
     return harfler, ilerle, iz, toplam
 
 
-def logo_punto(ctx, hedef_genislik, iz_orani=0.26):
+def logo_punto(ctx, hedef_genislik, iz_orani=IZ_ORANI):
     """Yazının istenen genişliğe oturması için gereken punto."""
     _, _, _, toplam = _harf_ilerlemeleri(ctx, 100.0, iz_orani)
     return 100.0 * hedef_genislik / toplam
 
 
-def logo_yaz(ctx, cx, cy, hedef_genislik, alfa=1.0, iz_orani=0.26,
+def _kabartma(ctx, ust, taban, alfa):
+    """
+    Kalın harflerde 3B his veren kabartma: üstte parlayan kenar,
+    altta koyu gölge. Çağıran, harfin yoluna kırpmış olmalıdır.
+    """
+    kap = taban - ust
+    g = cairo.LinearGradient(0, ust, 0, ust + kap * 0.20)
+    g.add_color_stop_rgba(0.0, 1.0, 0.96, 0.90, 0.16 * alfa)
+    g.add_color_stop_rgba(1.0, 1.0, 0.96, 0.90, 0.0)
+    ctx.set_operator(cairo.OPERATOR_ADD)
+    ctx.set_source(g)
+    ctx.paint()
+    ctx.set_operator(cairo.OPERATOR_OVER)
+
+    g = cairo.LinearGradient(0, taban - kap * 0.22, 0, taban)
+    g.add_color_stop_rgba(0.0, 0.16, 0.07, 0.02, 0.0)
+    g.add_color_stop_rgba(1.0, 0.16, 0.07, 0.02, 0.34 * alfa)
+    ctx.set_source(g)
+    ctx.paint()
+
+
+def logo_yaz(ctx, cx, cy, hedef_genislik, alfa=1.0, iz_orani=IZ_ORANI,
              harf_ilerleme=None, golge=True, renk=None):
     """
     MATHERA yazısını metalik bakır dolguyla çizer.
@@ -240,9 +273,9 @@ def logo_yaz(ctx, cx, cy, hedef_genislik, alfa=1.0, iz_orani=0.26,
         ctx.translate(0, kayma)
 
         if golge:
-            ctx.move_to(x, taban + boy * 0.022)
+            ctx.move_to(x, taban + boy * 0.028)
             ctx.text_path(h)
-            ctx.set_source_rgba(0.0, 0.0, 0.0, 0.38 * ha)
+            ctx.set_source_rgba(0.0, 0.0, 0.0, 0.42 * ha)
             ctx.fill()
 
         ctx.move_to(x, taban)
@@ -252,12 +285,20 @@ def logo_yaz(ctx, cx, cy, hedef_genislik, alfa=1.0, iz_orani=0.26,
         else:
             ctx.set_source(dolgu)
         ctx.fill_preserve()
-        ctx.set_line_width(max(0.8, boy * 0.012))
-        if ha < 1.0 and renk is None:
-            ctx.set_source(gradyan_dikey(ust, taban, BAKIR, ha * 0.55))
+        ctx.set_line_width(max(0.6, boy * 0.006))   # zeminden ayıran ince kenar
+        if renk is None:
+            ctx.set_source_rgba(0.24, 0.12, 0.05, 0.40 * ha)
         else:
             ctx.set_source(kenar)
-        ctx.stroke()
+        ctx.stroke_preserve()
+
+        if renk is None:                            # kabartma
+            ctx.save()
+            ctx.clip()
+            _kabartma(ctx, ust, taban, ha)
+            ctx.restore()
+        else:
+            ctx.new_path()
         ctx.restore()
 
         x += ilerle[i] + iz
@@ -265,7 +306,7 @@ def logo_yaz(ctx, cx, cy, hedef_genislik, alfa=1.0, iz_orani=0.26,
     return {"ust": ust, "taban": taban, "genislik": toplam, "boy": boy}
 
 
-def logo_yolu(ctx, cx, cy, hedef_genislik, iz_orani=0.26):
+def logo_yolu(ctx, cx, cy, hedef_genislik, iz_orani=IZ_ORANI):
     """Parlama süpürmesini kırpmak için yazının yolunu oluşturur."""
     boy = logo_punto(ctx, hedef_genislik, iz_orani)
     harfler, ilerle, iz, toplam = _harf_ilerlemeleri(ctx, boy, iz_orani)

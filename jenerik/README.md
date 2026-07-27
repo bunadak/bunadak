@@ -22,7 +22,7 @@ Hepsi **1920×1080, 60 fps, H.264 + AAC** — YouTube'un önerdiği formatta.
 4. MATHERA harfleri madalyonun içinde merkezden dışa doğru açılır
 5. Metalin üzerinden speküler ışık geçer
 6. Halkalar açılıp dağılırken yazı banner boyutuna büyür
-7. Alt başlık gelir, sahne yerleşir ve kararır
+7. Sahne yerleşir ve yumuşakça kararır
 
 ## Kapanış jeneriği ve YouTube bitiş ekranı
 
@@ -60,15 +60,18 @@ python3 yap.py intro     # yalnızca açılış
 python3 yap.py outro     # yalnızca kapanış
 ```
 
+Logo yazısı `fonts/MatheraWordmark.ttf` ile çizilir — logodaki kalın
+geometrik harflerin karşılığı olan Exo 2 (700), fontconfig karışıklığı
+olmasın diye kendi aile adıyla kaydedilmiştir.
+
 Gerekenler: `python3`, `ffmpeg`, `pycairo`, `numpy` ve `fonts/` klasöründeki
-iki font (sistemde kurulu olmalı — `fonts/*.ttf` dosyalarını
+fontlar (sistemde kurulu olmalı — `fonts/*.ttf` dosyalarını
 `/usr/share/fonts/truetype/mathera/` içine kopyalayıp `fc-cache -f` çalıştır).
 
 ## Değiştirmek isteyebileceğin yerler
 
 | Ne | Nerede |
 |---|---|
-| Alt başlık yazısı | `intro.py` → `ALTBASLIK`, `outro.py` → `ALTBASLIK` |
 | Teşekkür metni | `outro.py` → `TESEKKUR` |
 | Kart/daire etiketleri | `outro.py` → `kare_ciz` içindeki `alt_yazi` çağrıları |
 | Süreler | `intro.py` / `outro.py` → `SURE` ve evre zamanları |

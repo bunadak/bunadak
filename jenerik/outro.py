@@ -16,9 +16,9 @@ import math
 
 import cairo
 
-from ortak import (W, H, FPS, alt_yazi, cikis, cikis_expo, evre, ince_cizgi,
-                   izgara, logo_yaz, sembol_alani, sembolleri_ciz, vinyet,
-                   yumusak, zemin)
+from ortak import (W, H, FPS, HALE, alt_yazi, cikis, cikis_expo, evre,
+                   ince_cizgi, izgara, logo_yaz, sembol_alani,
+                   sembolleri_ciz, vinyet, zemin)
 
 SURE = 10.0
 KARE_SAYISI = int(SURE * FPS)
@@ -26,7 +26,6 @@ KARE_SAYISI = int(SURE * FPS)
 LOGO_Y = 150.0
 LOGO_GENISLIK = 380.0
 TESEKKUR = "İZLEDİĞİN İÇİN TEŞEKKÜRLER"
-ALTBASLIK = "KONU ANLATIMI  ·  SORU ÇÖZÜMÜ"
 
 KART_G, KART_Y = 480.0, 270.0
 SATIR_Y = 620.0
@@ -153,7 +152,6 @@ def kare_ciz(ctx, t):
     d_orta = evre(t, 1.45, 2.35)
     d_sag = evre(t, 1.65, 2.55)
     e_etiket = evre(t, 2.10, 2.90)
-    f_alt = evre(t, 2.60, 3.40)
 
     nabiz = math.sin(t * 1.9)
 
@@ -165,8 +163,8 @@ def kare_ciz(ctx, t):
 
     # logo arkası yumuşak ışık
     g = cairo.RadialGradient(W / 2, LOGO_Y, 20, W / 2, LOGO_Y, 460)
-    g.add_color_stop_rgba(0.0, 0.36, 0.54, 0.80, 0.16 * ortam)
-    g.add_color_stop_rgba(1.0, 0.10, 0.20, 0.36, 0.0)
+    g.add_color_stop_rgba(0.0, *HALE, 0.13 * ortam)
+    g.add_color_stop_rgba(1.0, 0.20, 0.26, 0.38, 0.0)
     ctx.set_operator(cairo.OPERATOR_ADD)
     ctx.set_source(g)
     ctx.paint()
@@ -194,11 +192,5 @@ def kare_ciz(ctx, t):
         alt_yazi(ctx, "ABONE OL", DAIRE_X, ETIKET_Y, 19, a, iz=4.0,
                  renk=(0.86, 0.70, 0.53))
         alt_yazi(ctx, "OYNATMA LİSTESİ", SAG_X, ETIKET_Y, 19, a, iz=4.0)
-
-    # ---- alt bant
-    if f_alt > 0.004:
-        a = cikis(f_alt)
-        ince_cizgi(ctx, W / 2, 918, 420 * a, 0.35 * a)
-        alt_yazi(ctx, ALTBASLIK, W / 2, 962, 19, 0.55 * a, iz=4.5)
 
     vinyet(ctx, 0.50)
