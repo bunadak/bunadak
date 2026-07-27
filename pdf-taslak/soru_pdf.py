@@ -30,7 +30,7 @@ MARGIN = 46
 ZEMIN = HexColor("#FBF8F2")     # hafif krem: beyaz parlamasını alır
 METIN = HexColor("#2E3742")     # yumuşak antrasit: saf siyahtan dinlendirici
 NAVY = HexColor("#26364F")      # yumuşatılmış lacivert (çizgi)
-GOLD = HexColor("#B98F63")      # mat altın (logo + numaralar)
+GOLD = HexColor("#5F7A61")      # adaçayı yeşili (logo + numaralar)
 SIK = HexColor("#3A4450")       # şık harfleri: koyu ama keskin olmayan
 
 FONT = "DejaVuSans"
@@ -111,11 +111,11 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     x = MARGIN
     genislik = PAGE_W - 2 * MARGIN
 
-    # numara: mat altın, sade "1." biçimi
+    # numara: logo ile aynı punto (15), sade "1." biçimi
     c.setFillColor(GOLD)
-    c.setFont(FONT_BOLD, 13)
+    c.setFont(FONT_BOLD, 15)
     c.drawString(x, ust_y - 15, str(no) + ".")
-    kutu = 20
+    kutu = 24
 
     metin_x = x + kutu + 12
     metin_w = genislik - kutu - 12
