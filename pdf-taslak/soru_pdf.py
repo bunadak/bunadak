@@ -24,7 +24,7 @@ PAGE_W, PAGE_H = A4
 MARGIN = 42
 
 NAVY = HexColor("#0E2038")      # üst bant lacivertisi
-MAVI = HexColor("#0078D7")      # windows mavisi: logo + soru numarası
+LILA = HexColor("#B57EDC")      # lila: logo + soru numarası
 INK = HexColor("#1C2530")       # soru metni rengi
 SIYAH = HexColor("#000000")
 
@@ -67,8 +67,8 @@ STYLE_SECENEK = ParagraphStyle(
     "secenek", fontName=FONT, fontSize=10.5, leading=15, textColor=INK)
 
 
-def wordmark(c, x, y, size, renk=MAVI):
-    """MATHERA yazı logosunu harf aralıklı, mavi renkte çizer."""
+def wordmark(c, x, y, size, renk=LILA):
+    """MATHERA yazı logosunu harf aralıklı, lila renkte çizer."""
     c.saveState()
     c.setFont(FONT_BOLD, size)
     c.setFillColor(renk)
@@ -108,10 +108,10 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     x = MARGIN
     genislik = PAGE_W - 2 * MARGIN
 
-    # numara rozeti: mavi yuvarlak köşeli kare, beyaz numara
+    # numara rozeti: lila yuvarlak köşeli kare, beyaz numara
     kutu = 22
     ky = ust_y - kutu
-    c.setFillColor(MAVI)
+    c.setFillColor(LILA)
     c.roundRect(x, ky, kutu, kutu, 5, stroke=0, fill=1)
     c.setFillColor(white)
     c.setFont(FONT_BOLD, 12)
