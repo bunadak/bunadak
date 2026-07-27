@@ -111,10 +111,17 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     x = MARGIN
     genislik = PAGE_W - 2 * MARGIN
 
-    # numara: logo ile aynı punto (15), sade "1." biçimi
+    # numara: logo fontu + logodaki ince kontur — aynı punto, aynı ağırlık
+    c.saveState()
     c.setFillColor(GOLD)
-    c.setFont(FONT_BOLD, 15)
-    c.drawString(x, ust_y - 15, str(no) + ".")
+    c.setStrokeColor(GOLD)
+    c.setLineWidth(15 * 0.022)
+    tx = c.beginText(x, ust_y - 15)
+    tx.setFont(LOGO_FONT, 15)
+    tx.setTextRenderMode(2)
+    tx.textOut(str(no) + ".")
+    c.drawText(tx)
+    c.restoreState()
     kutu = 24
 
     metin_x = x + kutu + 12
