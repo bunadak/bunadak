@@ -23,19 +23,16 @@ from reportlab.platypus import Paragraph
 PAGE_W, PAGE_H = A4
 MARGIN = 42
 
-NAVY = HexColor("#0E2038")      # logo zemin lacivertisi
-COPPER = HexColor("#C0906A")    # logo harf bakırı
-COPPER_LIGHT = HexColor("#D9B08C")
+NAVY = HexColor("#0E2038")      # üst bant lacivertisi
+MAVI = HexColor("#0078D7")      # windows mavisi: logo + soru numarası
 INK = HexColor("#1C2530")       # soru metni rengi
-GREY = HexColor("#8A94A0")
+SIYAH = HexColor("#000000")
 
 FONT = "DejaVuSans"
 FONT_BOLD = "DejaVuSans-Bold"
 pdfmetrics.registerFont(TTFont(FONT, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
 pdfmetrics.registerFont(TTFont(FONT_BOLD, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
 
-DERS = "MATEMATİK"
-TEST_ADI = "TEST 01"
 CIKTI = "MATHERA_soru_taslagi.pdf"
 
 # Her soru: metin + şıklar. Şıksız (klasik) soru için "secenekler": [] bırakın.
@@ -70,8 +67,8 @@ STYLE_SECENEK = ParagraphStyle(
     "secenek", fontName=FONT, fontSize=10.5, leading=15, textColor=INK)
 
 
-def wordmark(c, x, y, size, renk=COPPER):
-    """MATHERA yazı logosunu harf aralıklı, bakır renkte çizer."""
+def wordmark(c, x, y, size, renk=MAVI):
+    """MATHERA yazı logosunu harf aralıklı, mavi renkte çizer."""
     c.saveState()
     c.setFont(FONT_BOLD, size)
     c.setFillColor(renk)
@@ -87,8 +84,8 @@ def wordmark_genislik(size):
     return w + 6 * size * 0.32  # 7 harf arası 6 boşluk
 
 
-def sayfa_iskeleti(c, sayfa_no):
-    """Üst bant, alt bant ve orta ayırıcı olmadan sayfanın sabit öğeleri."""
+def sayfa_iskeleti(c):
+    """Sayfanın sabit öğeleri: üst bant, logo ve logo altı çizgi."""
     # --- üst: lacivert ince bant + logo
     bant_h = 6
     c.setFillColor(NAVY)
@@ -97,52 +94,13 @@ def sayfa_iskeleti(c, sayfa_no):
     logo_y = PAGE_H - 52
     wordmark(c, MARGIN, logo_y, 19)
 
-    # sağda ders / test bilgisi
-    c.setFont(FONT_BOLD, 11)
-    c.setFillColor(NAVY)
-    c.drawRightString(PAGE_W - MARGIN, logo_y + 7, DERS)
-    c.setFont(FONT, 9)
-    c.setFillColor(GREY)
-    c.drawRightString(PAGE_W - MARGIN, logo_y - 6, TEST_ADI)
-
-    # logo altı ince bakır çizgi
-    c.setStrokeColor(COPPER)
+    # logo altı ince siyah çizgi
+    c.setStrokeColor(SIYAH)
     c.setLineWidth(1.2)
     c.line(MARGIN, logo_y - 16, PAGE_W - MARGIN, logo_y - 16)
 
-    # --- alt: ince çizgi + sayfa numarası rozeti + küçük logo
     alt_y = 40
-    c.setStrokeColor(HexColor("#D8DDE3"))
-    c.setLineWidth(0.8)
-    c.line(MARGIN, alt_y + 14, PAGE_W - MARGIN, alt_y + 14)
-
-    r = 11
-    c.setFillColor(NAVY)
-    c.circle(PAGE_W / 2, alt_y, r, stroke=0, fill=1)
-    c.setFillColor(COPPER_LIGHT)
-    c.setFont(FONT_BOLD, 10)
-    c.drawCentredString(PAGE_W / 2, alt_y - 3.5, str(sayfa_no))
-
-    c.setFillColor(GREY)
-    c.setFont(FONT, 7.5)
-    c.drawString(MARGIN, alt_y - 3, "mathera")
-    c.drawRightString(PAGE_W - MARGIN, alt_y - 3, TEST_ADI)
-
-    return logo_y - 16, alt_y + 14  # içerik üst / alt sınırı
-
-
-def orta_ayirici(c, y):
-    """İki soru arasına ince çizgi + bakır elmas işareti."""
-    c.setStrokeColor(HexColor("#D8DDE3"))
-    c.setLineWidth(0.8)
-    c.line(MARGIN, y, PAGE_W / 2 - 12, y)
-    c.line(PAGE_W / 2 + 12, y, PAGE_W - MARGIN, y)
-    c.saveState()
-    c.translate(PAGE_W / 2, y)
-    c.rotate(45)
-    c.setFillColor(COPPER)
-    c.rect(-3.2, -3.2, 6.4, 6.4, stroke=0, fill=1)
-    c.restoreState()
+    return logo_y - 16, alt_y  # içerik üst / alt sınırı
 
 
 def soru_ciz(c, soru, no, ust_y, alt_y):
@@ -150,12 +108,12 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     x = MARGIN
     genislik = PAGE_W - 2 * MARGIN
 
-    # numara rozeti: lacivert yuvarlak köşeli kare, bakır numara
+    # numara rozeti: mavi yuvarlak köşeli kare, beyaz numara
     kutu = 22
     ky = ust_y - kutu
-    c.setFillColor(NAVY)
+    c.setFillColor(MAVI)
     c.roundRect(x, ky, kutu, kutu, 5, stroke=0, fill=1)
-    c.setFillColor(COPPER_LIGHT)
+    c.setFillColor(white)
     c.setFont(FONT_BOLD, 12)
     c.drawCentredString(x + kutu / 2, ky + 6, str(no))
 
@@ -171,7 +129,7 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
     for i, s in enumerate(soru.get("secenekler", [])):
         harf = "ABCDE"[i]
         c.setFont(FONT_BOLD, 10.5)
-        c.setFillColor(COPPER)
+        c.setFillColor(SIYAH)
         c.drawString(metin_x, y, harf + ")")
         ps = Paragraph(s, STYLE_SECENEK)
         w2, h2 = ps.wrap(metin_w - 22, 40)
@@ -183,20 +141,17 @@ def soru_ciz(c, soru, no, ust_y, alt_y):
 
 def uret(dosya=CIKTI):
     c = canvas.Canvas(dosya, pagesize=A4)
-    c.setTitle("MATHERA — " + DERS + " " + TEST_ADI)
+    c.setTitle("MATHERA — Soru Taslağı")
 
-    sayfa_no = 1
     for i in range(0, len(SORULAR), 2):
-        icerik_ust, icerik_alt = sayfa_iskeleti(c, sayfa_no)
+        icerik_ust, icerik_alt = sayfa_iskeleti(c)
         orta = (icerik_ust + icerik_alt) / 2
-        orta_ayirici(c, orta)
 
         soru_ciz(c, SORULAR[i], i + 1, icerik_ust - 30, orta + 15)
         if i + 1 < len(SORULAR):
             soru_ciz(c, SORULAR[i + 1], i + 2, orta - 30, icerik_alt + 15)
 
         c.showPage()
-        sayfa_no += 1
 
     c.save()
     print("Üretildi:", dosya)
