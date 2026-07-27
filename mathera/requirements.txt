@@ -1,0 +1,9 @@
+# PDF uretimi ve Word cozumleme
+reportlab>=4.0
+python-docx>=1.1
+pillow>=10.0
+
+# Dogrulama ve testler (cikti uretimi icin zorunlu degil)
+pymupdf>=1.24
+numpy>=1.26
+pytest>=8.0

@@ -1,0 +1,108 @@
+{
+  "spec_version": 1,
+  "name": "MATHERA soru taslagi",
+  "source_pdf": "tests/fixtures/referans_taslak.pdf",
+  "note": "Bu dosya taslagin TEK dogruluk kaynagidir. Degerler referans PDF'ten olculerek cikarilmistir. Buradaki hicbir sayi icerik uretimi sirasinda degistirilmez.",
+
+  "page": {
+    "format": "A4",
+    "width": 595.2756,
+    "height": 841.8898
+  },
+
+  "colors": {
+    "background": "#FBF8F2",
+    "brand": "#5F7A61",
+    "rule": "#26364F",
+    "body": "#2E3742",
+    "label": "#3A4450"
+  },
+
+  "margins": {
+    "left": 46.0,
+    "right": 46.0,
+    "content_top": 68.0,
+    "content_bottom": 801.8898
+  },
+
+  "columns": {
+    "rail_x": 46.0,
+    "body_x": 82.0,
+    "option_value_x": 102.0
+  },
+
+  "brand": {
+    "text": "MATHERA",
+    "font": "brand",
+    "size": 15.0,
+    "baseline": 56.0,
+    "char_space_em": 0.22,
+    "render_mode": 2,
+    "stroke_width": 0.33
+  },
+
+  "rule": {
+    "y": 68.0,
+    "width": 0.8
+  },
+
+  "grid": {
+    "slots_per_page": 2,
+    "slot_pitch": 366.9449,
+    "first_baseline_offset": 42.5,
+    "rail_baseline_offset": 47.0
+  },
+
+  "typography": {
+    "body": { "font": "body", "size": 10.5, "leading": 16.5, "color": "body" },
+    "rail": {
+      "font": "brand",
+      "size": 15.0,
+      "color": "brand",
+      "render_mode": 2,
+      "stroke_width": 0.33
+    },
+    "tag": {
+      "font": "brand",
+      "size": 10.5,
+      "color": "brand",
+      "tracking_em": 0.22,
+      "render_mode": 2,
+      "stroke_width": 0.33,
+      "space_after": 19.0
+    },
+    "options": {
+      "label_font": "body_bold",
+      "label_color": "label",
+      "gap_before": 24.0,
+      "step": 20.0,
+      "wrap_leading": 16.5,
+      "value_rise": 1.5
+    },
+    "paragraph_space": 6.0,
+    "bullet": { "marker": "•", "indent": 14.0, "space_after": 4.0 },
+    "formula": { "size": 11.0, "space_before": 10.0, "space_after": 10.0 },
+    "subheading": { "font": "body_bold", "size": 11.0, "space_before": 12.0, "space_after": 6.0 },
+    "image": { "space_before": 10.0, "space_after": 12.0 },
+    "superscript": { "size_ratio": 0.8095238095238095, "rise_ratio": 0.5 },
+    "subscript": { "size_ratio": 0.8095238095238095, "rise_ratio": -0.22 },
+    "descender_ratio": 0.24,
+    "ascender_ratio": 0.76
+  },
+
+  "fonts": {
+    "brand": "JuliusSansOne-Regular.ttf",
+    "body": "DejaVuSans.ttf",
+    "body_bold": "DejaVuSans-Bold.ttf"
+  },
+
+  "measured_reference_values": {
+    "brand_baseline_top": 56.0,
+    "slot0_first_baseline_top": 110.5,
+    "slot1_first_baseline_top": 477.4449,
+    "slot0_rail_baseline_top": 115.0,
+    "slot1_rail_baseline_top": 481.9449,
+    "first_option_baseline_top_slot0": 151.0,
+    "body_wrap_width": 467.2756
+  }
+}
