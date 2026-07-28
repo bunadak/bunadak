@@ -160,13 +160,7 @@ function fit(){const p=page(),r=stage.getBoundingClientRect();
     }else view={x:r.width/2,y:r.height/3,s:1};
   }
   else if(presenting){fitPresent()}
-  else{
-    /* PDF · SLAYT: sayfa çalışma alanına TAM sığar (tamamı görünür, ortalanmış).
-       Kenarlarda kalan alan sayfanın kendi zemin rengiyle dolar (kesintisiz). */
-    const off=layout()[cur];
-    const s=clamp(Math.min(r.width/p.w,r.height/p.h),.05,4);
-    view={x:(r.width-p.w*s)/2,y:(r.height-p.h*s)/2-off.y*s,s};
-  }
+  else{const s=clamp((r.width-64)/p.w,.1,4);const off=layout()[cur];view={x:(r.width-p.w*s)/2+2,y:-off.y*s+8,s}}
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
 function fitPresent(){const p=page(),r=stage.getBoundingClientRect();
   const s=Math.min(r.width/p.w,r.height/p.h)*.97;const off=curOff();
@@ -502,8 +496,13 @@ function pageEdgeColor(pg){
   }catch(e){pg._edge='#FBF8F0'}
   return pg._edge;
 }
-/* Belge bir PDF/slayt mı? (sayfaların zemin görseli var) */
-function isDocPaged(){return !boardMode()&&doc.pages.length>0&&!!doc.pages[0].bg}
+/* Kesintisiz zemin YALNIZ slayt sunusu modunda uygulanır.
+   Normal PDF görünümü orijinal davranışını korur: sayfa genişliğe sığar,
+   kâğıdın çevresinde uygulamanın zemini ve sayfa gölgesi görünür. */
+function seamlessBg(){
+  try{return !!(window.proSlideActive&&window.proSlideActive()&&!boardMode()&&doc.pages.length&&doc.pages[cur]&&doc.pages[cur].bg)}
+  catch(e){return false}
+}
 function redraw(){ctx.imageSmoothingQuality='high';
   const p=page();if(!p)return;
   invalidateLayout();const L=layout();
@@ -531,7 +530,7 @@ function redraw(){ctx.imageSmoothingQuality='high';
     /* Kesintisiz zemin: sayfanın kenar rengi tüm çalışma alanına yayılır —
        kenarlarda koyu bant kalmaz (PDF ve slaytlarda kâğıt tüm alanı kaplar). */
     let seam=null;
-    if(isDocPaged()){
+    if(seamlessBg()){
       ensureBg(doc.pages[cur]);
       seam=pageEdgeColor(doc.pages[cur])||'#FBF8F0';  // görsel yüklenene dek kâğıt rengi
       ctx.save();ctx.fillStyle=seam;ctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);ctx.restore();
