@@ -2,14 +2,14 @@
 
 package main
 
-// Slayt dosyası (PPTX/PPT/ODP) → PDF dönüştürücü.
+// Belge → PDF dönüştürücü (Slayt Sunusu + Genel İçe Aktarma).
 //
-// Tarayıcı motoru PowerPoint dosyalarını doğrudan işleyemez; bu yüzden dönüşüm
-// Windows tarafında yapılır ve sonuç, uygulamanın kanıtlanmış yüksek çözünürlüklü
-// PDF içe aktarma hattına verilir (slaytlar birebir, kayıpsız görünür).
+// Tarayıcı motoru Office belgelerini doğrudan işleyemez; bu yüzden dönüşüm
+// Windows tarafında yapılır ve sonuç, uygulamanın kanıtlanmış yüksek
+// çözünürlüklü PDF hattına verilir (belge birebir, kayıpsız görünür).
 //
 // Sırayla denenir:
-//  1. PowerPoint COM (Office kuruluysa — en yüksek sadakat, animasyon/font birebir)
+//  1. Office COM (PowerPoint / Word / Excel kuruluysa — en yüksek sadakat)
 //  2. LibreOffice / soffice (kuruluysa — Office olmayan makineler için)
 
 import (
@@ -45,50 +45,94 @@ func soffice() string {
 	return ""
 }
 
-// convertSlidesToPDF returns the converted PDF as a base64 data URL.
-func convertSlidesToPDF(path string) (string, error) {
+func pdfDataURL(b []byte) string {
+	return "data:application/pdf;base64," + base64.StdEncoding.EncodeToString(b)
+}
+
+// powershell betiğini gizli çalıştırır.
+func runPS(script string) {
+	_ = runHidden("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script)
+}
+
+// officeScript belge türüne uygun COM betiğini üretir ("" = uygun COM yok).
+func officeScript(ext, in, out string) string {
+	switch ext {
+	case ".pptx", ".ppt", ".pptm", ".odp", ".pps", ".ppsx":
+		return `$ErrorActionPreference='Stop'
+$app = New-Object -ComObject PowerPoint.Application
+try {
+  $pres = $app.Presentations.Open("` + in + `", $true, $false, $false)
+  $pres.SaveAs("` + out + `", 32)
+  $pres.Close()
+} finally { $app.Quit() }`
+	case ".docx", ".doc", ".docm", ".odt", ".rtf", ".txt":
+		return `$ErrorActionPreference='Stop'
+$app = New-Object -ComObject Word.Application
+$app.Visible = $false
+try {
+  $doc = $app.Documents.Open("` + in + `", $false, $true)
+  $doc.SaveAs([ref]"` + out + `", [ref]17)
+  $doc.Close([ref]$false)
+} finally { $app.Quit() }`
+	case ".xlsx", ".xls", ".xlsm", ".ods", ".csv":
+		return `$ErrorActionPreference='Stop'
+$app = New-Object -ComObject Excel.Application
+$app.Visible = $false
+$app.DisplayAlerts = $false
+try {
+  $wb = $app.Workbooks.Open("` + in + `")
+  $wb.ExportAsFixedFormat(0, "` + out + `")
+  $wb.Close($false)
+} finally { $app.Quit() }`
+	}
+	return ""
+}
+
+// convertToPDF, desteklenen her belgeyi PDF'e çevirip data URL döndürür.
+// PDF girdileri olduğu gibi geçer.
+func convertToPDF(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("dosya yolu boş")
 	}
 	if _, err := os.Stat(path); err != nil {
 		return "", errors.New("dosya bulunamadı")
 	}
-	if strings.EqualFold(filepath.Ext(path), ".pdf") {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == ".pdf" {
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", err
 		}
-		return "data:application/pdf;base64," + base64.StdEncoding.EncodeToString(b), nil
+		return pdfDataURL(b), nil
 	}
 
-	tmp, err := os.MkdirTemp("", "notis-slides-")
+	tmp, err := os.MkdirTemp("", "notis-conv-")
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmp)
-	out := filepath.Join(tmp, "slides.pdf")
+	out := filepath.Join(tmp, "belge.pdf")
 
-	// 1) PowerPoint COM — en yüksek sadakat
-	ps := `$ErrorActionPreference='Stop'
-$app = New-Object -ComObject PowerPoint.Application
-try {
-  $pres = $app.Presentations.Open("` + path + `", $true, $false, $false)
-  $pres.SaveAs("` + out + `", 32)
-  $pres.Close()
-} finally { $app.Quit() }`
-	_ = runHidden("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps)
-	if b, err := os.ReadFile(out); err == nil && len(b) > 1024 {
-		return "data:application/pdf;base64," + base64.StdEncoding.EncodeToString(b), nil
+	// 1) Office COM — en yüksek sadakat
+	if s := officeScript(ext, path, out); s != "" {
+		runPS(s)
+		if b, err := os.ReadFile(out); err == nil && len(b) > 1024 {
+			return pdfDataURL(b), nil
+		}
 	}
 
-	// 2) LibreOffice
+	// 2) LibreOffice — her türü çevirir
 	if so := soffice(); so != "" {
 		_ = runHidden(so, "--headless", "--norestore", "--convert-to", "pdf", "--outdir", tmp, path)
 		guess := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))+".pdf")
 		if b, err := os.ReadFile(guess); err == nil && len(b) > 1024 {
-			return "data:application/pdf;base64," + base64.StdEncoding.EncodeToString(b), nil
+			return pdfDataURL(b), nil
 		}
 	}
 
-	return "", errors.New("Slayt dönüştürülemedi. Bilgisayarda Microsoft PowerPoint veya LibreOffice kurulu olmalı — ya da sunuyu PDF olarak kaydedip yükleyebilirsin.")
+	return "", errors.New("Bu dosya PDF'e çevrilemedi (" + ext + "). PowerPoint/Word/Excel ya da LibreOffice kurulu olmalı — " +
+		"alternatif olarak belgeyi PDF kaydedip yükleyebilirsin.")
 }
+
+// convertSlidesToPDF geriye dönük ad — slayt akışı bunu çağırır.
+func convertSlidesToPDF(path string) (string, error) { return convertToPDF(path) }

@@ -115,15 +115,22 @@
         var nm = String(path).split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
         await loadPdfFile(dataUrlToFile(url, nm + ".pdf"));
       } else {
-        /* Tarayıcı/geliştirme ortamı: yalnız PDF seçilebilir */
+        /* Tarayıcı/geliştirme ortamı: dönüştürücü yalnız masaüstünde çalışır,
+           burada PDF açılabilir (diğer türler için net uyarı verilir). */
         var inp = $id("slideInp");
         if (!inp) {
           inp = document.createElement("input");
-          inp.type = "file"; inp.id = "slideInp"; inp.accept = ".pdf"; inp.hidden = true;
+          inp.type = "file"; inp.id = "slideInp"; inp.hidden = true;
+          inp.accept = ".pdf,.pptx,.ppt,.odp,.docx,.doc,.xlsx,.xls";
           document.body.appendChild(inp);
           inp.addEventListener("change", async function (e) {
             var f = e.target.files[0]; e.target.value = "";
-            if (f) { SL.busy = true; try { await loadPdfFile(f); } finally { SL.busy = false; } }
+            if (!f) return;
+            if (!/\.pdf$/i.test(f.name)) {
+              try { alert("Bu dosya türü yalnız masaüstü uygulamasında açılabilir.\nTarayıcıda PDF yükleyebilirsin."); } catch (_) {}
+              return;
+            }
+            SL.busy = true; try { await loadPdfFile(f); } finally { SL.busy = false; }
           });
         }
         inp.click();
@@ -133,6 +140,56 @@
     } finally { SL.busy = false; }
   }
   window.proSlideOpen = pick;
+
+  /* =======================================================================
+   * GENEL İÇE AKTARMA — uygulama artık PDF ile sınırlı değil
+   * Üst paneldeki "içe aktar" düğmesi masaüstünde yerel dosya penceresini
+   * açar: PowerPoint · Word · Excel · OpenDocument · RTF/TXT/CSV · PDF ve
+   * görseller. Belgeler Go tarafında PDF'e çevrilip mevcut yüksek çözünürlüklü
+   * PDF hattına verilir (kütüphane kaydı, çizim, sayfa akışı birebir aynı).
+   * Görseller doğrudan sayfaya yerleştirilir. Yerel API yoksa (tarayıcı)
+   * uygulamanın orijinal dosya-seçme akışı aynen çalışır.
+   * ==================================================================== */
+  var IMG_RE = /\.(png|jpe?g|webp|gif|bmp)$/i;
+  async function importAny() {
+    var A = api();
+    if (!A || !A.PickDocFile || !A.SlidesToPDF) return false;   // tarayıcı: eski akış
+    if (SL.busy) return true;
+    try {
+      SL.busy = true;
+      var path = await A.PickDocFile();
+      if (!path) return true;
+      var nm = String(path).split(/[\\/]/).pop();
+      if (IMG_RE.test(nm)) {                                    // görsel → sayfaya yerleştir
+        var durl = await A.ReadFileAsDataURL(path);
+        if (durl) placeImage(durl);
+        return true;
+      }
+      var url = await A.SlidesToPDF(path);                      // belge → PDF
+      if (!url) return true;
+      SL.lastId = null;
+      await importPDF(dataUrlToFile(url, nm.replace(/\.[^.]+$/, "") + ".pdf"));
+      if (SL.lastId && window.LIB && LIB.openWork) await LIB.openWork(SL.lastId);
+    } catch (err) {
+      try { alert("Dosya açılamadı:\n\n" + (err && err.message ? err.message : err)); } catch (_) {}
+    } finally { SL.busy = false; }
+    return true;
+  }
+  /* Görseli, uygulamanın kendi görsel yerleştirme davranışıyla aynı şekilde ekler */
+  function placeImage(durl) {
+    var im = new Image();
+    im.onload = function () {
+      try {
+        snapshot();
+        var c = toDocCenterLocal();
+        var w = Math.min(420, im.width), h = w * im.height / im.width;
+        layer().objects.push({ type: "image", x: c.x - w / 2, y: c.y - h / 2, w: w, h: h,
+          rot: 0, src: durl, _img: im, opacity: 1 });
+        redraw(); if (window.LIB) LIB.dirty();
+      } catch (_) {}
+    };
+    im.src = durl;
+  }
 
   /* ------------------------------------------------------------ OLAYLAR */
   var NAV_PREV = { ArrowLeft: 1, ArrowUp: 1, PageUp: 1 };
@@ -191,6 +248,17 @@
   function boot() {
     var b = $id("slideBtn");
     if (b && !b.dataset.sl) { b.dataset.sl = "1"; b.addEventListener("click", pick); }
+    /* İçe aktarma düğmesi: masaüstünde geniş dosya desteği devralır,
+       tarayıcıda uygulamanın orijinal akışı çalışmaya devam eder. */
+    var imp = $id("importBtn");
+    if (imp && !imp.dataset.sl) {
+      imp.dataset.sl = "1";
+      imp.addEventListener("click", function (e) {
+        if (!(api() && api().PickDocFile)) return;   // yerel API yok → eski akış
+        e.preventDefault(); e.stopImmediatePropagation();
+        importAny();
+      }, true);
+    }
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () { setTimeout(boot, 700); });

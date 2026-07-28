@@ -170,30 +170,79 @@ func (a *App) CaptureRegion(x, y, w, h int) (string, error) {
 	return captureScreenRegion(x, y, w, h)
 }
 
+// docPattern lists every document type the converter can handle.
+const docPattern = "*.pptx;*.ppt;*.pptm;*.pps;*.ppsx;*.odp;*.pdf;*.docx;*.doc;*.docm;*.odt;*.rtf;*.txt;*.xlsx;*.xls;*.xlsm;*.ods;*.csv"
+
+const imgPattern = "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp"
+
 // PickSlideFile opens a native file dialog for presentation files and returns
-// the chosen path (empty when cancelled).
+// the chosen path (empty when cancelled). The "all files" entry is included so
+// nothing is ever hidden from the user by an over-strict filter.
 func (a *App) PickSlideFile() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Slayt Sunusu Aç",
 		Filters: []runtime.FileFilter{
-			{DisplayName: "Sunum dosyaları (*.pptx;*.ppt;*.odp;*.pdf)", Pattern: "*.pptx;*.ppt;*.odp;*.pdf"},
-			{DisplayName: "PowerPoint (*.pptx;*.ppt)", Pattern: "*.pptx;*.ppt"},
-			{DisplayName: "PDF (*.pdf)", Pattern: "*.pdf"},
+			{DisplayName: "Sunum ve belgeler", Pattern: docPattern},
+			{DisplayName: "PowerPoint", Pattern: "*.pptx;*.ppt;*.pptm;*.pps;*.ppsx;*.odp"},
+			{DisplayName: "PDF", Pattern: "*.pdf"},
+			{DisplayName: "Tüm dosyalar", Pattern: "*.*"},
 		},
 	})
 }
 
-// SlidesToPDF converts a presentation file to PDF (via PowerPoint or
+// PickDocFile opens a native file dialog covering every importable type
+// (documents, spreadsheets, presentations, PDFs and images).
+func (a *App) PickDocFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Dosya İçe Aktar",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Belgeler ve görseller", Pattern: docPattern + ";" + imgPattern},
+			{DisplayName: "PDF", Pattern: "*.pdf"},
+			{DisplayName: "Word", Pattern: "*.docx;*.doc;*.docm;*.odt;*.rtf;*.txt"},
+			{DisplayName: "Excel", Pattern: "*.xlsx;*.xls;*.xlsm;*.ods;*.csv"},
+			{DisplayName: "PowerPoint", Pattern: "*.pptx;*.ppt;*.pptm;*.pps;*.ppsx;*.odp"},
+			{DisplayName: "Görseller", Pattern: imgPattern},
+			{DisplayName: "Tüm dosyalar", Pattern: "*.*"},
+		},
+	})
+}
+
+// SlidesToPDF converts any supported document to PDF (Office COM or
 // LibreOffice) and returns it as a data URL, ready for the PDF import pipeline.
 func (a *App) SlidesToPDF(path string) (string, error) {
-	return convertSlidesToPDF(path)
+	return convertToPDF(path)
+}
+
+// ReadFileAsDataURL returns a picked file as a data URL — used for images,
+// which the frontend places directly without conversion.
+func (a *App) ReadFileAsDataURL(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	mime := "application/octet-stream"
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png":
+		mime = "image/png"
+	case ".jpg", ".jpeg":
+		mime = "image/jpeg"
+	case ".webp":
+		mime = "image/webp"
+	case ".gif":
+		mime = "image/gif"
+	case ".bmp":
+		mime = "image/bmp"
+	case ".pdf":
+		mime = "application/pdf"
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
 // AppInfo exposes version metadata to the About screen.
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.5.2",
+		"version": "2.6.0",
 		"channel": "pro",
 	}
 }

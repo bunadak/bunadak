@@ -142,7 +142,10 @@ let stageRect=null;
 function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
 window.addEventListener('resize',resize);
 function toDoc(e){const r=stageRect||(stageRect=stage.getBoundingClientRect());return{x:(e.clientX-r.left-view.x)/view.s,y:(e.clientY-r.top-view.y)/view.s}}
-function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();const r=stage.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;s=clamp(s,.1,8);const k=s/view.s;view.x=cx-(cx-view.x)*k;view.y=cy-(cy-view.y)*k;view.s=s;$('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
+function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();viewFitted=false;const r=stage.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;s=clamp(s,.1,8);const k=s/view.s;view.x=cx-(cx-view.x)*k;view.y=cy-(cy-view.y)*k;view.s=s;$('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
+/* Görünüm hâlâ "sığdırılmış" durumda mı? Kullanıcı yakınlaştırıp kaydırınca
+   false olur; böylece otomatik yeniden sığdırma kimsenin zoom'unu ezmez. */
+let viewFitted=false;
 function fit(){const p=page(),r=stage.getBoundingClientRect();
   if(boardMode()){
     /* Sonsuz tahta: içerik VARSA ekrana ortalayarak sığdır — kütüphaneden açılan
@@ -160,7 +163,15 @@ function fit(){const p=page(),r=stage.getBoundingClientRect();
     }else view={x:r.width/2,y:r.height/3,s:1};
   }
   else if(presenting){fitPresent()}
-  else{const s=clamp((r.width-64)/p.w,.1,4);const off=layout()[cur];view={x:(r.width-p.w*s)/2+2,y:-off.y*s+8,s}}
+  else{
+    /* PDF · Belge: sayfa çalışma alanının GENİŞLİĞİNİ tam doldurur — yanlarda
+       boşluk/siyah bant kalmaz. Dikey kaydırmalı sayfa akışı aynen korunur.
+       Sayfa ekrandan uzunsa yüksekliğe göre kısıtlanmaz (kaydırarak okunur). */
+    const off=layout()[cur];
+    const s=clamp(r.width/p.w,.05,6);
+    view={x:0,y:-off.y*s,s};
+  }
+  viewFitted=true;
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
 function fitPresent(){const p=page(),r=stage.getBoundingClientRect();
   const s=Math.min(r.width/p.w,r.height/p.h)*.97;const off=curOff();
@@ -496,11 +507,10 @@ function pageEdgeColor(pg){
   }catch(e){pg._edge='#FBF8F0'}
   return pg._edge;
 }
-/* Kesintisiz zemin YALNIZ slayt sunusu modunda uygulanır.
-   Normal PDF görünümü orijinal davranışını korur: sayfa genişliğe sığar,
-   kâğıdın çevresinde uygulamanın zemini ve sayfa gölgesi görünür. */
+/* Kesintisiz zemin: PDF/belge ve slayt sayfalarında, kâğıdın dışında kalan
+   alan sayfanın kendi kenar rengiyle dolar — koyu bant görünmez. */
 function seamlessBg(){
-  try{return !!(window.proSlideActive&&window.proSlideActive()&&!boardMode()&&doc.pages.length&&doc.pages[cur]&&doc.pages[cur].bg)}
+  try{return !boardMode()&&doc.pages.length>0&&!!(doc.pages[cur]&&doc.pages[cur].bg)}
   catch(e){return false}
 }
 function redraw(){ctx.imageSmoothingQuality='high';
@@ -3160,7 +3170,12 @@ function init(){
   seedDoc();buildRail();buildSwatches();renderFavs();renderOpts();renderLayers();renderStickers();renderKeys();renderThemes();
   syncOptsUI();renderCPenSet();renderBoards();applyCompact();
   resize();fit();updUndoBtns();updCornerPg();laserLoop();
-  new ResizeObserver(()=>resize()).observe(stage);
+  /* OTOMATİK SIĞDIRMA: çalışma alanı boyutu değişince (pencere, tam ekran,
+     panel aç/kapa) PDF/belge sayfası kenarlara yeniden oturur. Kullanıcı
+     yakınlaştırdıysa (viewFitted=false) görünümüne dokunulmaz. */
+  new ResizeObserver(()=>{resize();
+    if(viewFitted&&!boardMode()&&!(window.proSlideActive&&window.proSlideActive()))fit();
+  }).observe(stage);
   setTool('smart');
   if(S.penDNA)dnaApply(); // imza kalem: en çok kullanılan kombinasyon
   toast('Notis hazır — Ctrl+K: komut paleti · sağ tık basılı tut: hızlı araçlar');
