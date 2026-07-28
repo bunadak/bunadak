@@ -96,10 +96,9 @@
   function applyEngine() {
     try {
       if (typeof S === "undefined") return;
+      /* Kalem motoru ORİJİNAL: buradan kaleme dokunan hiçbir bayrak yazılmaz.
+         Yalnız görüntü opsiyonu (OLED) motora bildirilir. */
       S.oledUltra = !!PS.oled;
-      /* ORİJİNAL KALEM TEKNOLOJİSİ: pro kalem deney bayrakları kalıcı kapalı —
-         eski bir kayıtta açık kalmış olsalar bile motor orijinal davranır. */
-      S.hz144 = false; S.beautify = false; S.handFont = false; S.inkK = 50;
       if (typeof applyDPR === "function") applyDPR();  // OLED → tuvali yeniden ölçekler
       redrawSafe();
     } catch (_) {}

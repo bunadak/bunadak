@@ -170,11 +170,30 @@ func (a *App) CaptureRegion(x, y, w, h int) (string, error) {
 	return captureScreenRegion(x, y, w, h)
 }
 
+// PickSlideFile opens a native file dialog for presentation files and returns
+// the chosen path (empty when cancelled).
+func (a *App) PickSlideFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Slayt Sunusu Aç",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Sunum dosyaları (*.pptx;*.ppt;*.odp;*.pdf)", Pattern: "*.pptx;*.ppt;*.odp;*.pdf"},
+			{DisplayName: "PowerPoint (*.pptx;*.ppt)", Pattern: "*.pptx;*.ppt"},
+			{DisplayName: "PDF (*.pdf)", Pattern: "*.pdf"},
+		},
+	})
+}
+
+// SlidesToPDF converts a presentation file to PDF (via PowerPoint or
+// LibreOffice) and returns it as a data URL, ready for the PDF import pipeline.
+func (a *App) SlidesToPDF(path string) (string, error) {
+	return convertSlidesToPDF(path)
+}
+
 // AppInfo exposes version metadata to the About screen.
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.4.0",
+		"version": "2.5.0",
 		"channel": "pro",
 	}
 }

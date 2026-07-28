@@ -21,16 +21,16 @@ import (
 )
 
 var (
-	capUser32              = syscall.NewLazyDLL("user32.dll")
-	capGdi32               = syscall.NewLazyDLL("gdi32.dll")
-	capGetDC               = capUser32.NewProc("GetDC")
-	capReleaseDC           = capUser32.NewProc("ReleaseDC")
-	capCreateCompatibleDC  = capGdi32.NewProc("CreateCompatibleDC")
-	capCreateDIBSection    = capGdi32.NewProc("CreateDIBSection")
-	capSelectObject        = capGdi32.NewProc("SelectObject")
-	capBitBlt              = capGdi32.NewProc("BitBlt")
-	capDeleteDC            = capGdi32.NewProc("DeleteDC")
-	capDeleteObject        = capGdi32.NewProc("DeleteObject")
+	capUser32             = syscall.NewLazyDLL("user32.dll")
+	capGdi32              = syscall.NewLazyDLL("gdi32.dll")
+	capGetDC              = capUser32.NewProc("GetDC")
+	capReleaseDC          = capUser32.NewProc("ReleaseDC")
+	capCreateCompatibleDC = capGdi32.NewProc("CreateCompatibleDC")
+	capCreateDIBSection   = capGdi32.NewProc("CreateDIBSection")
+	capSelectObject       = capGdi32.NewProc("SelectObject")
+	capBitBlt             = capGdi32.NewProc("BitBlt")
+	capDeleteDC           = capGdi32.NewProc("DeleteDC")
+	capDeleteObject       = capGdi32.NewProc("DeleteObject")
 )
 
 type capBitmapInfoHeader struct {

@@ -431,7 +431,7 @@ function drawStroke(c,o){
 }
 /* Yazı tipi: "Güzel El Yazısı" açıkken metin, Excalifont el yazısı fontuyla çizilir */
 function textFontCSS(size,scale){const s=size*(scale||1);
-  return (typeof S!=='undefined'&&S.handFont)?`400 ${s}px Excalifont, Manrope, sans-serif`:`600 ${s}px Manrope, sans-serif`}
+  return `600 ${s}px Manrope, sans-serif`}
 function drawText(c,o){c.save();c.globalAlpha*=o.opacity??1;c.fillStyle=o.color;c.font=textFontCSS(o.size);c.textBaseline='top';
   o.text.split('\n').forEach((ln,i)=>c.fillText(ln,o.x,o.y+i*o.size*1.25));c.restore()}
 function drawImage(c,o){if(!o._img||!o._img.complete)return;c.save();c.globalAlpha*=o.opacity??1;
@@ -793,11 +793,7 @@ function commitStroke(){
     if(cp.spray)fx.s={r:cp.sprayR||18,d:clamp(cp.sprayD||.7,.05,1),sp:Math.max(.005,cp.sp||.01)};
     if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
-  else if(o.tool==='smart'){
-    /* Şekil düzelt AÇIKSA akıllı kalemde de çalışır — önceden matisInk zinciri
-       şekil tanımayı yutuyordu, akıllı kalemle çizilen kare/daire hiç düzelmiyordu. */
-    const f=S.shapeFix?recognizeShape(o):null;
-    o=f||matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
+  else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
@@ -1766,11 +1762,21 @@ async function importPDF(f){
         w.postMessage({buf,targetW,cap:3.0,maxN:N0,base:LB},[buf]);
       });
     }else{
-      if(!window.pdfjsLib){await loadScript(LB+'/pdf.js/3.11.174/pdf.min.js');
-        pdfjsLib.GlobalWorkerOptions.workerSrc=LB+'/pdf.js/3.11.174/pdf.worker.min.js'}
+      /* ÇEVRİMDIŞI ÖNCELİK: pdf.js uygulamanın içine gömülüdür. Önce gömülü
+         kopya denenir (internet gerekmez, açılış anında hazır); yalnız o
+         bulunamazsa CDN'e düşülür. Böylece PDF ve SLAYT içe aktarma
+         internetsiz makinelerde de tam çalışır. */
+      let PB=window.__NOTIS_SRV?LB:location.origin;
+      if(!window.pdfjsLib){
+        try{await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
+        catch(e){PB='https://cdnjs.cloudflare.com/ajax/libs';await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
+        pdfjsLib.GlobalWorkerOptions.workerSrc=PB+'/pdf.js/3.11.174/pdf.worker.min.js';
+        window.__pdfBase=PB;
+      }else PB=window.__pdfBase||PB;
       const pdf=await pdfjsLib.getDocument(Object.assign({data:buf},
-        window.__NOTIS_SRV?{standardFontDataUrl:'/libs/pdf.js/3.11.174/standard_fonts/',
-          cMapUrl:'/libs/pdf.js/3.11.174/cmaps/',cMapPacked:true}:{})).promise;
+        /^https?:\/\/(cdnjs|unpkg|cdn)\./.test(PB)?{}:
+          {standardFontDataUrl:PB+'/pdf.js/3.11.174/standard_fonts/',
+           cMapUrl:PB+'/pdf.js/3.11.174/cmaps/',cMapPacked:true})).promise;
       N=Math.min(pdf.numPages,N0);
       let tw=targetW;
       if(N>250)tw=Math.min(tw,1400);else if(N>120)tw=Math.min(tw,1600);else if(N>60)tw=Math.min(tw,2000);
@@ -3052,20 +3058,18 @@ function applyPanels(refit){
 }
 function applyDPR(){
   const base=Math.min(2,window.devicePixelRatio||1);
+  /* ORİJİNAL yol: Ultra Netlik dışında hiçbir şey tuval çözünürlüğüne karışmaz */
   let d=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
-  /* 144Hz Ultra HD: tuval ekran çözünürlüğünün çok üzerinde örneklenir —
-     yüksek tazeleme hızlı ekranlarda kenarlar jilet gibi, piksel kırılması yok. */
-  /* OLED Ultra Görüntü: uygulama geneli 4K hissi — tuval her zaman en az 2× süper-
-     örneklenir; çizim, PDF ve arayüz yakınlaştırmada dahi piksel göstermez. */
-  if(S.oledUltra)d=Math.min(4,Math.max(d,base*2));
-  /* PİKSEL BÜTÇESİ: süper-örnekleme, tuval başına ~8.5MP'yi aşamaz. Aşarsa
-     canlı çizim kare hızı düşüp kalem gecikmeli hissettiriyordu; bütçe, büyük
-     ekranlarda netlikten görünür ödün vermeden akıcılığı garanti eder. */
-  try{const r=stage.getBoundingClientRect();
-    const px=Math.max(1,(r.width||1280)*(r.height||800));
-    d=Math.min(d,Math.sqrt(8.5e6/px));
-  }catch(_){}
-  d=Math.max(d,Math.min(base,1.5));   // temel netliğin altına asla inme
+  if(S.oledUltra){
+    /* OLED Ultra Görüntü (opsiyon · varsayılan KAPALI): yalnız bu opsiyon açıkken
+       devreye girer; kapalıyken çözünürlük davranışı birebir orijinaldir.
+       Piksel bütçesi de yalnız bu moda aittir (akıcılık garantisi). */
+    d=Math.min(4,Math.max(d,base*2));
+    try{const r=stage.getBoundingClientRect();
+      const px=Math.max(1,(r.width||1280)*(r.height||800));
+      d=Math.max(Math.min(d,Math.sqrt(8.5e6/px)),base);
+    }catch(_){}
+  }
   DPR=d;
   resize();
 }
