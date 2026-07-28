@@ -20,7 +20,7 @@
   "use strict";
 
   var SL = { on: false, lastId: null, busy: false };
-  var PAD = 22;                       // slayt ile çalışma alanı kenarı arası boşluk
+  var PAD = 0;                        // slayt çalışma alanını sonuna kadar doldurur
   function $id(x) { return document.getElementById(x); }
   function api() { return (window.go && window.go.main && window.go.main.App) || null; }
 
@@ -53,40 +53,6 @@
     gotoPage(i);
     fitSlide();
     scrollDetectLock = false;
-    syncBar();
-  }
-
-  /* ----------------------------------------------------------- ALT ÇUBUK */
-  function bar() {
-    var b = $id("slideBar");
-    if (b) return b;
-    b = document.createElement("div");
-    b.id = "slideBar";
-    b.innerHTML =
-      '<button type="button" id="slFirst" title="İlk slayt (Home)">⏮</button>' +
-      '<button type="button" id="slPrev" title="Önceki slayt (←)">◀</button>' +
-      '<span id="slCount" title="Slayt">1 / 1</span>' +
-      '<button type="button" id="slNext" title="Sonraki slayt (→)">▶</button>' +
-      '<button type="button" id="slLast" title="Son slayt (End)">⏭</button>' +
-      '<i class="sl-sep"></i>' +
-      '<button type="button" id="slFit" title="Slaydı çalışma alanına sığdır">⤢</button>' +
-      '<button type="button" id="slExit" title="Slayt modundan çık (Esc)">✖</button>';
-    stage.appendChild(b);
-    b.querySelector("#slFirst").addEventListener("click", function () { go(0); });
-    b.querySelector("#slPrev").addEventListener("click", function () { go(cur - 1); });
-    b.querySelector("#slNext").addEventListener("click", function () { go(cur + 1); });
-    b.querySelector("#slLast").addEventListener("click", function () { go(doc.pages.length - 1); });
-    b.querySelector("#slFit").addEventListener("click", fitSlide);
-    b.querySelector("#slExit").addEventListener("click", exit);
-    return b;
-  }
-  function syncBar() {
-    if (!SL.on) return;
-    var c = $id("slCount");
-    if (c) c.textContent = (cur + 1) + " / " + doc.pages.length;
-    var f = $id("slPrev"), l = $id("slNext");
-    if (f) f.disabled = cur <= 0;
-    if (l) l.disabled = cur >= doc.pages.length - 1;
   }
 
   /* -------------------------------------------------------- AÇ / KAPAT */
@@ -94,15 +60,13 @@
     if (SL.on) return;
     SL.on = true;
     document.body.classList.add("slide-mode");
-    bar();
     var sb = $id("slideBtn"); if (sb) sb.classList.add("on2");
-    requestAnimationFrame(function () { fitSlide(); syncBar(); });
+    requestAnimationFrame(fitSlide);
   }
   function exit() {
     if (!SL.on) return;
     SL.on = false;
     document.body.classList.remove("slide-mode");
-    var b = $id("slideBar"); if (b) b.remove();
     var sb = $id("slideBtn"); if (sb) sb.classList.remove("on2");
     try { fit(); } catch (_) {}
   }
@@ -220,7 +184,7 @@
   var _gp = window.gotoPage;
   if (typeof _gp === "function") window.gotoPage = function () {
     var r = _gp.apply(this, arguments);
-    if (SL.on) { fitSlide(); syncBar(); }
+    if (SL.on) fitSlide();
     return r;
   };
 

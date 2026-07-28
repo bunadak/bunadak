@@ -339,24 +339,7 @@ body.pro-web-live #proWebBar #pwMode { background: var(--acc2); color: #06281F; 
 #proWebDlg .pw-f .ghost { background: var(--p3); color: var(--tx); }
 #proWebDlg #pwGo { background: var(--acc); color: var(--acc-ink); }
 
-/* =============================================================================
-   📽 SLAYT SUNUSU — tek slayt çalışma alanına oturur, alt çubukla gezinilir
-   ========================================================================== */
-#slideBar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
-  z-index: 94; display: none; gap: 4px; align-items: center;
-  background: color-mix(in srgb, var(--p1) 94%, transparent);
-  border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px;
-  box-shadow: var(--shadow); }
-body.slide-mode #slideBar { display: flex; }
-#slideBar button { border: none; cursor: pointer; border-radius: 999px;
-  min-width: 32px; padding: 6px 10px; font-size: 13px; font-weight: 800;
-  color: var(--tx); background: var(--p3); transition: .14s var(--ease); }
-#slideBar button:hover:not(:disabled) { background: var(--acc); color: var(--acc-ink); }
-#slideBar button:disabled { opacity: .35; cursor: default; }
-#slideBar #slCount { font-size: 12.5px; font-weight: 800; color: var(--tx);
-  padding: 0 10px; min-width: 62px; text-align: center; font-variant-numeric: tabular-nums; }
-#slideBar .sl-sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
-/* slayt modunda tuvalin altı çubuğa çarpmasın diye hafif nefes payı */
-body.slide-mode #corner { bottom: 62px; }
-/* üst paneldeki slayt düğmesi aktifken vurgulanır */
+/* 📽 Slayt modu: çalışma alanında yalnız slayt bulunur — ek arayüz yok.
+   Üst paneldeki slayt düğmesi mod açıkken vurgulanır. */
 #slideBtn.on2 { color: var(--acc); }
+

@@ -193,7 +193,7 @@ func (a *App) SlidesToPDF(path string) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.5.0",
+		"version": "2.5.1",
 		"channel": "pro",
 	}
 }

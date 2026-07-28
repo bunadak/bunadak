@@ -160,7 +160,13 @@ function fit(){const p=page(),r=stage.getBoundingClientRect();
     }else view={x:r.width/2,y:r.height/3,s:1};
   }
   else if(presenting){fitPresent()}
-  else{const s=clamp((r.width-64)/p.w,.1,4);const off=layout()[cur];view={x:(r.width-p.w*s)/2+2,y:-off.y*s+8,s}}
+  else{
+    /* PDF · SLAYT: sayfa çalışma alanına TAM sığar (tamamı görünür, ortalanmış).
+       Kenarlarda kalan alan sayfanın kendi zemin rengiyle dolar (kesintisiz). */
+    const off=layout()[cur];
+    const s=clamp(Math.min(r.width/p.w,r.height/p.h),.05,4);
+    view={x:(r.width-p.w*s)/2,y:(r.height-p.h*s)/2-off.y*s,s};
+  }
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
 function fitPresent(){const p=page(),r=stage.getBoundingClientRect();
   const s=Math.min(r.width/p.w,r.height/p.h)*.97;const off=curOff();
@@ -467,6 +473,37 @@ function rotateObj(o,cx,cy,a){
    ANA ÇİZİM — sürekli kaydırmalı sayfa akışı
 ============================================================ */
 let scrollDetectLock=false;
+/* ---------------------------------------------------------------------------
+ * KESİNTİSİZ ZEMİN (PDF · Slayt)
+ * Sayfa oranı çalışma alanının oranına eşit olmadığında kenarlarda uygulamanın
+ * koyu zemini görünüyordu. Belge PDF/slayt ise, sayfanın KENAR RENGİ (görselin
+ * çerçevesinden örneklenen medyan renk) tüm çalışma alanına yayılır: sayfa
+ * kâğıdın içinde erir, siyah bant kalmaz. Renk sayfa başına bir kez hesaplanır.
+ * ------------------------------------------------------------------------- */
+function pageEdgeColor(pg){
+  if(!pg)return '#FBF8F0';
+  if(pg._edge)return pg._edge;
+  if(!(pg.bgImg&&pg.bgImg.complete&&pg.bgImg.naturalWidth))return pg.bg?null:'#FBF8F0';
+  try{
+    /* Görselin EN DIŞ 1 piksellik şeridi dört kenardan ayrı ayrı örneklenir
+       (küçültme karışımı olmadan) ve medyanı alınır — sayfanın gerçek kenar
+       rengi bulunur, içerideki çerçeve/başlık renkleri sonuca sızmaz. */
+    const im=pg.bgImg,W=im.naturalWidth,H=im.naturalHeight,K=16;
+    const c=document.createElement('canvas');c.width=K;c.height=4;
+    const g=c.getContext('2d',{willReadFrequently:true});
+    g.drawImage(im,0,0,W,1,        0,0,K,1);   // üst
+    g.drawImage(im,0,H-1,W,1,      0,1,K,1);   // alt
+    g.drawImage(im,0,0,1,H,        0,2,K,1);   // sol  (dikey şerit yatırılır)
+    g.drawImage(im,W-1,0,1,H,      0,3,K,1);   // sağ
+    const d=g.getImageData(0,0,K,4).data,R=[],G=[],B=[];
+    for(let i=0;i<d.length;i+=4){R.push(d[i]);G.push(d[i+1]);B.push(d[i+2])}
+    const med=a=>{a.sort((p,q)=>p-q);return a[a.length>>1]};
+    pg._edge='rgb('+med(R)+','+med(G)+','+med(B)+')';
+  }catch(e){pg._edge='#FBF8F0'}
+  return pg._edge;
+}
+/* Belge bir PDF/slayt mı? (sayfaların zemin görseli var) */
+function isDocPaged(){return !boardMode()&&doc.pages.length>0&&!!doc.pages[0].bg}
 function redraw(){ctx.imageSmoothingQuality='high';
   const p=page();if(!p)return;
   invalidateLayout();const L=layout();
@@ -491,13 +528,23 @@ function redraw(){ctx.imageSmoothingQuality='high';
        sayfa sınırını aşan bir çizgi, sonraki sayfanın beyaz zemini altında
        kalıp SİLİNMİŞ gibi görünüyordu. İki geçişle mürekkep hep üstte kalır. */
     let visA=-1,visB=-1;const visIdx=[];
+    /* Kesintisiz zemin: sayfanın kenar rengi tüm çalışma alanına yayılır —
+       kenarlarda koyu bant kalmaz (PDF ve slaytlarda kâğıt tüm alanı kaplar). */
+    let seam=null;
+    if(isDocPaged()){
+      ensureBg(doc.pages[cur]);
+      seam=pageEdgeColor(doc.pages[cur])||'#FBF8F0';  // görsel yüklenene dek kâğıt rengi
+      ctx.save();ctx.fillStyle=seam;ctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);ctx.restore();
+    }
     for(let i=0;i<doc.pages.length;i++){
       const pg=doc.pages[i],off=L[i];
       if(off.y>vy1||off.y+pg.h<vy0)continue;
       if(visA<0)visA=i;visB=i;visIdx.push(i);
       ensureBg(pg);                              // görünür sayfa: görseli tembel yükle
       ctx.save();ctx.translate(off.x,off.y);
-      ctx.save();ctx.shadowColor='rgba(4,8,25,.5)';ctx.shadowBlur=26/view.s;ctx.shadowOffsetY=6/view.s;
+      ctx.save();
+      /* Zemin kesintisizken gölge çizilmez — yoksa kâğıdın etrafında halka olur */
+      if(!seam){ctx.shadowColor='rgba(4,8,25,.5)';ctx.shadowBlur=26/view.s;ctx.shadowOffsetY=6/view.s}
       ctx.fillStyle='#FBF8F0';ctx.fillRect(0,0,pg.w,pg.h);ctx.restore();
       ctx.save();ctx.beginPath();ctx.rect(0,0,pg.w,pg.h);ctx.clip();
       if(pg.bgImg&&pg.bgImg.complete)ctx.drawImage(pg.bgImg,0,0,pg.w,pg.h);
