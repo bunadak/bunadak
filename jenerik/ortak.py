@@ -22,10 +22,12 @@ import numpy as np
 W, H = 1920, 1080
 FPS = 60
 
-LOGO_FONT = "Mathera Wordmark"    # logodaki kalın geometrik harfler (Exo 2 700)
+LOGO_FONT = "Mathera Wordmark"    # logodaki geometrik harfler (Exo 2, 600)
 UI_FONT = "Montserrat"            # Türkçe alt yazılar (tam karakter desteği)
 
-IZ_ORANI = 0.07                   # logodaki harf aralığı (em cinsinden)
+# Harf aralığı, logo fotoğrafındaki kelime genişliği / büyük harf yüksekliği
+# oranı (≈ 6.34) ölçülerek bulundu.
+IZ_ORANI = 0.02
 
 # --- renk paleti -------------------------------------------------------
 # Kurgu: soğuk ve derin lacivert ↔ sıcak bakır. Birbirinin tamamlayıcısı

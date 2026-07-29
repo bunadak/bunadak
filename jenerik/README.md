@@ -61,7 +61,7 @@ python3 yap.py outro     # yalnızca kapanış
 ```
 
 Logo yazısı `fonts/MatheraWordmark.ttf` ile çizilir — logodaki kalın
-geometrik harflerin karşılığı olan Exo 2 (700), fontconfig karışıklığı
+geometrik harflerin karşılığı olan Exo 2 (600), fontconfig karışıklığı
 olmasın diye kendi aile adıyla kaydedilmiştir.
 
 Gerekenler: `python3`, `ffmpeg`, `pycairo`, `numpy` ve `fonts/` klasöründeki
