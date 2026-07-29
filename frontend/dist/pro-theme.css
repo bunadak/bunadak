@@ -343,3 +343,8 @@ body.pro-web-live #proWebBar #pwMode { background: var(--acc2); color: #06281F; 
    Üst paneldeki slayt düğmesi mod açıkken vurgulanır. */
 #slideBtn.on2 { color: var(--acc); }
 
+
+/* =============================================================================
+   🖊️ PRO İMLEÇ — kalem figürü (opsiyon; kapalıyken hiçbir kural uygulanmaz)
+   ========================================================================== */
+body.pro-cur #cv, body.pro-cur #ovl, body.pro-cur #stage { cursor: var(--pro-cur) !important; }
