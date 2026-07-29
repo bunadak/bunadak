@@ -62,10 +62,16 @@
     b.id = "proWebBar";
     b.innerHTML =
       '<button type="button" id="pwMode"></button>' +
+      '<button type="button" id="pwSmall" title="Küçült">−</button>' +
+      '<button type="button" id="pwBig" title="Büyüt">＋</button>' +
+      '<button type="button" id="pwFit" title="Yerleşimi sıfırla">⤢</button>' +
       '<button type="button" id="pwLink" title="Bağlantıyı değiştir">🔗</button>' +
       '<button type="button" id="pwClose" title="Web katmanını kapat">✖</button>';
     stage.appendChild(b);
     b.querySelector("#pwMode").addEventListener("click", function () { setLive(!WEB.live); });
+    b.querySelector("#pwSmall").addEventListener("click", function () { scaleBox(0.85); });
+    b.querySelector("#pwBig").addEventListener("click", function () { scaleBox(1 / 0.85); });
+    b.querySelector("#pwFit").addEventListener("click", resetBox);
     b.querySelector("#pwLink").addEventListener("click", ask);
     b.querySelector("#pwClose").addEventListener("click", closeWeb);
     return b;
@@ -102,6 +108,8 @@
     try { stage.style.background = (typeof _bg === "function") ? _bg() : ""; } catch (_) {}
     try { localStorage.setItem("notis_web_url", raw); } catch (_) {}
     setLive(false);
+    grips();
+    requestAnimationFrame(function () { var b = loadBox(); if (b) applyBox(b); else layoutGrips(); });
     try { redraw(); } catch (_) {}
   }
   function closeWeb() {
@@ -109,6 +117,7 @@
     document.body.classList.remove("pro-web", "pro-web-live", "pro-web-yt");
     var f = $id("proWebFrame"); if (f) { f.src = "about:blank"; f.remove(); }
     var b = $id("proWebBar"); if (b) b.remove();
+    var g = $id("proWebGrips"); if (g) g.remove();
     try { stage.style.background = ""; } catch (_) {}
     syncUI();
     try { redraw(); } catch (_) {}
@@ -198,6 +207,135 @@
     if (!d.open) d.showModal();
     setTimeout(function () { i.focus(); i.select(); }, 60);
   }
+
+  /* =======================================================================
+   * YERLEŞİM — pencereyi tahtada taşı & boyutlandır
+   * iframe'in ETRAFINA sekiz tutamak yerleştirilir (4 kenar + 4 köşe).
+   * Tutamaklar sayfanın ÜSTÜNÜ kapatmaz: yalnız dış kenarda dururlar, bu
+   * yüzden ne videoya tıklamayı ne de üzerine çizmeyi engellerler.
+   * Konum/boyut kalıcıdır; YouTube'da 16:9 oranı korunur.
+   * ==================================================================== */
+  var BOXKEY = "notis_web_box";
+  var GRIPS = [
+    ["n", "move"], ["s", "ns-resize"], ["w", "ew-resize"], ["e", "ew-resize"],
+    ["nw", "nwse-resize"], ["se", "nwse-resize"], ["ne", "nesw-resize"], ["sw", "nesw-resize"]
+  ];
+  var EDGE = 11, CORNER = 18;
+
+  function loadBox() { try { return JSON.parse(localStorage.getItem(BOXKEY) || "null"); } catch (_) { return null; } }
+  function saveBox(b) { try { localStorage.setItem(BOXKEY, JSON.stringify(b)); } catch (_) {} }
+  function rectOf() {
+    var f = $id("proWebFrame"); if (!f) return null;
+    return { x: f.offsetLeft, y: f.offsetTop, w: f.offsetWidth, h: f.offsetHeight };
+  }
+  function applyBox(b) {
+    var f = $id("proWebFrame"); if (!f || !b) return;
+    var s = stage.getBoundingClientRect();
+    var w = Math.max(220, Math.min(b.w, s.width));
+    var h = Math.max(140, Math.min(b.h, s.height));
+    var x = Math.max(-w + 90, Math.min(b.x, s.width - 90));
+    var y = Math.max(0, Math.min(b.y, s.height - 60));
+    f.style.left = x + "px"; f.style.top = y + "px";
+    f.style.width = w + "px"; f.style.height = h + "px";
+    f.style.right = "auto"; f.style.bottom = "auto"; f.style.aspectRatio = "auto";
+    layoutGrips();
+  }
+  function grips() {
+    var g = $id("proWebGrips");
+    if (g) return g;
+    g = document.createElement("div");
+    g.id = "proWebGrips";
+    GRIPS.forEach(function (d) {
+      var el2 = document.createElement("i");
+      el2.className = "pwg pwg-" + d[0];
+      el2.dataset.d = d[0];
+      el2.style.cursor = d[1];
+      el2.addEventListener("pointerdown", startDrag);
+      g.appendChild(el2);
+    });
+    stage.appendChild(g);
+    return g;
+  }
+  function layoutGrips() {
+    if (!WEB.on) return;
+    var g = $id("proWebGrips"), r = rectOf();
+    if (!g || !r) return;
+    var set = function (sel, x, y, w, h) {
+      var e = g.querySelector(".pwg-" + sel); if (!e) return;
+      e.style.left = x + "px"; e.style.top = y + "px";
+      e.style.width = w + "px"; e.style.height = h + "px";
+    };
+    set("n", r.x + CORNER, r.y - EDGE, Math.max(0, r.w - CORNER * 2), EDGE);
+    set("s", r.x + CORNER, r.y + r.h, Math.max(0, r.w - CORNER * 2), EDGE);
+    set("w", r.x - EDGE, r.y + CORNER, EDGE, Math.max(0, r.h - CORNER * 2));
+    set("e", r.x + r.w, r.y + CORNER, EDGE, Math.max(0, r.h - CORNER * 2));
+    set("nw", r.x - EDGE, r.y - EDGE, CORNER + EDGE, CORNER + EDGE);
+    set("ne", r.x + r.w - CORNER, r.y - EDGE, CORNER + EDGE, CORNER + EDGE);
+    set("sw", r.x - EDGE, r.y + r.h - CORNER, CORNER + EDGE, CORNER + EDGE);
+    set("se", r.x + r.w - CORNER, r.y + r.h - CORNER, CORNER + EDGE, CORNER + EDGE);
+  }
+
+  var DRAG = null;
+  function startDrag(e) {
+    var r = rectOf(); if (!r) return;
+    e.preventDefault(); e.stopPropagation();
+    DRAG = { d: e.currentTarget.dataset.d, sx: e.clientX, sy: e.clientY, r: r,
+             ratio: WEB.yt ? (r.w / Math.max(1, r.h)) : 0 };
+    document.body.classList.add("pro-web-drag");
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    window.addEventListener("pointermove", moveDrag, true);
+    window.addEventListener("pointerup", endDrag, true);
+  }
+  function moveDrag(e) {
+    if (!DRAG) return;
+    e.preventDefault(); e.stopPropagation();
+    var dx = e.clientX - DRAG.sx, dy = e.clientY - DRAG.sy, r = DRAG.r, d = DRAG.d;
+    var b = { x: r.x, y: r.y, w: r.w, h: r.h };
+    /* ÜST KENAR = taşıma kolu (başlık çubuğu gibi). Diğer kenarlar ve köşeler
+       boyutlandırır. Shift, herhangi bir tutamağı taşıma koluna çevirir. */
+    var moving = (d === "n") || e.shiftKey;
+    if (!moving) {
+      if (d.indexOf("w") >= 0) { b.x = r.x + dx; b.w = r.w - dx; }
+      if (d.indexOf("e") >= 0) { b.w = r.w + dx; }
+      if (d.indexOf("n") >= 0) { b.y = r.y + dy; b.h = r.h - dy; }
+      if (d.indexOf("s") >= 0) { b.h = r.h + dy; }
+    }
+    if (moving) { b = { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }; }
+    else if (DRAG.ratio) {                       // YouTube: 16:9 kilidi
+      if (d === "n" || d === "s") b.w = b.h * DRAG.ratio;
+      else b.h = b.w / DRAG.ratio;
+      if (d.indexOf("n") >= 0 && d !== "n") b.y = r.y + r.h - b.h;
+      if (d.indexOf("w") >= 0 && d !== "w") b.x = r.x + r.w - b.w;
+    }
+    if (b.w < 220) { b.w = 220; } if (b.h < 140) { b.h = 140; }
+    applyBox(b);
+  }
+  function endDrag() {
+    window.removeEventListener("pointermove", moveDrag, true);
+    window.removeEventListener("pointerup", endDrag, true);
+    document.body.classList.remove("pro-web-drag");
+    DRAG = null;
+    var r = rectOf(); if (r) saveBox(r);
+  }
+  /* Kapsüldeki ölçek düğmeleri: merkezden büyüt/küçült */
+  function scaleBox(k) {
+    var r = rectOf(); if (!r) return;
+    var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    var w = r.w * k, h = r.h * k;
+    applyBox({ x: cx - w / 2, y: cy - h / 2, w: w, h: h });
+    var n = rectOf(); if (n) saveBox(n);
+  }
+  function resetBox() {
+    try { localStorage.removeItem(BOXKEY); } catch (_) {}
+    var f = $id("proWebFrame");
+    if (f) { f.style.left = f.style.top = f.style.width = f.style.height = ""; f.style.aspectRatio = ""; }
+    layoutGrips();
+  }
+  window.proWebScale = scaleBox;
+  window.proWebReset = resetBox;
+
+  try { new ResizeObserver(function () { layoutGrips(); }).observe(stage); } catch (_) {}
+  window.addEventListener("resize", function () { setTimeout(layoutGrips, 60); });
 
   /* Üst paneldeki 🌐 düğmesi (index.html #webBtn) bu diyaloğu açar */
   window.proWebAsk = ask;
