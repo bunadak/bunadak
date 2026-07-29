@@ -1,0 +1,435 @@
+/* =============================================================
+   MATHERA KAPAK MOTORU — tasarım sistemi
+   Her ölçü 1280×720 tuvale göre. Render 2× ölçekte alınır.
+   ============================================================= */
+
+/* ---------- Fontlar (yerel, internet gerekmez) ---------- */
+@font-face { font-family:'Archivo Black'; src:url('../fonts/ArchivoBlack-Regular.ttf'); font-weight:400; }
+@font-face { font-family:'Anton';         src:url('../fonts/Anton-Regular.ttf');        font-weight:400; }
+@font-face { font-family:'Playfair';      src:url('../fonts/PlayfairDisplay-Black.ttf');       font-weight:900; font-style:normal; }
+@font-face { font-family:'Playfair';      src:url('../fonts/PlayfairDisplay-Bold.ttf');        font-weight:700; font-style:normal; }
+@font-face { font-family:'Playfair';      src:url('../fonts/PlayfairDisplay-BlackItalic.ttf'); font-weight:900; font-style:italic; }
+@font-face { font-family:'Playfair';      src:url('../fonts/PlayfairDisplay-BoldItalic.ttf');  font-weight:700; font-style:italic; }
+@font-face { font-family:'Manrope';       src:url('../fonts/Manrope-Medium.ttf');    font-weight:500; }
+@font-face { font-family:'Manrope';       src:url('../fonts/Manrope-Bold.ttf');      font-weight:700; }
+@font-face { font-family:'Manrope';       src:url('../fonts/Manrope-ExtraBold.ttf'); font-weight:800; }
+@font-face { font-family:'Sora';          src:url('../fonts/Sora-SemiBold.ttf');     font-weight:600; }
+@font-face { font-family:'Sora';          src:url('../fonts/Sora-ExtraBold.ttf');    font-weight:800; }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width: var(--w); height: var(--h);
+  overflow: hidden;
+  background: #000;
+  font-family:'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* =============================================================
+   TUVAL + ATMOSFER KATMANLARI
+   ============================================================= */
+.tuval {
+  position: relative;
+  width: var(--w); height: var(--h);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 95% at 22% 6%, var(--isik) 0%, transparent 58%),
+    radial-gradient(90% 80% at 92% 100%, rgba(192,130,79,0.13) 0%, transparent 60%),
+    linear-gradient(155deg, var(--zemin1) 0%, var(--zemin2) 100%);
+  color: var(--metin);
+}
+
+/* Mühendislik kâğıdı ızgarası — çok ince, bilinçaltına çalışır */
+.izgara {
+  position:absolute; inset:-2px; pointer-events:none;
+  background-image:
+    linear-gradient(var(--izgara) 1px, transparent 1px),
+    linear-gradient(90deg, var(--izgara) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+  background-size: 160px 160px, 160px 160px, 32px 32px, 32px 32px;
+  -webkit-mask-image: radial-gradient(105% 90% at 30% 20%, #000 12%, rgba(0,0,0,0.25) 78%, transparent 100%);
+          mask-image: radial-gradient(105% 90% at 30% 20%, #000 12%, rgba(0,0,0,0.25) 78%, transparent 100%);
+}
+
+/* Arka planda dolaşan hayalet matematik sembolleri */
+.hayaletler { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.hayalet {
+  position:absolute;
+  font-family:'Playfair', serif; font-style:italic; font-weight:700;
+  color: var(--hayalet);
+  line-height:.8; user-select:none;
+}
+
+/* Yumuşak vinyet — kenarları karartıp merkezi öne çıkarır */
+.vinyet {
+  position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(115% 100% at 50% 45%, transparent 42%, rgba(0,0,0,0.42) 100%);
+}
+.tema-krem .vinyet { background: radial-gradient(115% 100% at 50% 45%, transparent 45%, rgba(60,44,28,0.22) 100%); }
+
+/* İnce film grenİ — ekranda "basılmış" hissi verir */
+.gren {
+  position:absolute; inset:0; pointer-events:none; opacity:.10; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>");
+}
+
+/* Üst-sol ışık huzmesi (banner'daki spot ışığın devamı) */
+.huzme {
+  position:absolute; left:-14%; top:-58%; width:78%; height:150%;
+  transform: rotate(19deg); pointer-events:none;
+  background: linear-gradient(90deg, transparent, rgba(255,231,210,0.055) 45%, transparent);
+  filter: blur(26px);
+}
+
+/* Alt bakır şerit — her kapakta tekrar eden kimlik çizgisi */
+.taban-serit {
+  position:absolute; left:0; right:0; bottom:0; height:7px;
+  background: linear-gradient(90deg,
+    var(--bakir-dip) 0%, var(--bakir-govde) 18%, var(--bakir-isik) 38%,
+    var(--bakir-parlak) 47%, var(--bakir-orta) 60%, var(--bakir-golge) 82%, var(--bakir-dip) 100%);
+  box-shadow: 0 -10px 26px rgba(192,130,79,0.30);
+}
+
+/* =============================================================
+   BAKIR METAL TİPOGRAFİ
+   drop-shadow zinciri kabartma (bevel) etkisini üretir.
+   ============================================================= */
+.metal {
+  background: linear-gradient(177deg,
+    var(--bakir-parlak) 0%,
+    var(--bakir-isik)   13%,
+    var(--bakir-orta)   28%,
+    var(--bakir-govde)  43%,
+    var(--bakir-golge)  52%,
+    var(--bakir-govde)  59%,
+    var(--bakir-isik)   74%,
+    var(--bakir-orta)   88%,
+    var(--bakir-golge)  100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 -1.5px 0 rgba(255,236,214,0.55))
+    drop-shadow(0  3px 0 rgba(58,26,10,0.92))
+    drop-shadow(0  5px 1px rgba(20,8,2,0.55))
+    drop-shadow(0 16px 26px rgba(0,0,0,0.55));
+}
+.tema-krem .metal {
+  filter:
+    drop-shadow(0 -1.5px 0 rgba(255,244,232,0.75))
+    drop-shadow(0  3px 0 rgba(92,52,25,0.55))
+    drop-shadow(0 12px 22px rgba(70,48,28,0.35));
+}
+
+/* Beyaz/kemik varyant — bakırla dönüşümlü kullanılınca ritim doğar */
+.kemik {
+  color: var(--metin);
+  filter: drop-shadow(0 3px 0 rgba(0,0,0,0.32)) drop-shadow(0 14px 24px rgba(0,0,0,0.45));
+}
+.tema-krem .kemik { filter: drop-shadow(0 2px 0 rgba(255,255,255,0.5)); }
+
+/* =============================================================
+   ORTAK BİLEŞENLER
+   ============================================================= */
+.sahne { position:absolute; inset:0; padding:52px 60px; display:flex; }
+
+/* Üst etiket rozeti */
+.kicker {
+  display:inline-flex; align-items:center; gap:11px;
+  align-self:flex-start; flex:none; width:auto;
+  font-family:'Sora', sans-serif; font-weight:800;
+  font-size:19px; letter-spacing:.22em; text-transform:uppercase;
+  color: var(--bakir-isik);
+  padding:9px 17px 9px 15px;
+  border:1.5px solid var(--cizgi);
+  border-radius:3px;
+  background: var(--panel-zemin);
+  white-space:nowrap;
+}
+.tema-krem .kicker { color:#8A5228; }
+.kicker::before {
+  content:''; width:9px; height:9px; border-radius:50%;
+  background: var(--bakir-orta);
+  box-shadow: 0 0 12px var(--bakir-orta);
+}
+
+/* Ana başlık */
+.baslik {
+  font-family:'Archivo Black', sans-serif;
+  line-height:.92; letter-spacing:-.022em;
+  text-transform:uppercase;
+}
+/* Satırlar sarmalanmaz: kırılma noktasını "|" ile sen belirlersin,
+   sığdırma motoru puntoyu ona göre ayarlar. */
+.baslik > div, .vurgu, .dev-formul, .marka-yazi { white-space:nowrap; }
+.baslik--anton { font-family:'Anton', sans-serif; letter-spacing:.004em; line-height:.94; }
+
+/* Playfair italik vurgu satırı — grotesk başlıkla kontrast yaratır */
+.vurgu {
+  font-family:'Playfair', serif; font-weight:900; font-style:italic;
+  letter-spacing:-.012em; line-height:1.0; text-transform:none;
+}
+
+/* Alt açıklama */
+.alt {
+  font-family:'Manrope', sans-serif; font-weight:500;
+  font-size:25px; line-height:1.38; color: var(--ikincil);
+  max-width: 37ch;
+}
+.alt b { font-weight:800; color: var(--bakir-isik); }
+.tema-krem .alt b { color:#8A5228; }
+
+/* Bakır folyo alt çizgi */
+.folyo {
+  height:6px; border-radius:99px; margin:22px 0 20px;
+  background: linear-gradient(90deg, var(--bakir-parlak), var(--bakir-govde) 42%, var(--bakir-golge) 72%, transparent);
+  box-shadow: 0 4px 16px rgba(192,130,79,0.35);
+}
+
+/* Formül levhası — hafif eğik cam panel */
+.levha {
+  position:relative;
+  border:1.5px solid var(--panel-cizgi);
+  border-radius:8px;
+  background:
+    linear-gradient(160deg, rgba(255,236,215,0.075), rgba(255,236,215,0.012)),
+    var(--panel-zemin);
+  box-shadow:
+    inset 0 1px 0 rgba(255,236,215,0.18),
+    0 28px 60px rgba(0,0,0,0.42);
+  padding:34px 32px;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; gap:14px;
+  backdrop-filter: blur(2px);
+}
+.levha::after {
+  content:''; position:absolute; inset:7px; border:1px solid rgba(224,175,128,0.16);
+  border-radius:4px; pointer-events:none;
+}
+.levha-etiket {
+  font-family:'Sora', sans-serif; font-weight:800; font-size:14px;
+  letter-spacing:.30em; text-transform:uppercase; color:var(--bakir-orta); opacity:.9;
+}
+.formul {
+  font-family:'Playfair', serif; font-weight:700; font-style:italic;
+  font-size:52px; line-height:1.2; text-align:center;
+}
+
+/* ---------- Matematik dizgisi (bkz. src/formul.js) ---------- */
+/* nowrap şart: sarmalanırsa sığdırma motoru genişlik taşmasını göremez */
+.mat { display:inline-flex; align-items:center; justify-content:center; flex-wrap:nowrap; gap:.06em; white-space:nowrap; }
+
+/* Dikey kesir */
+.kesir {
+  display:inline-flex; flex-direction:column; align-items:center;
+  vertical-align:middle; margin:0 .16em; line-height:1.1;
+}
+.kesir > i { font-style:italic; padding:0 .28em .06em; }
+.kesir > b {
+  font-weight:inherit; font-style:italic; padding:.08em .28em 0;
+  border-top:.055em solid currentColor;
+}
+.metal .kesir > b { border-top-color: var(--bakir-orta); }
+
+/* lim / max / min — sınır alt satırda */
+.op-yigin {
+  display:inline-flex; flex-direction:column; align-items:center;
+  vertical-align:middle; margin:0 .18em 0 0; line-height:1;
+}
+.op-yigin > b { font-weight:inherit; font-style:normal; }
+.op-yigin > i { font-size:.44em; font-style:normal; margin-top:.14em; letter-spacing:.02em; }
+
+/* ∫ ve ∑ — alt/üst sınırlı */
+.op-sinir {
+  display:inline-flex; flex-direction:column; align-items:center;
+  vertical-align:middle; margin:0 .16em; line-height:1;
+}
+.op-sinir > .op { font-size:1.5em; font-weight:inherit; font-style:normal; line-height:.86; }
+.op-sinir > i  { font-size:.40em; font-style:normal; }
+.op-sinir > .ust { margin-bottom:.06em; }
+.op-sinir > .alt { margin-top:.06em; }
+
+.mat sup, .mat sub { font-size:.52em; line-height:0; }
+.mat sup { vertical-align:.62em; }
+.mat sub { vertical-align:-.28em; }
+.ince-bosluk { display:inline-block; width:.30em; }
+
+/* Köşe imzası — .tuval'in doğrudan çocuğuysa köşeye sabitlenir.
+   (ders düzeninde akışın içinde kaldığı için sabitlenmez.) */
+.imza { display:flex; align-items:center; gap:14px; }
+.tuval > .imza { position:absolute; left:60px; bottom:44px; z-index:5; }
+.tuval > .imza.imza--sag { left:auto; right:56px; }
+.imza-mark { display:block; flex:none; line-height:0; border-radius:50%; }
+.imza-mark img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
+.imza-yazi { display:flex; flex-direction:column; line-height:1.08; }
+.imza-yazi b {
+  font-family:'Sora', sans-serif; font-weight:800; font-size:22px;
+  letter-spacing:.19em; color: var(--metin);
+}
+.imza-yazi i {
+  font-style:normal; font-family:'Manrope', sans-serif; font-weight:700;
+  font-size:14px; letter-spacing:.13em; color: var(--bakir-orta); margin-top:3px;
+}
+
+/* Bölüm numarası (sağ üst) */
+.bolum {
+  position:absolute; top:46px; right:56px; text-align:right;
+  font-family:'Sora', sans-serif; font-weight:800; font-size:16px;
+  letter-spacing:.26em; text-transform:uppercase; color: var(--ikincil);
+  padding-bottom:9px; border-bottom:1.5px solid var(--cizgi);
+}
+
+/* =============================================================
+   DÜZEN 1 — İMZA  (bayrak gemisi)
+   ============================================================= */
+/* minmax(0,1fr) şart: düz "1fr" sütunu nowrap başlığın min-content'i kadar
+   şişer ve tuvalin dışına taşar. */
+.d-imza { display:grid; grid-template-columns: minmax(0,1fr) 396px; gap:46px; align-items:center; padding-bottom:118px; }
+.d-imza .sol { display:flex; flex-direction:column; justify-content:center; }
+.d-imza .kicker { margin-bottom:20px; }
+.d-imza .baslik { font-size:112px; }
+.d-imza .vurgu  { font-size:66px; margin-top:10px; }
+.d-imza .sag { display:flex; align-items:center; }
+.d-imza .levha { width:100%; transform: rotate(-2.1deg); }
+
+/* =============================================================
+   DÜZEN 2 — FORMÜL  (formül kahraman)
+   ============================================================= */
+.d-formul { flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:0; padding-bottom:110px; }
+.d-formul .kicker { margin-bottom:26px; align-self:center; }
+.d-formul .dev-formul {
+  font-family:'Playfair', serif; font-weight:700; font-style:italic;
+  font-size:104px; line-height:1.0; letter-spacing:-.02em;
+}
+.d-formul .folyo { width:340px; height:5px; margin:30px 0 22px; }
+.d-formul .baslik { font-size:56px; }
+.d-formul .alt { max-width:none; margin-top:16px; font-size:24px; }
+
+/* =============================================================
+   DÜZEN 3 — SORU  (dev soru işareti + merak boşluğu)
+   ============================================================= */
+.d-soru { align-items:center; padding-bottom:118px; }
+/* Dekoratif katman: .sahne'nin DIŞINDA durur ki sığdırma ölçümünü bozmasın. */
+.dev-isaret {
+  position:absolute; right:44px; top:54%; transform:translateY(-50%);
+  font-family:'Playfair', serif; font-weight:900; font-style:italic;
+  font-size:540px; line-height:.7; pointer-events:none; opacity:.26; z-index:1;
+  background: linear-gradient(165deg, var(--bakir-isik), var(--bakir-govde) 42%, transparent 88%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.d-soru .sol { position:relative; z-index:2; max-width:790px; display:flex; flex-direction:column; }
+.d-soru .kicker { margin-bottom:20px; }
+.d-soru .baslik { font-size:94px; }
+.d-soru .vurgu { font-size:60px; margin-top:10px; margin-bottom:18px; }
+.d-soru .cevap-kutu {
+  display:inline-flex; align-items:center; gap:14px; margin-top:26px;
+  padding:14px 24px; border-radius:4px;
+  background: linear-gradient(100deg, var(--bakir-govde), var(--bakir-golge));
+  box-shadow: 0 14px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,236,214,0.4);
+  font-family:'Sora', sans-serif; font-weight:800; font-size:22px;
+  letter-spacing:.10em; color:#160700; text-transform:uppercase;
+  align-self:flex-start;
+}
+
+/* =============================================================
+   DÜZEN 4 — İKİLEM  (A vs B)
+   ============================================================= */
+.d-ikilem { flex-direction:column; justify-content:center; align-items:center; padding-bottom:110px; }
+.d-ikilem .kicker { margin-bottom:34px; align-self:center; }
+.d-ikilem .cift { display:flex; align-items:center; gap:10px; width:100%; max-width:1076px; margin:0 auto; justify-content:center; }
+.d-ikilem .taraf { flex:1 1 0; text-align:center; min-width:0; }
+.d-ikilem .taraf .baslik { font-size:74px; }
+.d-ikilem .taraf .rol {
+  margin-top:16px; font-family:'Manrope', sans-serif; font-weight:700;
+  font-size:19px; letter-spacing:.16em; text-transform:uppercase; color:var(--ikincil);
+}
+/* Ortadaki madalyon — iki tarafı ayıran görsel çapa */
+.d-ikilem .karsi {
+  flex:none; width:96px; height:96px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Playfair', serif; font-style:italic; font-weight:900; font-size:42px;
+  border:1.5px solid var(--panel-cizgi); background:var(--panel-zemin);
+  box-shadow: inset 0 1px 0 rgba(255,236,214,.2), 0 18px 40px rgba(0,0,0,.4);
+}
+.d-ikilem .alt { margin-top:38px; text-align:center; max-width:none; }
+
+/* =============================================================
+   DÜZEN 5 — ADIM  (dev rakam)
+   ============================================================= */
+.d-adim { align-items:center; justify-content:center; gap:48px; padding-right:70px; }
+.d-adim .rakam {
+  flex:none; font-family:'Archivo Black', sans-serif;
+  font-size:372px; line-height:.78; letter-spacing:-.05em;
+}
+.d-adim .sag { flex:0 1 640px; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+.d-adim .kicker { margin-bottom:18px; }
+.d-adim .baslik { font-size:86px; }
+.d-adim .vurgu { font-size:54px; margin-top:8px; }
+.d-adim .liste { margin-top:22px; display:flex; flex-direction:column; gap:11px; }
+.d-adim .liste div {
+  display:flex; align-items:center; gap:13px;
+  font-family:'Manrope', sans-serif; font-weight:700; font-size:22px; color:var(--ikincil);
+}
+.d-adim .liste div::before {
+  content:''; width:9px; height:9px; flex:none; transform:rotate(45deg);
+  background:var(--bakir-orta); box-shadow:0 0 10px rgba(217,162,115,.6);
+}
+
+/* =============================================================
+   DÜZEN 6 — DERS  (sakin, editoryal, seri içerikleri için)
+   ============================================================= */
+.d-ders { flex-direction:column; justify-content:space-between; padding:56px 64px 60px; }
+.d-ders .ust { display:flex; justify-content:space-between; align-items:flex-start; }
+.d-ders .orta { display:flex; flex-direction:column; justify-content:center; flex:1; padding:26px 0; }
+.d-ders .baslik { font-size:92px; }
+.d-ders .vurgu { font-size:62px; margin-top:2px; }
+.d-ders .cizgi-ince { height:1.5px; background:var(--cizgi); margin:24px 0 20px; }
+.d-ders .taban { display:flex; justify-content:space-between; align-items:flex-end; gap:30px; }
+.d-ders .formul-satir {
+  font-family:'Playfair', serif; font-style:italic; font-weight:700; font-size:38px;
+  color:var(--bakir-isik); text-align:right; white-space:pre-line;
+}
+.tema-krem .d-ders .formul-satir { color:#8A5228; }
+
+/* =============================================================
+   DÜZEN 7 — BANNER  (kanal başlığı 2560×1440, güvenli alan ortada)
+   ============================================================= */
+.d-banner { flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.d-banner .guvenli {
+  width:1546px; height:423px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;
+}
+.d-banner .marka-yazi {
+  font-family:'Archivo Black', sans-serif; font-size:168px;
+  letter-spacing:.10em; line-height:1; text-transform:uppercase;
+}
+.d-banner .slogan {
+  font-family:'Sora', sans-serif; font-weight:600; font-size:31px;
+  letter-spacing:.42em; text-transform:uppercase; color:var(--ikincil);
+}
+.d-banner .banner-alt {
+  font-family:'Manrope', sans-serif; font-weight:700; font-size:26px;
+  letter-spacing:.10em; color:var(--bakir-orta);
+}
+
+/* ---------- Krem temada okunabilirlik düzeltmeleri ---------- */
+.tema-krem .imza-yazi i { color:#8A5228; }
+.tema-krem .kicker::before { background:#B0703A; box-shadow:0 0 10px rgba(176,112,58,.5); }
+.tema-krem .d-ikilem .karsi { background:rgba(255,252,247,.55); }
+.mat sup { font-size:.56em; }
+
+/* Sınır yazıları Manrope ile: Playfair'de "→" oku bozuk çiziliyor */
+.op-yigin > i, .op-sinir > i { font-family:'Manrope', sans-serif; font-weight:700; }
+/* Başlık ile formül levhası arasında nefes payı */
+.d-imza .sol { padding-right:18px; }
+
+/* ---------- Banner ölçek düzeltmesi (2560×1440 tuval) ---------- */
+.d-banner .guvenli { gap:30px; }
+.d-banner .marka-yazi { font-size:232px; letter-spacing:.11em; }
+.d-banner .slogan { font-size:36px; letter-spacing:.46em; }
+.d-banner .banner-alt { font-size:30px; letter-spacing:.12em; }
+.d-banner .taban-serit { height:12px; }
+/* Üst simge biraz daha yukarıda otursun */
+.mat sup { vertical-align:.72em; }

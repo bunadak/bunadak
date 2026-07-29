@@ -1,0 +1,10 @@
+{
+  "name": "mathera-kapak-motoru",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MATHERA YouTube kapak (thumbnail) ve kanal banner üreteci",
+  "scripts": {
+    "kapak": "node src/render.mjs"
+  }
+}

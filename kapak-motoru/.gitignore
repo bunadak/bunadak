@@ -1,0 +1,6 @@
+node_modules/
+src/.gecici/
+src/_*.html
+
+# 2× PNG'ler her çalıştırmada yeniden üretilir (~4 MB/adet)
+out/*@2x.png
