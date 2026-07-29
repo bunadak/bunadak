@@ -348,3 +348,17 @@ body.pro-web-live #proWebBar #pwMode { background: var(--acc2); color: #06281F; 
    🖊️ PRO İMLEÇ — kalem figürü (opsiyon; kapalıyken hiçbir kural uygulanmaz)
    ========================================================================== */
 body.pro-cur #cv, body.pro-cur #ovl, body.pro-cur #stage { cursor: var(--pro-cur) !important; }
+
+/* Pro İmleç — figür kartları */
+.pcur-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+.pcur-card { display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 6px 8px; border-radius: 12px; cursor: pointer;
+  background: var(--p2); border: 1px solid var(--line); color: var(--mut);
+  transition: .15s var(--ease); }
+.pcur-card:hover { background: var(--p3); color: var(--tx); transform: translateY(-1px); }
+.pcur-card.on { border-color: var(--acc); color: var(--tx);
+  background: color-mix(in srgb, var(--acc) 14%, var(--p2));
+  box-shadow: 0 0 0 1px var(--acc) inset, var(--acc-glow); }
+.pcur-card .pc-ico { display: flex; align-items: center; justify-content: center; height: 36px; }
+.pcur-card .pc-n { font-size: 10.5px; font-weight: 800; letter-spacing: .1px; text-align: center; line-height: 1.15; }
+@media (max-width: 900px) { .pcur-grid { grid-template-columns: repeat(3, 1fr); } }

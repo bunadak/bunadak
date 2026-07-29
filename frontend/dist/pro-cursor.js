@@ -5,8 +5,8 @@
  * Tamamen opsiyoneldir: kapalıyken uygulama birebir eski davranışını sürdürür.
  *
  * Özellikler
- *   • 7 figür: Klasik Kalem · Dolma Kalem · Fırça · Kurşun Kalem · Marker ·
- *     İnce Uç (hassas) · Artı (nişangâh)
+ *   • 9 figür: Tükenmez · Dolma Kalem · Fırça · Kurşun Kalem · Marker ·
+ *     İnce Uç · Tebeşir · Stylus · Nişangâh — her biri kart olarak önizlenir
  *   • Boyut kaydırıcısı (18–64 px)
  *   • Kalem rengini izleme: imlecin mürekkebi seçili renge boyanır
  *   • Koyu zemin kontürü: her arka planda net görünür
@@ -21,7 +21,7 @@
 
   var KEY = "notis_cursor_opts";
   var DEF = {
-    fig: "off",        // off · pen · fountain · brush · pencil · marker · fine · cross
+    fig: "off",        // off·pen·fountain·brush·pencil·marker·fine·chalk·stylus·cross
     size: 32,          // 18–64 px
     follow: true,      // kalem rengini izle
     outline: true,     // koyu zeminde görünürlük kontürü
@@ -41,50 +41,112 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (_) {} }
   function $id(x) { return document.getElementById(x); }
 
-  /* ------------------------------------------------------------- FİGÜRLER */
-  /* Tüm figürler 32×32 kutuda çizilir; uç noktası (3,29) — hotspot buradan
-     ölçeklenir, böylece mürekkep tam imlecin ucundan çıkar. */
-  var TIP = { x: 3, y: 29 };
+  /* ------------------------------------------------------------- FİGÜRLER
+   * Her figür DİK çizilir (uç orijinde, gövde yukarı) ve tek bir döndürme ile
+   * 45°'ye oturtulur. Böylece simetri matematiksel olarak garanti altındadır —
+   * elle çizilmiş eğrilik/yamukluk olamaz. Uç, hotspot ile birebir çakışır.
+   * ------------------------------------------------------------------------ */
+  var TIP = { x: 3.5, y: 28.5 };
+  function G(inner) { return '<g transform="translate(3.5 28.5) rotate(45)">' + inner + "</g>"; }
+
+  /* premium yüzeyler: metal, ahşap ve gövde parlaması */
+  function defs(ink) {
+    return "<defs>" +
+      '<linearGradient id="mt" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="#7C8496"/><stop offset=".45" stop-color="#E8ECF5"/>' +
+        '<stop offset="1" stop-color="#8B93A5"/></linearGradient>' +
+      '<linearGradient id="gd" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="#A97C1B"/><stop offset=".45" stop-color="#F7DC8A"/>' +
+        '<stop offset="1" stop-color="#B8890F"/></linearGradient>' +
+      '<linearGradient id="wd" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="#8A5A32"/><stop offset=".45" stop-color="#C89060"/>' +
+        '<stop offset="1" stop-color="#8A5A32"/></linearGradient>' +
+      '<linearGradient id="bd" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="' + ink + '" stop-opacity=".72"/>' +
+        '<stop offset=".42" stop-color="' + ink + '"/>' +
+        '<stop offset="1" stop-color="' + ink + '" stop-opacity=".62"/></linearGradient>' +
+      "</defs>";
+  }
 
   function body(fig, ink, edge) {
-    var s = 'stroke="' + edge + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
+    /* paint-order="stroke": kontur DOLGUNUN ALTINA çizilir — hale yalnız dışarıda
+       kalır, iç sınırlara beyaz taşmaz. Figür temiz ve keskin görünür. */
+    var O = 'stroke="' + edge + '" stroke-width="1.8" stroke-linejoin="round" ' +
+      'stroke-linecap="round" paint-order="stroke"';
+    var d = defs(ink), g;
     switch (fig) {
-      case "pen":       // klasik tükenmez: gövde + metal uç
-        return '<path d="M12 22 L24 10 L28 14 L16 26 Z" fill="#F2C14E" ' + s + '/>' +
-               '<path d="M16 26 L12 22 L3 29 Z" fill="' + ink + '" ' + s + '/>' +
-               '<path d="M24 10 L28 14 L30 12 A2.8 2.8 0 0 0 26 8 Z" fill="#9AA3B8" ' + s + '/>';
-      case "fountain":  // dolma kalem: uzun gövde + yarıklı uç
-        return '<path d="M13 21 L25 9 L29 13 L17 25 Z" fill="#2B3A67" ' + s + '/>' +
-               '<path d="M17 25 L13 21 L3 29 Z" fill="' + ink + '" ' + s + '/>' +
-               '<path d="M8 25 L12 22" stroke="' + edge + '" stroke-width="1.2"/>' +
-               '<path d="M25 9 L29 13 L31 11 A2.6 2.6 0 0 0 27 7 Z" fill="#C9A227" ' + s + '/>';
-      case "brush":     // fırça: sap + bilezik + kıl demeti
-        return '<path d="M16 18 L26 8 L30 12 L20 22 Z" fill="#8B5E3C" ' + s + '/>' +
-               '<path d="M14 20 L18 24 L16 26 L12 22 Z" fill="#B9BDC9" ' + s + '/>' +
-               '<path d="M16 26 L12 22 C9 25 6 26 3 29 C7 28 12 28 16 26 Z" fill="' + ink + '" ' + s + '/>';
-      case "pencil":    // kurşun kalem: gövde + ahşap koni + grafit
-        return '<path d="M14 20 L26 8 L30 12 L18 24 Z" fill="#E8B44A" ' + s + '/>' +
-               '<path d="M18 24 L14 20 L7 26 L11 30 Z" fill="#F0DCC0" ' + s + '/>' +
-               '<path d="M11 30 L7 26 L3 29 Z" fill="' + ink + '" ' + s + '/>';
-      case "marker":    // marker: kalın gövde + keski uç
-        return '<path d="M14 20 L24 10 L30 16 L20 26 Z" fill="#3D4B63" ' + s + '/>' +
-               '<path d="M20 26 L14 20 L3 29 Z" fill="' + ink + '" ' + s + '/>' +
-               '<path d="M24 10 L30 16" stroke="' + edge + '" stroke-width="1.2"/>';
-      case "fine":      // ince uç: zarif konik kalem
-        return '<path d="M15 19 L27 7 L30 10 L18 22 Z" fill="#5A6478" ' + s + '/>' +
-               '<path d="M18 22 L15 19 L3 29 Z" fill="' + ink + '" ' + s + '/>';
-      case "eraser":    // silgi (araca duyarlı modda otomatik)
-        return '<path d="M13 21 L23 11 L29 17 L19 27 Z" fill="#F2A0A0" ' + s + '/>' +
-               '<path d="M19 27 L13 21 L8 26 L14 32 Z" fill="#FFFFFF" ' + s + '/>' +
-               '<path d="M16 18 L22 24" stroke="' + edge + '" stroke-width="1.2"/>';
-      case "cross":     // nişangâh (hassas hizalama)
-        return '<path d="M16 4 V13 M16 19 V28 M4 16 H13 M19 16 H28" stroke="' + edge +
-               '" stroke-width="2.6" stroke-linecap="round"/>' +
-               '<path d="M16 4 V13 M16 19 V28 M4 16 H13 M19 16 H28" stroke="' + ink +
-               '" stroke-width="1.2" stroke-linecap="round"/>' +
-               '<circle cx="16" cy="16" r="1.6" fill="' + ink + '" stroke="' + edge + '" stroke-width="1"/>';
+      case "pen":        // TÜKENMEZ — konik metal uç, kavrama bandı, ince gövde
+        g = '<path d="M-2.6 -8 H2.6 V-27 a2.6 2.6 0 0 0 -5.2 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-2.6 -8 H2.6 V-11.5 H-2.6 Z" fill="#39415A" ' + O + '/>' +
+            '<path d="M-2.2 -8 L2.2 -8 L0.9 -1.6 L-0.9 -1.6 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-0.9 -1.6 L0.9 -1.6 L0 0 Z" fill="' + ink + '" ' + O + '/>' +
+            '<circle cx="0" cy="-0.5" r="0.85" fill="' + ink + '" stroke="' + edge + '" stroke-width=".8"/>';
+        break;
+      case "fountain":   // DOLMA — yarıklı altın uç, nefes deliği, bilezik
+        g = '<path d="M-2.8 -10 H2.8 V-28 a2.8 2.8 0 0 0 -5.6 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-2.9 -10 H2.9 V-13 H-2.9 Z" fill="url(#gd)" ' + O + '/>' +
+            '<path d="M-2.4 -10 Q-2.4 -4 0 0 Q2.4 -4 2.4 -10 Z" fill="url(#gd)" ' + O + '/>' +
+            '<path d="M0 -8.6 V-1.4" stroke="' + edge + '" stroke-width="1"/>' +
+            '<circle cx="0" cy="-8.4" r="1.05" fill="' + edge + '" opacity=".9"/>';
+        break;
+      case "brush":      // FIRÇA — ahşap sap, bilezikli halka, yumuşak kıl demeti
+        g = '<path d="M-2.9 -13 H2.9 V-29 a2.9 2.9 0 0 0 -5.8 0 Z" fill="url(#wd)" ' + O + '/>' +
+            '<path d="M-3.1 -13 H3.1 V-18 H-3.1 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-3.1 -15.6 H3.1" stroke="' + edge + '" stroke-width=".8" opacity=".85"/>' +
+            '<path d="M-2.9 -13 Q-3.4 -6 0 0 Q3.4 -6 2.9 -13 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-1.3 -11.4 Q-1.6 -5 0 -1.2 M1.3 -11.4 Q1.6 -5 0 -1.2" stroke="' + edge +
+            '" stroke-width=".7" fill="none" opacity=".55"/>';
+        break;
+      case "pencil":     // KURŞUN — altıgen gövde, ahşap koni, grafit uç, silgili başlık
+        g = '<path d="M-3 -9 H3 V-25 H-3 Z" fill="#EFB33C" ' + O + '/>' +
+            '<path d="M-1 -9 V-25 M1 -9 V-25" stroke="' + edge + '" stroke-width=".7" opacity=".5"/>' +
+            '<path d="M-3 -25 H3 V-27.5 H-3 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-2.8 -27.5 H2.8 a2.8 2.8 0 0 0 -5.6 0 Z" fill="#F19AA0" ' + O + '/>' +
+            '<path d="M-3 -9 L3 -9 L1.15 -2.6 L-1.15 -2.6 Z" fill="#F3E2C4" ' + O + '/>' +
+            '<path d="M-1.15 -2.6 L1.15 -2.6 L0 0 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "marker":     // MARKER — dolgun gövde, kapak halkası, keski uç
+        g = '<path d="M-4 -9 H4 V-27 a4 4 0 0 0 -8 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-4.2 -9 H4.2 V-12.5 H-4.2 Z" fill="#2E3549" ' + O + '/>' +
+            '<path d="M-3.2 -9 H3.2 L2.2 -1.2 L-1.1 0 Z" fill="' + ink + '" ' + O + '/>' +
+            '<path d="M-1.1 0 L2.2 -1.2" stroke="' + edge + '" stroke-width=".9"/>';
+        break;
+      case "fine":       // İNCE UÇ — teknik kalem, iğne uç, tırtıklı kavrama
+        g = '<path d="M-2.2 -12 H2.2 V-28 a2.2 2.2 0 0 0 -4.4 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-2.4 -12 H2.4 V-17 H-2.4 Z" fill="#39415A" ' + O + '/>' +
+            '<path d="M-2.4 -15.6 H2.4 M-2.4 -14 H2.4" stroke="' + edge + '" stroke-width=".6" opacity=".7"/>' +
+            '<path d="M-2 -12 L2 -12 L0.55 -3.4 L-0.55 -3.4 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-0.55 -3.4 H0.55 V0 H-0.55 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "chalk":      // TEBEŞİR — kısa, mat, köşeleri aşınmış çubuk
+        g = '<path d="M-3.4 -3 H3.4 V-19 a3.4 3.4 0 0 0 -6.8 0 Z" fill="#F6F3EC" ' + O + '/>' +
+            '<path d="M-3.4 -3 Q0 -1.4 3.4 -3 Q3 0.4 0 0.4 Q-3 0.4 -3.4 -3 Z" fill="' + ink + '" ' + O + '/>' +
+            '<path d="M-1.6 -17 V-6 M1.6 -16 V-7" stroke="' + edge + '" stroke-width=".8" opacity=".45"/>';
+        break;
+      case "stylus":     // STYLUS — dijital kalem: mat gövde, yumuşak uç
+        g = '<path d="M-2.4 -7 H2.4 V-29 a2.4 2.4 0 0 0 -4.8 0 Z" fill="#F2F4FA" ' + O + '/>' +
+            '<path d="M-2.4 -20 H2.4 V-22 H-2.4 Z" fill="#C6CCDA" ' + O + '/>' +
+            '<path d="M-2.4 -7 L2.4 -7 L0.75 -1.4 L-0.75 -1.4 Z" fill="#5A6478" ' + O + '/>' +
+            '<path d="M-0.75 -1.4 L0.75 -1.4 L0 0 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "eraser":     // SİLGİ — araca duyarlı modda otomatik
+        g = '<path d="M-3.6 -8 H3.6 V-24 a3.6 3.6 0 0 0 -7.2 0 Z" fill="#DDE3F0" ' + O + '/>' +
+            '<path d="M-3.6 -8 H3.6 V0 a1.6 1.6 0 0 1 -1.6 1.6 H-2 A1.6 1.6 0 0 1 -3.6 0 Z" fill="#F2A0A0" ' + O + '/>' +
+            '<path d="M-3.6 -8 H3.6" stroke="' + edge + '" stroke-width=".9"/>';
+        break;
+      case "cross":      // NİŞANGÂH — hassas hizalama (dönmez, merkezde)
+        return d +
+          '<path d="M16 3.5 V12 M16 20 V28.5 M3.5 16 H12 M20 16 H28.5" stroke="' + edge +
+          '" stroke-width="3" stroke-linecap="round"/>' +
+          '<path d="M16 3.5 V12 M16 20 V28.5 M3.5 16 H12 M20 16 H28.5" stroke="' + ink +
+          '" stroke-width="1.3" stroke-linecap="round"/>' +
+          '<circle cx="16" cy="16" r="4.6" fill="none" stroke="' + edge + '" stroke-width="2.4" opacity=".75"/>' +
+          '<circle cx="16" cy="16" r="4.6" fill="none" stroke="' + ink + '" stroke-width="1" opacity=".9"/>' +
+          '<circle cx="16" cy="16" r="1.5" fill="' + ink + '" stroke="' + edge + '" stroke-width=".9"/>';
+      default:
+        return "";
     }
-    return "";
+    return d + G(g);
   }
 
   /* Uç halkası: kalemin gerçek kalınlığı — temas noktası şüpheye yer bırakmaz */
@@ -188,7 +250,7 @@
     var r = el('<div class="set-row"><div><div class="t">' + t + '</div><div class="d">' + d +
       '</div></div><label class="sw-toggle"><input type="checkbox" id="' + id + '"><i></i></label></div>');
     var i = r.querySelector("input"); i.checked = !!on;
-    i.addEventListener("change", function () { fn(i.checked); save(); lastKey = ""; sync(); });
+    i.addEventListener("change", function () { fn(i.checked); save(); lastKey = ""; sync(); renderFigGrid(); });
     return r;
   }
   function rowRange(id, t, d, val, min, max, fn) {
@@ -213,6 +275,34 @@
     });
     return r;
   }
+  /* Figür kartları: her seçenek kendi çizimiyle görünür — hepsi göz önünde */
+  var FIGS = [
+    ["off", "Kapalı"], ["pen", "Tükenmez"], ["fountain", "Dolma Kalem"], ["brush", "Fırça"],
+    ["pencil", "Kurşun Kalem"], ["marker", "Marker"], ["fine", "İnce Uç"],
+    ["chalk", "Tebeşir"], ["stylus", "Stylus"], ["cross", "Nişangâh"]
+  ];
+  function figThumb(f) {
+    if (f === "off") return '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round"><path d="M5 3v13l3.5-3H16z" opacity=".85"/><path d="M4 4l16 16" opacity=".55"/></svg>';
+    var ink = inkColor(), edge = P.outline ? "#FFFFFF" : "rgba(0,0,0,.55)";
+    return '<svg width="34" height="34" viewBox="0 0 32 32">' + body(f, ink, edge) + "</svg>";
+  }
+  function renderFigGrid() {
+    var wrap = $id("oCurFig");
+    if (!wrap) return;
+    wrap.innerHTML = FIGS.map(function (o) {
+      return '<button type="button" class="pcur-card' + (o[0] === P.fig ? " on" : "") + '" data-v="' + o[0] + '">' +
+        '<span class="pc-ico">' + figThumb(o[0]) + "</span><span class=\"pc-n\">" + o[1] + "</span></button>";
+    }).join("");
+    wrap.querySelectorAll(".pcur-card").forEach(function (b) {
+      b.addEventListener("click", function () {
+        P.fig = b.dataset.v; save(); lastKey = "";
+        wrap.querySelectorAll(".pcur-card").forEach(function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        sync(); preview();
+      });
+    });
+  }
   /* Canlı önizleme: seçilen figür ayar panelinde gerçek boyutuyla görünür */
   function preview() {
     var box = $id("proCurPrev");
@@ -233,14 +323,14 @@
     ui.dataset.proCursor = "1";
 
     ui.appendChild(sec("Pro İmleç — Kalem Figürü"));
-    ui.appendChild(rowSeg("oCurFig", "🖊️ İmleç Figürü",
-      "Çizim yaparken fare okunun yerine gerçek bir kalem görünür; mürekkep tam ucundan çıkar. Kapalıyken uygulama eski imlecini kullanır.",
-      [["off", "Kapalı"], ["pen", "Tükenmez"], ["fountain", "Dolma"], ["brush", "Fırça"],
-       ["pencil", "Kurşun"], ["marker", "Marker"], ["fine", "İnce Uç"], ["cross", "Artı"]],
-      P.fig, function (v) { P.fig = v; }));
+    ui.appendChild(el('<div class="set-row" style="display:block"><div><div class="t">🖊️ İmleç Figürü</div>' +
+      '<div class="d">Çizim yaparken fare okunun yerine gerçek bir kalem görünür; mürekkep tam ucundan çıkar. ' +
+      'Aşağıdan seç — her figür kendi boyutunda önizlenir. Kapalıyken uygulama eski imlecini kullanır.</div></div>' +
+      '<div class="pcur-grid" id="oCurFig"></div></div>'));
+    renderFigGrid();
 
-    var prev = el('<div class="set-row"><div><div class="t">👁 Önizleme</div><div class="d">Seçtiğin figür gerçek boyutunda</div></div>' +
-      '<span id="proCurPrev" style="display:flex;gap:10px;align-items:center"></span></div>');
+    var prev = el('<div class="set-row"><div><div class="t">👁 Canlı Önizleme</div><div class="d">Seçtiğin figür + araca duyarlı imleçler, gerçek boyutta</div></div>' +
+      '<span id="proCurPrev" style="display:flex;gap:12px;align-items:center"></span></div>');
     ui.appendChild(prev);
 
     ui.appendChild(rowRange("oCurSize", "📏 İmleç Boyutu", sizeLabel(P.size), P.size, 18, 64,
