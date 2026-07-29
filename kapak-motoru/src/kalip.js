@@ -4,8 +4,9 @@
  * stil.css'e `.d-<ad>` bloğunu yaz. Başka hiçbir yeri değiştirmen gerekmez.
  */
 import { RENK, TEMA, BOYUT } from './marka.js';
-import { imzaBlogu } from './logo.js';
+import { imzaBlogu, madalyonBlogu } from './logo.js';
 import { dizgi } from './formul.js';
+import { cizimSVG } from './cizim.js';
 
 /* ---------- yardımcılar ---------- */
 
@@ -78,6 +79,26 @@ const matHTML = (f) => `<span class="mat">${dizgi(f)}</span>`;
    ============================================================= */
 
 const DUZENLER = {
+  /**
+   * SABİT KALIP — kanalın standart kapağı.
+   * Intro videosunun devamı: sıva duvar, bakır teknik çizim, çelik madalyon.
+   * Videodan videoya değişen tek şey `konu`.
+   */
+  mathera: (k, imza, logoURI) => `
+    ${cizimSVG()}
+    <div class="sahne d-mathera">
+      <div class="sol">
+        ${kickerHTML(k.ustBaslik)}
+        <div class="konu oyma fit" data-max="128">${satirla(k.konu || k.baslik)
+          .map((s) => `<div>${s}</div>`).join('')}</div>
+        <div class="folyo"></div>
+        ${altHTML(k.altBaslik)}
+      </div>
+      <div class="sag">${madalyonBlogu({ logoURI, boyut: 360 })}</div>
+    </div>
+    ${bolumHTML(k.rozet)}
+    ${imza}`,
+
   /** Bayrak gemisi: sol blok başlık, sağda formül levhası. */
   imza: (k, imza) => `
     <div class="sahne d-imza">
@@ -187,7 +208,7 @@ const DUZENLER = {
     <div class="sahne d-banner">
       <div class="guvenli">
         ${k.ustBaslik ? `<div class="slogan">${esc(k.ustBaslik)}</div>` : ''}
-        <div class="marka-yazi metal fit" data-max="232">${esc(k.baslik)}</div>
+        <div class="marka-yazi oyma fit" data-max="232">${esc(k.baslik)}</div>
         ${k.altBaslik ? `<div class="banner-alt">${esc(k.altBaslik)}</div>` : ''}
       </div>
     </div>`,
@@ -284,9 +305,13 @@ const IMZA_SAG = new Set(['adim']);
 /** Kendi grafik odağı olan düzenlerde hayalet sembol sayısı azaltılır. */
 const HAYALET_ADET = { soru: 3, formul: 6, banner: 10 };
 
+/** Düzenin doğal teması — kapaklar.js'te `tema` verilmezse bu kullanılır. */
+const VARSAYILAN_TEMA = { mathera: 'siva', banner: 'siva', ders: 'krem' };
+
 export function kapakHTML(kayit, marka, logoURI) {
-  const duzenAdi = DUZENLER[kayit.tasarim] ? kayit.tasarim : 'imza';
-  const t = TEMA[kayit.tema] || TEMA.bakir;
+  const duzenAdi = DUZENLER[kayit.tasarim] ? kayit.tasarim : 'mathera';
+  const temaAdi = kayit.tema || VARSAYILAN_TEMA[duzenAdi] || 'bakir';
+  const t = TEMA[temaAdi] || TEMA.siva;
   const olcu = duzenAdi === 'banner' ? BOYUT.banner : BOYUT.kapak;
 
   const imza = imzaBlogu({
@@ -297,10 +322,10 @@ export function kapakHTML(kayit, marka, logoURI) {
     sag: IMZA_SAG.has(duzenAdi),
   });
 
-  const govde = DUZENLER[duzenAdi](kayit, duzenAdi === 'banner' ? '' : imza);
+  const govde = DUZENLER[duzenAdi](kayit, duzenAdi === 'banner' ? '' : imza, logoURI);
 
   return `<!doctype html>
-<html data-tema="${esc(kayit.tema || 'bakir')}">
+<html data-tema="${esc(temaAdi)}">
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="stil.css">
@@ -318,8 +343,8 @@ export function kapakHTML(kayit, marka, logoURI) {
 </style>
 </head>
 <body>
-  <div class="tuval tema-${esc(kayit.tema || 'bakir')}">
-    ${atmosfer(kayit.baslik + duzenAdi, HAYALET_ADET[duzenAdi])}
+  <div class="tuval tema-${esc(temaAdi)}">
+    ${atmosfer((kayit.konu || kayit.baslik || '') + duzenAdi, HAYALET_ADET[duzenAdi])}
     ${govde}
   </div>
   ${SIGDIR}

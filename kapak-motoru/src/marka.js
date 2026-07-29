@@ -43,6 +43,21 @@ export const RENK = {
 
 /** Tema paletleri — kapaklar.js içinde `tema:` ile seçilir. */
 export const TEMA = {
+  // ANA TEMA — intro videosunun birebir devamı.
+  // Sıcak sıva duvar, sağ üstten gelen tek yumuşak ışık, bakır teknik çizim.
+  siva: {
+    zemin1: '#D9D1C6',
+    zemin2: '#A29A90',
+    isikHuzmesi: 'rgba(255,252,246,0.85)',
+    izgara: 'rgba(122,88,56,0.10)',
+    hayaletSembol: 'rgba(96,72,50,0.13)',
+    metin: '#1B3350',
+    ikincilMetin: 'rgba(27,51,80,0.62)',
+    cizgi: 'rgba(140,96,60,0.38)',
+    panelZemin: 'rgba(255,253,249,0.40)',
+    panelCizgi: 'rgba(140,96,60,0.32)',
+  },
+
   // Ana kimlik: derin lacivert + bakır. Küçük boyutta en yüksek kontrast.
   bakir: {
     zemin1: '#08192F',

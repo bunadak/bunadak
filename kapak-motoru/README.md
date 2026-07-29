@@ -1,10 +1,11 @@
 # MATHERA — Kapak Motoru
 
-YouTube video kapakları (thumbnail) ve kanal banner'ı üreten şablon motoru.
-Tasarım sabit kalır, **sen sadece metni değiştirirsin**.
+Kanalın **sabit kapak kalıbı**. Tasarım hiç değişmez; sen sadece konu adını
+yazarsın, motor kapağı üretir.
 
-Renkler kanalın mevcut kimliğinden türetildi: logo iç dairesinin laciverti,
-dış halkanın platini, banner yazısının dövme bakırı ve kum bej zemini.
+Görsel dil doğrudan intro videosundan alındı: sıcak sıva duvar, sağ üstten
+gelen tek yumuşak ışık, ince bakır teknik çizim ve çelik halkalı lacivert
+madalyon. Kapaklar introdan çıkıp devam ediyormuş gibi durur.
 
 ---
 
@@ -12,147 +13,100 @@ dış halkanın platini, banner yazısının dövme bakırı ve kum bej zemini.
 
 ```bash
 cd kapak-motoru
-npm run kapak                 # kapaklar.js'teki her şeyi üretir
-npm run kapak -- limit turev  # sadece adı eşleşenleri üretir
+npm run kapak                  # kapaklar.js'teki her şeyi üretir
+npm run kapak -- sayilar       # sadece adı eşleşenleri üretir
 ```
 
-Çıktılar `out/` klasörüne düşer:
-
-| Dosya | Boyut | Ne için |
+| Çıktı | Boyut | Ne için |
 |---|---|---|
-| `<ad>.jpg` | 1280×720 | YouTube'a yükleyeceğin dosya (~100 KB, sınır 2 MB) |
-| `<ad>@2x.png` | 2560×1440 | Arşiv / tanıtım / baskı |
-
-Banner (`tasarim: 'banner'`) 2560×1440 üretir; metinler YouTube'un her ekranda
-gösterdiği **1546×423 güvenli alanı** içinde kalır.
+| `out/<ad>.jpg` | 1280×720 | YouTube'a yükleyeceğin dosya (~120 KB) |
+| `out/<ad>@2x.png` | 2560×1440 | Arşiv / tanıtım |
 
 ### Kurulum
-
-Playwright gerekiyor (Chromium ile birlikte):
 
 ```bash
 npm install playwright && npx playwright install chromium
 ```
 
-Fontlar `fonts/` içinde yerel olarak duruyor — internet gerekmez, çıktı her
-makinede birebir aynı.
+Fontlar `fonts/` içinde yerel — internet gerekmez, çıktı her makinede aynı.
 
 ---
 
-## Metin nasıl değiştirilir
+## Konu eklemek
 
 Tek düzenlediğin dosya: **`kapaklar.js`**
 
 ```js
 {
-  dosya: '08-parabol',
-  tasarim: 'imza',
-  tema: 'bakir',
-  ustBaslik: 'AYT MATEMATİK',
-  baslik: 'PARABOL|GRAFİĞİ',
-  vurgu: 'üç noktada biter',
-  altBaslik: 'Tepe noktasını *ezberlemeden* bul.',
-  formul: 'y = a(x − r)^2 + k',
-  rozet: 'BÖLÜM 08',
+  dosya: '07-koklu-sayilar',
+  konu: 'KÖKLÜ SAYILAR',
+  ustBaslik: 'TYT MATEMATİK',
+  altBaslik: 'Kök dışına çıkarmanın *tek kuralı*.',
+  rozet: 'BÖLÜM 07',
 }
 ```
 
-Kaydet, `npm run kapak` çalıştır. Punto, satır aralığı ve hizalama otomatik
-ayarlanır — uzun konu adı yazsan da taşmaz.
+Kaydet, `npm run kapak`. Hepsi bu.
 
-### Alanlar
+| Alan | Zorunlu | Açıklama |
+|---|---|---|
+| `dosya` | ✓ | Çıktı dosyasının adı (Türkçe karakter kullanma) |
+| `konu` | ✓ | Konu adı. Uzunsa `\|` ile satır kır: `'ÜSLÜ\|SAYILAR'` |
+| `ustBaslik` | – | Lacivert etiket |
+| `altBaslik` | – | Tek satır vaat. `*yıldız arası*` bakır renkte vurgulanır |
+| `rozet` | – | Sağ üst köşe |
 
-| Alan | Açıklama |
-|---|---|
-| `dosya` | Çıktı dosyasının adı (Türkçe karakter kullanma) |
-| `tasarim` | `imza` · `formul` · `soru` · `ikilem` · `adim` · `ders` · `banner` |
-| `tema` | `bakir` (lacivert+bakır) · `gece` (siyah+bakır) · `krem` (banner rengi) |
-| `ustBaslik` | Üstteki küçük etiket rozeti |
-| `baslik` | Ana konu. `\|` ile satır kırarsın: `'TÜREV\|UYGULAMALARI'` |
-| `vurgu` | İkinci satır, italik serif — grotesk başlıkla kontrast yaratır |
-| `altBaslik` | Açıklama. `*yıldız arası*` bakır renkte vurgulanır |
-| `formul` | Formül (dizgi sözdizimi aşağıda) |
-| `rozet` | Sağ üst köşe: `BÖLÜM 04`, `2025 MÜFREDAT` |
-
-Düzene özel alanlar: `dugme` (soru) · `sol`/`sag`/`solRol`/`sagRol`/`karsi`
-(ikilem) · `rakam`/`maddeler` (adim) · `levhaEtiketi` (imza).
-
----
-
-## Formül yazımı
-
-`formul` alanı LaTeX kurmadan matematiksel dizgi yapar:
-
-| Yazarsan | Çıkar |
-|---|---|
-| `[sin x]/[x]` | dikey kesir, çizgili |
-| `lim_{x→0}` | `lim`, altında `x→0` |
-| `∫_{a}^{b}` | integral, alt ve üst sınırlı |
-| `x^2` · `x^{n+1}` | üst simge |
-| `a_1` · `a_{n}` | alt simge |
-| `~` | ince boşluk |
-
-Örnekler:
-
-```js
-formul: 'lim_{x→0} [sin x]/[x] = 1'
-formul: '∫_{a}^{b} f(x)~dx = F(b) − F(a)'
-formul: 'x = [−b ± √(b^2 − 4ac)]/[2a]'
-```
-
----
-
-## Düzenler
-
-| `tasarim` | Ne zaman kullan |
-|---|---|
-| `imza` | Bayrak gemisi. Konu solda dev, formül sağda cam levhada. Standart video. |
-| `formul` | Formül kahraman: bağıntı ortada dev. Tek bir bağıntıyı anlatan video. |
-| `soru` | Dev soru işareti + merak boşluğu. "Neden / nasıl" videoları. |
-| `ikilem` | İki kavram karşı karşıya. Karıştırılan konular. |
-| `adim` | Dev rakam + madde listesi. "3 adımda", "5 soru tipi". |
-| `ders` | Sakin editoryal düzen. Ders serisi, playlist kapakları. |
-| `banner` | Kanal başlığı, 2560×1440. |
+Punto otomatik ayarlanır: kısa konu büyük, uzun konu küçük gelir; hiçbir
+durumda taşmaz. `BÖLME VE BÖLÜNEBİLME` ile `SAYILAR` aynı çerçevede dengeli
+durur.
 
 ---
 
 ## Logo
 
-`assets/` klasörüne `logo.png` (veya `.jpg` / `.webp` / `.svg`) koyarsan motor
-otomatik onu kullanır. Dosya yoksa amblemin vektörel yeniden çizimi kullanılır
-(`src/logo.js`) — kare ve şeffaf zeminli bir PNG en iyi sonucu verir.
+`assets/logo.png` koyarsan motor otomatik onu kullanır (kare, şeffaf zeminli
+PNG en iyisi). Dosya yoksa `src/logo.js` içindeki madalyon çizilir — intro
+amblemin vektörel karşılığı: fırçalanmış çelik halka, kazınmış π/2/3/0/5
+işaretleri, lacivert cam disk, ince bakır halka, 3B bakır yazı.
 
 ---
 
-## Tasarımı değiştirmek
+## Dosya düzeni
 
 | Dosya | İçerik |
 |---|---|
-| `kapaklar.js` | **Metinler.** Normalde sadece burayı açarsın. |
+| `kapaklar.js` | **Konu listesi.** Normalde sadece burayı açarsın. |
 | `src/marka.js` | Renk paleti ve temalar |
-| `src/stil.css` | Tasarım sistemi ve düzen kuralları |
-| `src/kalip.js` | Düzenlerin HTML yapısı + otomatik sığdırma |
-| `src/formul.js` | Matematik dizgi motoru |
-| `src/logo.js` | Amblem çizimi |
+| `src/cizim.js` | Teknik çizim (blueprint) katmanı |
+| `src/logo.js` | Madalyon |
+| `src/stil.css` | Tasarım sistemi |
+| `src/kalip.js` | Kalıbın HTML yapısı + otomatik punto sığdırma |
+| `src/formul.js` | Matematik dizgisi (kesir, limit, integral sınırları) |
 | `src/render.mjs` | Üretici |
-| `src/olc.mjs` | Teşhis: `node src/olc.mjs 04` bir kapağın kutu ölçülerini döker |
-
-Yeni düzen eklemek: `src/kalip.js` içindeki `DUZENLER`'e bir fonksiyon ekle,
-`src/stil.css`'e `.d-<ad>` bloğunu yaz. Başka yeri değiştirmen gerekmez.
+| `src/olc.mjs` | Teşhis: `node src/olc.mjs 01` kutu ölçülerini döker |
 
 ---
 
-## Tasarım kararları
+## Renkler (intro videosundan örneklendi)
 
-Küçük boyutta (feed'de kapak ~210 px genişlikte görünür) ayakta kalması için:
+| Rol | HEX |
+|---|---|
+| Sıva — ışıklı | `#D9D1C6` |
+| Sıva — gölgeli | `#9E958B` |
+| Lacivert disk | `#2B4869` → `#0D1E33` |
+| Çelik halka | `#F2F2F1` / `#8B8885` / `#78756F` |
+| Bakır — parlak | `#FFEEDD` |
+| Bakır — gövde | `#C08453` |
+| Bakır — gölge | `#96602F` |
 
-- **Tek dominant blok.** Her kapakta gözün gideceği tek bir yer var.
-- **Bakır ↔ kemik dönüşümü.** Aynı satırda iki metal yok; kontrast tipografi
-  ritmi kurar.
-- **Grotesk + serif italik.** Archivo Black'in ağırlığı Playfair italiğin
-  zarafetiyle dengelenir — piyasadaki tek fontlu kapaklardan ayıran şey bu.
-- **Atmosfer katmanları.** Mühendislik ızgarası, hayalet semboller, ışık
-  huzmesi, vinyet ve film greni; hepsi %10'un altında opaklıkta — hissedilir
-  ama okunmayı engellemez.
-- **Alt bakır şerit.** Her kapakta tekrar eden kimlik çizgisi; kanal
-  sayfasında ızgara halinde bakıldığında seri hissi verir.
+---
+
+## Yedek düzenler
+
+Motorda sabit kalıbın yanında altı düzen daha duruyor (`imza`, `formul`,
+`soru`, `ikilem`, `adim`, `ders`) ve koyu temalar (`bakir`, `gece`, `krem`).
+Standart akışta bunlara dokunmuyorsun — özel bir video için istersen kayda
+`tasarim: 'soru'` eklemen yeterli.
+
+Kanal başlığı için: `tasarim: 'banner'` → 2560×1440, metinler YouTube'un
+1546×423 güvenli alanı içinde kalır.

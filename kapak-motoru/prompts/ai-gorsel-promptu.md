@@ -20,35 +20,34 @@ tutarlılığı buradan gelir.
 | Lacivert tepe | `#1B3F70` |
 | Lacivert dip | `#061529` |
 | Platin halka | `#EDEFF2` → `#79828C` |
-| Kum bej (banner) | `#DCD3C7` → `#9E9284` |
+| Sıva duvar | `#D9D1C6` (ışıklı) → `#9E958B` (gölgeli) |
+| Çelik halka | `#F2F2F1` / `#8B8885` / `#78756F` |
 
 ---
 
-## ANA KALIP — kapak arka planı
+## ANA KALIP — kapak arka planı (intro dünyası)
 
 ```
-A premium YouTube thumbnail background for a Turkish mathematics education
-channel. Deep navy studio backdrop (#061529 to #1B3F70), lit from the upper
-left by a single soft key light that grazes the surface and falls off into
-darkness at the lower right.
+A premium backdrop for a Turkish mathematics education channel, matching a
+brand intro. Warm greige plaster wall (#9E958B in shadow to #D9D1C6 in light),
+lit by a single soft key light from the upper right; long gentle falloff into
+the lower left. The surface reads as real plaster: fine tooth, subtle
+unevenness, no pattern.
 
-Floating in the space: brushed copper mathematical symbols ({{SEMBOL}}),
-rendered as physical machined metal with a rose-gold finish (#C0824F body,
-#F2C79E specular highlights, #8E5A32 shadow tone), shallow bevels, soft
-contact shadows. They sit at varying depths with gentle depth-of-field —
-sharp in the midground, softly blurred at the edges.
+Etched into the wall in thin copper linework: an engineering construction
+drawing — straight rules, a right-angle bracket, a tangent arc, dimension
+lines with end ticks, small nodes at intersections, and sparse engraved
+numerals and symbols ({{SEMBOL}}). Warm copper (#8E5A32) at very low contrast,
+like a technical drawing scribed into stone.
 
-Faint engineering blueprint grid etched into the backdrop, barely visible,
-warm copper at 6% opacity. Subtle film grain. Clean negative space across the
-left 55% of the frame, reserved for typography — keep it uncluttered.
-
-Cinematic product photography lighting, macro lens character, 16:9,
-ultra sharp, no text, no letters, no numbers, no watermark.
+The left 55% of the frame is deliberately clean and empty, reserved for
+typography. Soft realistic shadows, fine grain, gentle vignette at the edges.
+Cinematic product photography, 16:9, no text, no letters, no watermark.
 ```
 
 **Değiştir:** `{{SEMBOL}}` yerine konunun sembolleri.
-Limit → `lim, →, 0, ∞` · İntegral → `∫, dx, curves` · Trigonometri →
-`sin, cos, θ, circle` · Olasılık → `dice, C(n,r), Σ` · Türev → `f′(x), tangent line`
+Sayılar → `1, 2, 5, 0, ÷` · Üslü sayılar → `x², xⁿ` · Köklü sayılar → `√, ∛` ·
+Rasyonel → `a/b, fraction bars` · Mutlak değer → `|x|` · EBOB-EKOK → `2, 3, 5, ×`
 
 ---
 

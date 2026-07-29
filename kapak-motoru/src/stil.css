@@ -433,3 +433,128 @@ html, body {
 .d-banner .taban-serit { height:12px; }
 /* Üst simge biraz daha yukarıda otursun */
 .mat sup { vertical-align:.72em; }
+
+/* =============================================================
+   MONTSERRAT — logo yazısının geometrik harf yapısı
+   ============================================================= */
+@font-face { font-family:'Montserrat'; src:url('../fonts/Montserrat-SemiBold.ttf');  font-weight:600; }
+@font-face { font-family:'Montserrat'; src:url('../fonts/Montserrat-Bold.ttf');      font-weight:700; }
+@font-face { font-family:'Montserrat'; src:url('../fonts/Montserrat-ExtraBold.ttf'); font-weight:800; }
+@font-face { font-family:'Montserrat'; src:url('../fonts/Montserrat-Black.ttf');     font-weight:900; }
+
+/* =============================================================
+   SIVA TEMASI — intro videosunun dünyası
+   Sıcak sıva duvar, sağ üstten tek yumuşak ışık.
+   ============================================================= */
+.tema-siva {
+  background:
+    radial-gradient(78% 120% at 88% 2%,  rgba(255,253,248,0.95) 0%, rgba(255,252,246,0.30) 34%, transparent 62%),
+    radial-gradient(60% 90%  at 8%  96%, rgba(88,72,56,0.16) 0%, transparent 58%),
+    linear-gradient(118deg, #9E958B 0%, #C2BAAF 34%, #D9D1C6 62%, #B8B0A5 100%);
+}
+.tema-siva .vinyet {
+  background:
+    radial-gradient(120% 105% at 78% 8%, transparent 34%, rgba(74,60,46,0.26) 100%),
+    linear-gradient(100deg, rgba(64,52,40,0.14) 0%, transparent 32%);
+}
+.tema-siva .gren { opacity:.16; mix-blend-mode:multiply; }
+.tema-siva .huzme { display:none; }
+.tema-siva .izgara { display:none; }
+.tema-siva .hayaletler { display:none; }
+.tema-siva .taban-serit {
+  height:5px;
+  background: linear-gradient(90deg, rgba(92,52,25,0) 0%, #8E5A32 12%, #D9A273 34%,
+              #FFE7D2 48%, #C0824F 66%, #8E5A32 86%, rgba(92,52,25,0) 100%);
+  box-shadow:none; opacity:.85;
+}
+
+/* Teknik çizim katmanı */
+.cizim { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+
+/* =============================================================
+   OYMA BAKIR — açık zemin için kabartma tipografi
+   Koyu zemindeki .metal'den farkı: üstte ışık kenarı, altta temas gölgesi.
+   ============================================================= */
+.oyma {
+  background: linear-gradient(176deg,
+    #FFEEDD 0%, #F3CAA4 15%, #DCA377 30%, #C08453 44%,
+    #96602F 53%, #C68A5C 63%, #F0C79E 78%, #D2A277 90%, #A9713F 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 -1.2px 0 rgba(255,247,238,0.90))
+    drop-shadow(0  2.5px 0 rgba(92,54,26,0.62))
+    drop-shadow(0  4px 1px rgba(64,40,20,0.34))
+    drop-shadow(0 15px 22px rgba(84,64,44,0.36));
+}
+
+/* Madalyon — kahraman nesne, duvara asılı gibi */
+.madalyon { position:relative; flex:none; line-height:0; }
+.madalyon > svg, .madalyon > img { display:block; width:100%; height:100%; }
+.madalyon::after {
+  content:''; position:absolute; left:6%; right:-4%; bottom:-7%; height:26%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(62,48,34,0.46) 0%, transparent 72%);
+  filter: blur(16px); z-index:-1;
+}
+
+/* =============================================================
+   DÜZEN: MATHERA — SABİT KALIP
+   Her videoda aynı: sol blokta konu, sağda madalyon.
+   Değişen tek şey konu metni.
+   ============================================================= */
+.d-mathera { display:grid; grid-template-columns: minmax(0,1fr) 372px; gap:56px; align-items:center; padding:54px 64px 96px; }
+.d-mathera .sol { display:flex; flex-direction:column; justify-content:center; }
+.d-mathera .sag { display:flex; align-items:center; justify-content:center; }
+
+.d-mathera .kicker {
+  background: linear-gradient(180deg, #223E5F, #16293F);
+  border:none; color:#F0D9C2; border-radius:2px;
+  padding:11px 20px 11px 17px;
+  box-shadow: 0 8px 18px rgba(40,30,20,0.28), inset 0 1px 0 rgba(255,255,255,0.16);
+  margin-bottom:26px;
+}
+.d-mathera .kicker::before { background:var(--bakir-orta); box-shadow:0 0 10px rgba(217,162,115,.8); }
+
+.d-mathera .konu {
+  font-family:'Montserrat', sans-serif; font-weight:800;
+  font-size:128px; line-height:.98; letter-spacing:.008em; text-transform:uppercase;
+}
+.d-mathera .konu > div { white-space:nowrap; }
+
+.d-mathera .folyo {
+  height:5px; margin:26px 0 20px; max-width:520px;
+  background: linear-gradient(90deg, #8E5A32, #D9A273 28%, #FFE7D2 44%, #C0824F 64%, rgba(142,90,50,0));
+  box-shadow:none;
+}
+.d-mathera .alt {
+  font-family:'Montserrat', sans-serif; font-weight:600;
+  font-size:25px; line-height:1.42; color:#2A3E58; max-width:30ch;
+}
+.d-mathera .alt b { color:#8A5228; font-weight:800; }
+
+/* Sağ üst bölüm etiketi */
+.d-mathera ~ .bolum, .tema-siva .bolum {
+  color:rgba(27,51,80,0.66); border-bottom-color:rgba(140,96,60,0.42);
+  font-family:'Montserrat', sans-serif; font-weight:700;
+}
+/* Sol alt imza */
+.tema-siva .imza-yazi b { color:#1B3350; font-family:'Montserrat', sans-serif; font-weight:800; }
+.tema-siva .imza-yazi i { color:#8A5228; font-weight:700; }
+
+/* ---------- Sıva teması: okunabilirlik rötuşları ---------- */
+.tema-siva .vinyet {
+  background:
+    radial-gradient(125% 108% at 80% 6%, transparent 40%, rgba(74,60,46,0.20) 100%);
+}
+.d-mathera .alt { max-width:34ch; }
+.d-mathera .konu { letter-spacing:.012em; }
+/* İmza sıva üzerinde net dursun */
+.tema-siva .imza-yazi b { text-shadow:0 1px 0 rgba(255,252,247,.55); }
+
+/* ---------- Son rötuşlar: sabit kalıp ---------- */
+.d-mathera .sol { padding-right:26px; }
+.d-mathera .alt { max-width:625px; }
+/* Banner marka yazısı da logo harf yapısıyla */
+.d-banner .marka-yazi { font-family:'Montserrat', sans-serif; font-weight:800; }
+.tema-siva .d-banner .slogan { color:rgba(27,51,80,0.70); font-family:'Montserrat', sans-serif; font-weight:600; }
+.tema-siva .d-banner .banner-alt { color:#2A3E58; font-family:'Montserrat', sans-serif; font-weight:700; }
