@@ -68,9 +68,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',panelCycle:'F9',blackPen:'k',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -1964,6 +1964,27 @@ function exitPresent(){presenting=false;
 function armFade(){clearTimeout(fadeTimer);$('#presentBar').classList.remove('fade');
   fadeTimer=setTimeout(()=>$('#presentBar').classList.add('fade'),2600)}
 {const wb=$('#webBtn');if(wb)wb.addEventListener('click',()=>{if(window.proWebAsk)window.proWebAsk()});}
+/* ◧ PANEL GİZLEME DÖNGÜSÜ — tek tuş, üç durak:
+   1. basış → sol panel (araç rayı) gizlenir
+   2. basış → üst panel de gizlenir (ikisi kapalı: tam ekran tuval)
+   3. basış → ikisi birden geri gelir
+   Ayarlar › Kısayollar'dan tuş değiştirilebilir. */
+function panelCycle(){
+  const L=!!S.hideLeft, T=!!S.hideTop;
+  if(!L&&!T){S.hideLeft=true;S.hideTop=false}
+  else if(L&&!T){S.hideLeft=true;S.hideTop=true}
+  else{S.hideLeft=false;S.hideTop=false}
+  saveOpts();applyPanels(true);
+}
+/* ⬛ Siyah kaleme geç — hangi renkle yazıyorsan tek tuşla siyaha döner.
+   (Uygulamanın varsayılan siyahı; fosforlu kendi sarısını korur.) */
+function blackPen(){
+  penColor='#111827';
+  buildSwatches();
+  if(typeof buildMiniBar==='function')try{buildMiniBar()}catch(_){}
+  if(window.proCursorSync)try{window.proCursorSync()}catch(_){}
+  drawOverlay();
+}
 /* 🔭 Akıllı sığdır: slayt modunda slaydı, diğer hâllerde sayfayı/tahtayı
    çalışma alanına oturtur. Kısayol: Ayarlar › Kısayollar › 'Sığdır'. */
 function fitSmart(){
@@ -2169,6 +2190,8 @@ window.addEventListener('keydown',e=>{
     if(act==='fit'){fitSmart();return}
     if(act==='randColor'){randPenColor();return}
     if(act==='boardSwap'){boardSwap();return}
+    if(act==='panelCycle'){panelCycle();return}
+    if(act==='blackPen'){blackPen();return}
     if(act==='solve'){solveClick();return}
   }
   if(k==='x'&&!Object.values(KEYMAP).includes('x')){swapPen();return}
@@ -2391,6 +2414,8 @@ function PAL_CMDS(){return[
  {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>expDlg.showModal()},
  {t:'Rastgele renge geç',k:(KEYMAP.randColor||'').toUpperCase(),sec:'Eylem',fn:()=>randPenColor()},
  {t:'Boş tahta ↔ son çalışmaya dön',k:(KEYMAP.boardSwap||'').toUpperCase(),sec:'Eylem',fn:()=>boardSwap()},
+ {t:'Panel gizle döngüsü',k:(KEYMAP.panelCycle||'').toUpperCase(),sec:'Eylem',fn:()=>panelCycle()},
+ {t:'Siyah kaleme geç',k:(KEYMAP.blackPen||'').toUpperCase(),sec:'Eylem',fn:()=>blackPen()},
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
@@ -3196,7 +3221,9 @@ $('#oUltraInk').addEventListener('change',e=>{S.ultraInk=e.target.checked;saveOp
   toast(S.ultraInk?'Ultra Netlik AÇIK — çizgiler süper-örnekleniyor':'Ultra Netlik kapalı')});
 $('#oProPens').addEventListener('change',e=>{S.proPens=e.target.checked;saveOpts();redraw();
   toast(S.proPens?'Pro Kalem Modu AÇIK ✒️':'Pro Kalem Modu kapalı')});
-$('#uiRestore').addEventListener('click',()=>{S.hideLeft=S.hideTop=false;saveOpts();applyPanels(true)});
+/* Panelleri geri getiren yüzen düğme kaldırıldı — işlev klavyeye taşındı
+   (Ayarlar › Kısayollar › 'Panel gizle döngüsü', varsayılan F9). */
+{const ur=$('#uiRestore');if(ur)ur.addEventListener('click',()=>{S.hideLeft=S.hideTop=false;saveOpts();applyPanels(true)});}
 {const b=$('#oBoardSave');
  try{b.checked=localStorage.getItem('notis_board_save')==='1'}catch{}
  b.addEventListener('change',()=>{try{localStorage.setItem('notis_board_save',b.checked?'1':'0')}catch{};if(b.checked)LIB.dirty()})}
