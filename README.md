@@ -69,6 +69,24 @@ wails build -nsis
 > (`frontend/dist/index.html`); Go arka plan yoksa kayıt otomatik olarak
 > tarayıcı `localStorage`'ına düşer.
 
+### Linux/macOS üzerinden çapraz derleme (Wails CLI olmadan)
+
+Windows arka ucu saf Go olduğundan (CGO yok) `.exe` doğrudan çapraz
+derlenebilir. İkon, sürüm bilgisi ve DPI manifesti `winres.json`'dan gömülür:
+
+```bash
+go install github.com/tc-hib/go-winres@v0.3.3
+go-winres make --in winres.json --arch amd64 --out rsrc   # rsrc_windows_amd64.syso
+
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
+  go build -tags desktop,production -ldflags "-w -s -H windowsgui" \
+  -o Notis.exe .
+```
+
+Sonuç `wails build` çıktısıyla aynıdır: tek dosya, 9 bölümlü PE32+, arayüz
+gömülü. Çalıştırmak için Windows'ta **WebView2 Runtime** gerekir (Windows 11'de
+hazır gelir).
+
 ## Geliştirme (canlı yeniden yükleme)
 
 ```bash
