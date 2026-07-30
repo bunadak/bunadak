@@ -8,17 +8,45 @@ birebir korundu.
 
 ## Dosyalar
 
+### Logo
 | Dosya | Açıklama |
 |---|---|
 | `mathera-logo.png` | Nihai logo, 1254×1254 |
 | `mathera-logo-800.png` | 800×800 (YouTube minimum avatar boyutu) |
-| `mathera-madalyon-bos.png` | Yazısız temiz plaka — başka bir yazı denemek için |
+| `mathera-logo.svg` | SVG sarmalayıcı (ölçeklenebilir kap) |
+| `mathera-logo-seffaf.png` | Şeffaf zeminli dairesel kesim, 1000×1000 |
+
+### YouTube banner — 2048×1152
+| Dosya | Açıklama |
+|---|---|
+| `mathera-banner.png` / `.svg` | Koyu, amblem + logotype kilidi — **önerilen** |
+| `mathera-banner-acik.png` / `.svg` | Krem zeminli aynı kilit |
+| `mathera-banner-ortali.png` / `.svg` | Koyu, ortada tek amblem (minimal) |
+| `mathera-banner-guvenli-alan.png` | Kılavuzlu kontrol görseli |
+
+### Parçalar
+| Dosya | Açıklama |
+|---|---|
+| `mathera-madalyon-bos.png` | Yazısız temiz plaka |
+| `mathera-madalyon-seffaf.png` | Yazısız plaka, şeffaf zemin |
+| `mathera-wordmark-seffaf.png` | Bakır logotype, şeffaf zemin, 1400 px |
+
+### Kaynak ve betikler
+| Dosya | Açıklama |
+|---|---|
 | `kaynak/madalyon-orijinal.webp` | Girdi: orijinal madalyon |
 | `kaynak/wordmark-orijinal.png` | Girdi: referans wordmark (379×71) |
-| `tools/wordmark_swap.py` | Tüm işi yapan betik |
+| `tools/wordmark_swap.py` | Wordmark değişimi |
+| `tools/banner.py` | Banner + SVG paketleri |
 
-Yeniden üretmek için: `python3 brand/tools/wordmark_swap.py`
-(gereksinimler: `pillow`, `numpy`, `scipy`)
+Yeniden üretmek için (`brand/tools/` içinden, sırayla):
+
+```bash
+python3 wordmark_swap.py
+python3 banner.py
+```
+
+Gereksinimler: `pillow`, `numpy`, `scipy`
 
 ## Ölçülen geometri
 
@@ -60,6 +88,37 @@ kendisiydi.
 
 Wordmark'ın **yüksek çözünürlüklü hali** bulunursa `kaynak/` içine koyup
 betiği yeniden çalıştırmak yeterli — sonuç belirgin şekilde netleşir.
+
+## Banner yerleşimi
+
+YouTube banner'ında **güvenli alan** kritik: tuval 2048×1152 ama her cihazda
+görünmesi garanti olan bölge ortadaki **1235×338**. Masaüstünde ~2048×423
+görünür, tamamı yalnızca TV'de. Tüm içerik güvenli alana sığdırıldı:
+
+- Amblem: 312 px çap, `(572, 420)`
+- Logotype: 528×77, `(948, 538)`
+- Kilit grubu tuvalde ortalanmış, dikey merkez 576
+
+`mathera-banner-guvenli-alan.png` kılavuzları üstüne çizer; yükleme öncesi
+kontrol için kullanılabilir.
+
+İlk denemede amblem olarak **yazısız plaka** kullanılmıştı (logoda zaten
+"MATHERA" yazdığı için tekrar olmasın diye). Yapısal olarak doğruydu ama
+görsel olarak bitmemiş bir tabak gibi durdu; tam logoya çevrildi. Adı iki
+kez göstermek burada normal bir marka kilidi olarak okunuyor.
+
+## SVG hakkında dürüst not
+
+Madalyon **fotogerçekçi bir 3B render** — fırçalanmış metal, kabartma,
+yumuşak gölgeler. Bunu gerçek vektöre çevirmek (izleme/trace) görüntüyü
+yok eder. Bu yüzden SVG'ler **ölçeklenebilir kap** olarak çalışır: zemin
+gradyanı, yerleşim ve gölge filtresi gerçek vektör, madalyon ve logotype
+ise `data:` URI ile gömülü raster. Her yerde tek dosya olarak açılır,
+harici bağımlılığı yoktur.
+
+Gerçek vektör istenirse madalyonun sıfırdan vektör olarak yeniden
+tasarlanması gerekir — bu, mevcut render'ın dönüştürülmesi değil, yeni bir
+tasarım işidir.
 
 ## Not: YouTube avatarı
 
