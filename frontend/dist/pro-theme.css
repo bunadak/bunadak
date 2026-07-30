@@ -390,5 +390,10 @@ body.pro-web-drag { user-select: none; }
 .silk-meter .sm-big .sm-u { display: block; font-family: 'Manrope', sans-serif; font-size: 11px;
   font-weight: 700; color: var(--mut); letter-spacing: .2px; margin-top: 4px; }
 
-/* 🌙 Gece Okuma Modu — belge açıkken sahne zemini de gece tonuna iner */
-body.pro-night #stage { background: #0C0E13; }
+/* 🌙 Gece Modu — sahne zemini, kâğıdın gece tonuyla aynı aileden gelir.
+   Değişkenler pro-pdfdark.js tarafından şiddet/ton seçimine göre yazılır;
+   modül yüklenmemişse aşağıdaki yedek değerler geçerlidir. */
+body.pro-night #stage { background: var(--night-stage, #0C0E13); }
+body.pro-night #textEdit { background: var(--night-paper, #16181F); color: #E7EAF2; }
+/* Gece modunda tuval geçişleri: tema değişimi ani sıçrama yapmasın */
+body.pro-night #stage, body.pro-night #textEdit { transition: background .22s ease; }

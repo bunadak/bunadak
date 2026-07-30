@@ -79,3 +79,67 @@ wails dev
 
 `frontend/dist/index.html` dosyasını herhangi bir tarayıcıda açmanız yeterli —
 çizim, sayfalar, katmanlar, temalar ve dışa aktarma tam çalışır.
+
+---
+
+## v3.0.0 — Gece Modu (tüm uygulama) + Gelişmiş Serbest Çizim Motoru
+
+### 🌙 Gece Modu — tek anahtar, her yer
+
+Önceki sürümdeki "PDF Gece Modu" yalnız belge görünümünde çalışıyor, açılıp
+kapanması zamanlayıcılara bağlı olduğu için PDF ↔ tahta geçişlerinde takılıyordu.
+Yeniden yazıldı ve kapsamı tüm uygulamaya genişletildi.
+
+**Tasarım ilkesi — "her karede kendini onarır":** durum artık bir zamanlayıcıya
+ya da olay dinleyicisine değil, doğrudan çizim hattına bağlı. Her karenin
+başında hedef durum yeniden hesaplanıp uygulanıyor. Bu yüzden hangi sırayla ne
+yapılırsa yapılsın — PDF aç, tahtaya geç, sayfa çevir, kalem/renk değiştir,
+kütüphaneden başka belge aç, geri al — ekrandaki görüntü daima doğru durumdur.
+
+| Kapsam | Davranış |
+| --- | --- |
+| Çalışma tahtası | Tahta zemini, kâğıt desenleri ve tahta stilleri gece paletine geçer. Zaten koyu olan tahtalara (Kara Tahta, Matematik Tahtası) dokunulmaz. |
+| PDF / belge / slayt | Sayfa görseli piksel piksel dönüştürülür. Gri bölgeler (kâğıt, metin, çizgi) parlaklık eğrisiyle yer değiştirir; **renkli bölgeler ton ve doygunluğunu korur** — fotoğraflar ve grafikler negatife dönmez. |
+| Zeminsiz sayfalar | Düz beyaz kâğıt da gece tonuna iner (yalnız PDF değil). |
+| Arayüz | Tema ve sahne zemini kâğıtla aynı tonu paylaşır. Temayı elle değiştirirsen tercihe karışılmaz. |
+| Mürekkep | **Tek yönlü:** koyu çizimler ekranda açılır, açık renkli kalemler (tebeşir beyazı, fosforlu sarı) olduğu gibi kalır. Kaydedilen veri değişmez. |
+| Dışa aktarma | PDF/PNG çıktısı ve küçük resimler **daima orijinal** görseli ve renkleri kullanır. |
+
+**Donma yok — ölçülerek çözüldü.** A4 300 dpi (8.7 megapiksel) bir taramada:
+
+1. Sayfa **anında** kararır: küçültülmüş önizleme ana iş parçacığının dışında
+   hazırlanır (`createImageBitmap` resize).
+2. Tam çözünürlük kare kare, bant bant işlenir — dilim başına ≤ 10 ms.
+3. **Kalem ekrandayken tek bir dilim bile çalışmaz.** Çizim, kaydırma,
+   yakınlaştırma ve sürükleme sırasında ağır iş tamamen durur; el kalkınca
+   kaldığı yerden sürer.
+4. Bellek sabittir: yalnız görünür sayfa ve ±2 komşusu saklanır (200 sayfalık
+   PDF'te de).
+
+Ölçüm (yazılım oluşturucu, GPU'suz): 6 gerçek kalem darbesi boyunca 100 ms'yi
+aşan **tek bir kare yok**; sayfa ~1.6 s'de tam çözünürlüğe oturuyor.
+
+### 🖋️ Gelişmiş Serbest Çizim Motoru
+
+Değişken kalınlıklı çizgi üretimi baştan yazıldı ve **arayüzdeki 5 kalemin,
+çarktaki 10 kalemin tamamına** uygulandı.
+
+* **Dirsek yayı** — keskin dönüşlerde kalem ucunun döndüğü gerçek yay hesaplanır;
+  iç taraf komşu segmentle sınırlanır. Firkete dönüşlerdeki çentikler ve papyon
+  izleri kayboldu.
+* **Miter telafisi** — dar açılarda açıortay kısaldığı için çizgi köşede
+  inceliyordu; artık kalınlık korunuyor.
+* **Uç koniği** — çizginin başı ve sonu **yay uzunluğu boyunca** incelir. Her
+  kalemin kendi koni uzunluğu var (dolma uzun, tükenmez kısa, fosforlu yok).
+* **Kalem karakter profilleri** — Dolma, Tükenmez ve Kurşun'a kendi
+  basınç/hız/incelme karışımları verildi. Dolma kalem artık segment segment
+  değil tek dolgu poligonu olarak çiziliyor (basamaklanma bitti); Kurşun'un
+  grafit gövdesi basınca tepki veriyor.
+* **Çözünürlükten bağımsız** — raylar kuadratik eğriyle kapatılır; 8× ve
+  üstü yakınlaştırmada çokgenleşme yok.
+* **Sıfır ek maliyet** — tüm ara veri yeniden kullanılan tipli tamponlarda
+  tutulur. 400 çizgilik yoğun bir tahtada ölçülen kare süresi: motor kapalı
+  498 ms, açık 494 ms.
+
+Ayarlar › Çizim altında kapatılabilir; kapalıyken uygulamanın özgün çizim yolu
+birebir geri gelir.

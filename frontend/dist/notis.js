@@ -395,8 +395,12 @@ function drawStroke(c,o){
       }c.restore();
     }
   }else if(o.tool==='fountain'){const L=pts.length;
-    for(let i=1;i<L;i++){const p0=pts[i-1],p1=pts[i];const pr0=((p0.p??.5)+(p1.p??.5))/2,pr=.5+(pr0-.5)*PKK;
-      c.lineWidth=Math.max(.4,o.size*NW*nibEnd(i,L)*(0.35+1.35*pr));c.beginPath();c.moveTo(p0.x,p0.y);c.lineTo(p1.x,p1.y);c.stroke()}
+    /* Dolma kalem tek dolgu poligonu olarak çizilir: segment segment çizimde
+       her segmentin yuvarlak ucu bir sonrakinin üstüne biniyor, kalınlık
+       değişimi basamak basamak görünüyordu. */
+    c.fillStyle=o.color;
+    fillInkStroke(c,pts,(pt,i,n)=>{const pr=.5+((((pt&&pt.p)??.5))-.5)*PKK;
+      return Math.max(.4,o.size*NW*nibEnd(i,n)*(0.35+1.35*pr))});
       if(S.proPens){
         c.save();c.globalAlpha*=.26;c.lineWidth=o.size*NW*.52;strokePath(c,pts);c.stroke();c.restore();  // koyu mürekkep çekirdeği
         /* PRO İMZA: ıslak mürekkep parlaklığı — çizginin bir yanında ince ışık şeridi */
@@ -408,7 +412,10 @@ function drawStroke(c,o){
     /* Living Ink açıkken doku ofseti zoom'a göre yeniden hesaplanır — yakınlaşınca
        grain büyüyüp bulanmak yerine gerçek kalem dokusu gibi incelikli kalır. */
     const gz=Math.max(1,INK.z);
-    c.globalAlpha*=.82;c.lineWidth=o.size*NW;strokePath(c,pts);c.stroke();
+    /* Ana grafit gövdesi değişken kalınlıkta — bastırınca koyulaşıp genişler */
+    c.globalAlpha*=.82;c.fillStyle=o.color;
+    fillInkStroke(c,pts,(pt,i,n)=>{const pr=.66+((((pt&&pt.p)??.66))-.66)*PKK;
+      return Math.max(.4,o.size*NW*nibEnd(i,n)*(0.42+0.88*pr))});
     c.globalAlpha*=.35;c.lineWidth=o.size*.55;c.save();c.translate(.7/gz,.5/gz);strokePath(c,pts);c.stroke();c.restore();
     if(INK.z>1.8){c.globalAlpha*=.5;c.lineWidth=o.size*.3;c.save();c.translate(-.45/gz,.32/gz);strokePath(c,pts);c.stroke();c.restore()}
     if(S.proPens){                            // PRO İMZA Kurşun: gerçek grafit dokusu
@@ -418,16 +425,19 @@ function drawStroke(c,o){
         c.translate((rnd()*2-1)*.9/gz,(rnd()*2-1)*.9/gz);
         c.lineWidth=o.size*(.28+rnd()*.2);strokePath(c,pts);c.stroke();c.restore()}
     }
-  }else if(o.tool==='ball'&&S.proPens){      // PRO İMZA Tükenmez: ipek 'nefes alan' çizgi
+  }else if(o.tool==='ball'){                 // Tükenmez: ipek 'nefes alan' çizgi
     c.fillStyle=o.color;
     const ph=(strokeSeed(pts)%628)/100;      // deterministik faz
     fillInkStroke(c,pts,(pt,i,n)=>{
+      const pr=.70+((((pt&&pt.p)??.70))-.70)*PKK;
       const taper=0.55+0.45*Math.min(1,i/5,(n-1-i)/5);
-      const breath=1+0.05*Math.sin(i*.55+ph); // ±%5 canlı kalınlık nefesi
-      return o.size*NW*taper*breath;
+      const breath=S.proPens?1+0.05*Math.sin(i*.55+ph):1; // ±%5 canlı kalınlık nefesi
+      return Math.max(.4,o.size*NW*nibEnd(i,n)*taper*breath*(0.34+0.94*pr));
     });
-    c.save();c.globalAlpha*=.5;              // bilye ucunun ilk mürekkep damlası
-    c.beginPath();c.arc(pts[0].x,pts[0].y,o.size*NW*.58,0,7);c.fill();c.restore();
+    if(S.proPens){
+      c.save();c.globalAlpha*=.5;            // bilye ucunun ilk mürekkep damlası
+      c.beginPath();c.arc(pts[0].x,pts[0].y,o.size*NW*.58,0,7);c.fill();c.restore();
+    }
   }else{c.lineWidth=o.size*NW;
     if(o.straight){c.beginPath();c.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y)}
     else strokePath(c,pts);
@@ -485,6 +495,19 @@ let scrollDetectLock=false;
  * çerçevesinden örneklenen medyan renk) tüm çalışma alanına yayılır: sayfa
  * kâğıdın içinde erir, siyah bant kalmaz. Renk sayfa başına bir kez hesaplanır.
  * ------------------------------------------------------------------------- */
+/* Sayfa kâğıdının düz rengi. Tek noktadan okunur ki Gece Modu gibi katmanlar
+   kâğıdı tek yerden değiştirebilsin (zeminsiz sayfalar da kapsanır). */
+function paperFill(){return '#FBF8F0'}
+/* "sayfa yükleniyor…" yazısının rengi — kâğıdın parlaklığına göre okunur kalır */
+function loadingInkColor(){
+  const pf=paperFill();
+  let l=1;try{const m=/^#?([0-9a-f]{6})$/i.exec(pf);
+    if(m){const n=parseInt(m[1],16);l=(((n>>16&255)*299)+((n>>8&255)*587)+((n&255)*114))/255000}
+    else{const q=/^rgba?\(([^)]+)\)$/i.exec(pf);
+      if(q){const a=q[1].split(',');l=((+a[0])*299+(+a[1])*587+(+a[2])*114)/255000}}
+  }catch(e){}
+  return l>.5?'rgba(17,24,39,.10)':'rgba(226,232,240,.18)';
+}
 function pageEdgeColor(pg){
   if(!pg)return '#FBF8F0';
   if(pg._edge)return pg._edge;
@@ -554,11 +577,11 @@ function redraw(){ctx.imageSmoothingQuality='high';
       ctx.save();
       /* Zemin kesintisizken gölge çizilmez — yoksa kâğıdın etrafında halka olur */
       if(!seam){ctx.shadowColor='rgba(4,8,25,.5)';ctx.shadowBlur=26/view.s;ctx.shadowOffsetY=6/view.s}
-      ctx.fillStyle='#FBF8F0';ctx.fillRect(0,0,pg.w,pg.h);ctx.restore();
+      ctx.fillStyle=paperFill();ctx.fillRect(0,0,pg.w,pg.h);ctx.restore();
       ctx.save();ctx.beginPath();ctx.rect(0,0,pg.w,pg.h);ctx.clip();
       if(pg.bgImg&&pg.bgImg.complete)ctx.drawImage(pg.bgImg,0,0,pg.w,pg.h);
       else if(pg.bg){ // görsel yolda: zarif yüklenme göstergesi (boş sayfa sanılmasın)
-        ctx.save();ctx.fillStyle='rgba(17,24,39,.10)';
+        ctx.save();ctx.fillStyle=loadingInkColor();
         ctx.font=(13/Math.max(.4,view.s))+'px Manrope,sans-serif';ctx.textAlign='center';
         ctx.fillText('sayfa yükleniyor…',pg.w/2,pg.h/2);ctx.restore()}
       paperPattern(ctx,pg.paper,0,0,pg.w,pg.h);
@@ -849,8 +872,15 @@ function commitStroke(){
     if(cp.spray)fx.s={r:cp.sprayR||18,d:clamp(cp.sprayD||.7,.05,1),sp:Math.max(.005,cp.sp||.01)};
     if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
-  else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
-  else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
+  else if(o.tool==='smart'){o=matisInk(o);
+    /* Gelişmiş motor: Matis'in karakterine dokunmadan yalnız uç koniğini
+       yay uzunluğuna göre ekler — kalem kâğıda konup kalkmış gibi görünür. */
+    try{const F=window.proFreehand;if(F&&F.opts().on&&F.opts().taper)F.taper(o.points,7,11)}catch(e){}}
+  else if(o.tool!=='hl'){
+    const f=S.shapeFix?recognizeShape(o):null;
+    if(f)o=f;
+    /* Şekle dönüşmediyse kalemin kendi karakteri uygulanır (tükenmez/dolma/kurşun) */
+    else try{const F=window.proFreehand;if(F&&F.shape)o=F.shape(o)}catch(e){}}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
 /* Çark kalemleri mürekkep motoru: her kalemin kendi Pressure/Velocity karışımı.
