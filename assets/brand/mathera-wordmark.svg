@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 2484.25 480.00" width="2484" height="480"
+     role="img" aria-label="MATHERA">
+  <title>MATHERA</title>
+  <defs>
+    <!-- harf konturlari (Sora 700, path'e cevrilmis; font bagimliligi yok) -->
+    <g id="glyphs">
+    <g transform="translate(90.00 390.00) scale(0.410959 -0.410959)">
+      <path transform="translate(0.00 0)" d="M82.00 0.00V730.00H308.00L475.00 320.00H494.00L659.00 730.00H889.00V0.00H727.00V623.00L750.00 621.00L557.00 148.00H401.00L207.00 621.00L232.00 623.00V0.00Z"/>
+      <path transform="translate(1026.00 0)" d="M13.00 0.00 254.00 730.00H519.00L769.00 0.00H599.00L397.00 617.00L449.00 596.00H320.00L374.00 617.00L177.00 0.00ZM196.00 181.00 246.00 317.00H532.00L583.00 181.00Z"/>
+      <path transform="translate(1863.00 0)" d="M227.00 0.00V607.00H391.00V0.00ZM22.00 587.00V730.00H597.00V587.00Z"/>
+      <path transform="translate(2536.00 0)" d="M554.00 0.00V730.00H718.00V0.00ZM82.00 0.00V730.00H246.00V0.00ZM217.00 295.00V439.00H583.00V295.00Z"/>
+      <path transform="translate(3391.00 0)" d="M82.00 0.00V730.00H242.00V0.00ZM222.00 0.00V136.00H541.00V0.00ZM222.00 303.00V439.00H518.00V303.00ZM222.00 594.00V730.00H534.00V594.00Z"/>
+      <path transform="translate(4040.00 0)" d="M82.00 0.00V736.00H246.00V0.00ZM525.00 0.00 311.00 314.00H491.00L715.00 0.00ZM202.00 234.00V363.00H382.00Q418.00 363.00 444.50 377.50Q471.00 392.00 485.50 418.50Q500.00 445.00 500.00 480.00Q500.00 515.00 485.50 541.50Q471.00 568.00 444.50 582.50Q418.00 597.00 382.00 597.00H202.00V736.00H369.00Q460.00 736.00 527.00 708.50Q594.00 681.00 630.00 627.00Q666.00 573.00 666.00 491.00V475.00Q666.00 394.00 629.50 340.50Q593.00 287.00 526.50 260.50Q460.00 234.00 369.00 234.00Z"/>
+      <path transform="translate(4825.00 0)" d="M13.00 0.00 254.00 730.00H519.00L769.00 0.00H599.00L397.00 617.00L449.00 596.00H320.00L374.00 617.00L177.00 0.00ZM196.00 181.00 246.00 317.00H532.00L583.00 181.00Z"/>
+    </g>
+    </g>
+
+    <!-- govde / yan yuz: en koyu bronz -->
+    <linearGradient id="gEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#6d4526"/>
+      <stop offset="0.55" stop-color="#57351c"/>
+      <stop offset="1"    stop-color="#3d2413"/>
+    </linearGradient>
+
+    <!-- on yuz: bakir-bronz metal -->
+    <linearGradient id="gFace" x1="0.06" y1="0" x2="0.30" y2="1">
+      <stop offset="0"    stop-color="#e3b47c"/>
+      <stop offset="0.16" stop-color="#cf9860"/>
+      <stop offset="0.40" stop-color="#b47c46"/>
+      <stop offset="0.60" stop-color="#9d6737"/>
+      <stop offset="0.82" stop-color="#84512b"/>
+      <stop offset="1"    stop-color="#9a6234"/>
+    </linearGradient>
+
+    <!-- ust kenar isik cizgisi -->
+    <linearGradient id="gTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffe6c2" stop-opacity="0.95"/>
+      <stop offset="0.30" stop-color="#ffd9a8" stop-opacity="0.35"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- pah / bevel: alfa kanalini yuzey haritasi olarak kullanan spekuler isik -->
+    <filter id="fBevel" x="-12%" y="-12%" width="124%" height="124%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="bump"/>
+      <feSpecularLighting in="bump" surfaceScale="6" specularConstant="1"
+                          specularExponent="26" lighting-color="#fff0d2" result="spec">
+        <feDistantLight azimuth="230" elevation="48"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specClip"/>
+      <!-- diffuseConstant ~ 1/sin(elevation): duz yuzey nötr kalir,
+           sadece pah yuzeyleri aydinlanir/koyulasir -->
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5" result="bump2"/>
+      <feDiffuseLighting in="bump2" surfaceScale="5" diffuseConstant="1.55"
+                         lighting-color="#ffffff" result="diff">
+        <feDistantLight azimuth="230" elevation="40"/>
+      </feDiffuseLighting>
+      <feComposite in="diff" in2="SourceAlpha" operator="in" result="diffClip"/>
+      <feBlend in="SourceGraphic" in2="diffClip" mode="multiply" result="shaded"/>
+      <feComposite in="specClip" in2="shaded" operator="arithmetic"
+                   k1="0" k2="1" k3="1" k4="0"/>
+    </filter>
+
+    <!-- zemine dusen yumusak golge -->
+    <filter id="fShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.55"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+
+  <!-- 1) golge -->
+  <g filter="url(#fShadow)" opacity="0.5">
+    <use xlink:href="#glyphs" x="3" y="9" fill="#1c1108"/>
+  </g>
+
+  <!-- 2) 3D govde -->
+  <g>
+    <use href="#glyphs" x="0.770" y="2.240" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.715" y="2.080" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.660" y="1.920" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.605" y="1.760" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.550" y="1.600" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.495" y="1.440" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.440" y="1.280" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.385" y="1.120" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.330" y="0.960" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.275" y="0.800" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.220" y="0.640" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.165" y="0.480" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.110" y="0.320" fill="url(#gEdge)"/>
+    <use href="#glyphs" x="0.055" y="0.160" fill="url(#gEdge)"/>
+  </g>
+
+  <!-- 3) on yuz + pah -->
+  <g filter="url(#fBevel)">
+    <use xlink:href="#glyphs" fill="url(#gFace)"/>
+  </g>
+
+  <!-- 4) ust kenar isigi -->
+  <g opacity="0.55" style="mix-blend-mode:screen">
+    <use xlink:href="#glyphs" fill="url(#gTop)"/>
+  </g>
+</svg>
