@@ -68,9 +68,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır',randColor:'Rastgele renge geç',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -1964,6 +1964,62 @@ function exitPresent(){presenting=false;
 function armFade(){clearTimeout(fadeTimer);$('#presentBar').classList.remove('fade');
   fadeTimer=setTimeout(()=>$('#presentBar').classList.add('fade'),2600)}
 {const wb=$('#webBtn');if(wb)wb.addEventListener('click',()=>{if(window.proWebAsk)window.proWebAsk()});}
+/* 🔭 Akıllı sığdır: slayt modunda slaydı, diğer hâllerde sayfayı/tahtayı
+   çalışma alanına oturtur. Kısayol: Ayarlar › Kısayollar › 'Sığdır'. */
+function fitSmart(){
+  try{
+    if(window.proSlideActive&&window.proSlideActive()&&window.proSlideFit){window.proSlideFit();return}
+  }catch(e){}
+  fit();
+}
+/* 🔄 Boş tahta ↔ son çalışma geçişi (tek tuş, gidiş-dönüş).
+   PDF/slayt/görsel üzerinde çalışırken basınca: bulunduğun sayfa ve görünüm
+   hafızaya alınır, temiz bir boş tahta açılır. Aynı tuşa tekrar basınca
+   çalışmana ve TAM bıraktığın yere (sayfa + yakınlaştırma + konum) dönersin. */
+let swapWork=null, swapBoard=null;
+function boardSwap(){
+  try{
+    if(scratch)exitScratch();
+    const LIBX=window.LIB;
+    if(!LIBX)return;
+    if(!boardMode()){
+      /* ÇALIŞMADAN TAHTAYA: yerini işaretle, mühürle, tahtayı aç.
+         Daha önce tahtada bir şey yaptıysan o tahta AYNEN geri gelir. */
+      swapWork={id:LIBX.currentId?LIBX.currentId():null,cur,view:{...view}};
+      Promise.resolve(LIBX.saveNow&&LIBX.saveNow()).finally(()=>{
+        try{if(window.proSlideExit)window.proSlideExit()}catch(e){}
+        LIBX.fresh();
+        if(swapBoard&&swapBoard.doc&&swapBoard.doc.pages&&swapBoard.doc.pages.length){
+          doc=swapBoard.doc;
+          cur=clamp(swapBoard.cur|0,0,doc.pages.length-1);
+          const L=doc.pages[cur].layers;curLayerId=L[L.length-1].id;
+          selection=[];invalidateLayout();renderPages();renderLayers();updCornerPg();updUndoBtns();
+          view.s=swapBoard.view.s;view.x=swapBoard.view.x;view.y=swapBoard.view.y;
+          viewFitted=false;redraw();drawOverlay();
+        }else{
+          doc={title:'Adsız Tahta',pages:[]};seedDoc();cur=0;selection=[];
+          invalidateLayout();renderPages();renderLayers();updCornerPg();updUndoBtns();
+          setTool('smart');fit();
+        }
+      });
+      return;
+    }
+    /* TAHTADAN ÇALIŞMAYA: tahtayı olduğu gibi hafızada tut, çalışmayı aç ve
+       tam bıraktığın sayfaya + yakınlaştırmaya + konuma dön. */
+    if(!swapWork||!swapWork.id)return;
+    swapBoard={doc,cur,view:{...view}};
+    const m=swapWork;
+    Promise.resolve(LIBX.openWork(m.id)).then(()=>{
+      requestAnimationFrame(()=>{
+        cur=clamp(m.cur|0,0,doc.pages.length-1);
+        const L=doc.pages[cur].layers;curLayerId=L[L.length-1].id;
+        invalidateLayout();markPages();renderLayers();updCornerPg();updUndoBtns();
+        view.s=m.view.s;view.x=m.view.x;view.y=m.view.y;
+        viewFitted=false;redraw();drawOverlay();
+      });
+    }).catch(()=>{});
+  }catch(e){}
+}
 /* 🎲 Rastgele renge geç (kısayul atanabilir: Ayarlar › Kısayollar) —
    canlı, doygun ve mevcut renkten belirgin şekilde farklı bir renk üretir */
 function randPenColor(){
@@ -2083,7 +2139,7 @@ $('#homeBtn').addEventListener('click',()=>{
 $('#undoBtn').addEventListener('click',undo);$('#redoBtn').addEventListener('click',redo);
 $('#zoomIn').addEventListener('click',()=>setZoom(view.s*1.2));
 $('#zoomOut').addEventListener('click',()=>setZoom(view.s/1.2));
-$('#zoomLbl').addEventListener('click',fit);
+$('#zoomLbl').addEventListener('click',()=>fitSmart());
 $('#pgPrev').addEventListener('click',()=>gotoPage(cur-1));
 $('#pgNext').addEventListener('click',()=>gotoPage(cur+1));
 
@@ -2110,8 +2166,9 @@ window.addEventListener('keydown',e=>{
     const tm={select:1,smart:1,ball:1,fountain:1,pencil:1,hl:1,eraser:1,text:1,line:1,compass:1};
     if(tm[act]){setTool(act);return}
     if(act==='shapes'){toggleShapePop();return}
-    if(act==='fit'){fit();return}
+    if(act==='fit'){fitSmart();return}
     if(act==='randColor'){randPenColor();return}
+    if(act==='boardSwap'){boardSwap();return}
     if(act==='solve'){solveClick();return}
   }
   if(k==='x'&&!Object.values(KEYMAP).includes('x')){swapPen();return}
@@ -2333,6 +2390,8 @@ function PAL_CMDS(){return[
  {t:'PDF / Görsel içe aktar',sec:'Eylem',fn:()=>$('#importBtn').click()},
  {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>expDlg.showModal()},
  {t:'Rastgele renge geç',k:(KEYMAP.randColor||'').toUpperCase(),sec:'Eylem',fn:()=>randPenColor()},
+ {t:'Boş tahta ↔ son çalışmaya dön',k:(KEYMAP.boardSwap||'').toUpperCase(),sec:'Eylem',fn:()=>boardSwap()},
+ {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
  {t:'Sığdır',k:'0',sec:'Eylem',fn:fit},
@@ -3093,7 +3152,8 @@ const LIB=(()=>{
   window.addEventListener('beforeunload',()=>{clearTimeout(tmr);saveNow()});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(tmr);saveNow()}});
   window.addEventListener('pagehide',()=>{clearTimeout(tmr);saveNow()});
-  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal};
+  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,
+    currentId:()=>sessId};
 })();
 window.LIB=LIB;   // kancalar window.LIB üzerinden erişir — const window'a çıkmaz
 /* Depolama paneli bağları */

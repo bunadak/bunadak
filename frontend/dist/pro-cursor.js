@@ -187,17 +187,22 @@
 
   /* --------------------------------------------------------------- UYGULA */
   var PENS = { smart: 1, ball: 1, fountain: 1, pencil: 1, hl: 1, sticker: 1 };
-  var PRECISE = { line: 1, compass: 1, solve: 1, shapes: 1 };
+  var PRECISE = { line: 1, compass: 1, solve: 1, shapes: 1, laser: 1, spot: 1 };
+  /* Uygulamanın kendi imlecine bırakılan araçlar: metin (I işareti), seçim (ok),
+     el/kaydırma (grab). Bunlar dışında her araçta kalem figürü görünür. */
+  var NATIVE = { text: 1, select: 1, pan: 1 };
 
   function figureForTool() {
     if (P.fig === "off") return null;
     var t = "";
     try { t = (typeof tool !== "undefined") ? tool : ""; } catch (_) {}
-    if (!P.smart) return PENS[t] || PRECISE[t] || t === "eraser" ? P.fig : null;
+    /* Araca duyarlı KAPALI: seçilen figür, yerel imleç isteyen araçlar hariç
+       her yerde görünür (PDF, slayt, web katmanı dahil — hepsi aynı tuval). */
+    if (!P.smart) return NATIVE[t] ? null : P.fig;
     if (PENS[t]) return P.fig;
     if (t === "eraser") return "eraser";
     if (PRECISE[t]) return "cross";
-    return null;                       // seçim · metin · lazer · spot · el: uygulama bilir
+    return null;                       // seçim · metin · el: uygulama bilir
   }
 
   function sync() {
@@ -237,6 +242,13 @@
     } catch (_) {}
     /* renk / kalınlık / zoom değişimleri de imleci tazeler (uç halkası) */
     st.addEventListener("pointerdown", sync, true);
+    /* Tuval üzerinde gezinirken sürekli doğrulama — PDF/slayt/web katmanına
+       geçişte imleç asla fare okuna düşmez. (lastKey sayesinde bedava.) */
+    st.addEventListener("pointermove", function () {
+      if (P.fig !== "off" && !document.body.classList.contains("pro-cur")) { lastKey = ""; }
+      sync();
+    }, true);
+    st.addEventListener("pointerenter", function () { lastKey = ""; sync(); }, true);
     st.addEventListener("wheel", function () { setTimeout(sync, 60); }, { passive: true });
     document.addEventListener("click", function () { setTimeout(sync, 40); }, true);
     document.addEventListener("keyup", function () { setTimeout(sync, 40); }, true);

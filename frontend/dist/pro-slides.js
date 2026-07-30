@@ -71,6 +71,7 @@
     try { fit(); } catch (_) {}
   }
   window.proSlideExit = exit;
+  window.proSlideFit = fitSlide;      // 'Sığdır' kısayolu slayt modunda bunu çağırır
   window.proSlideActive = function () { return SL.on; };
 
   /* --------------------------------------------------------- YÜKLEME */
