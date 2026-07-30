@@ -5,12 +5,27 @@ bronz kabartma "MATHERA" yazısı.
 
 | Dosya | Açıklama |
 | --- | --- |
-| `mathera-wordmark.svg` | Vektör. Harfler path'e çevrilmiş, font bağımlılığı yok. |
-| `mathera-wordmark.png` | 2484×480, RGBA (şeffaf). |
-| `mathera-wordmark@2x.png` | 4968×960, RGBA (şeffaf). |
-| `generate_wordmark.py` | Üretici script. Renk/derinlik/aralık ayarları buradan değişir. |
+| `mathera-medallion.png` | **Tamamlanmış madalyon**: çelik halka + altın çember + bronz yazı. 1244×1244. |
+| `mathera-medallion@2x.png` | Aynısı, 2488×2488. |
+| `medallion.html` | Madalyonun kaynağı (HTML/CSS). Yazıyı `mathera-wordmark.svg`'den alır. |
+| `mathera-wordmark.svg` | Sadece yazı, vektör. Harfler path'e çevrilmiş, font bağımlılığı yok. |
+| `mathera-wordmark.png` | Sadece yazı, 2484×480, RGBA (şeffaf). |
+| `mathera-wordmark@2x.png` | Sadece yazı, 4968×960, RGBA (şeffaf). |
+| `generate_wordmark.py` | Yazı üreticisi. Renk/derinlik/harf aralığı buradan değişir. |
 
-## Yerleştirme
+## Madalyonu yeniden render etmek
+
+```bash
+cd assets/brand
+headless_shell --headless --no-sandbox --allow-file-access-from-files \
+  --window-size=1244,1244 --screenshot=mathera-medallion.png medallion.html
+```
+
+`medallion.html` içindeki ayar noktaları: `.plaque` (çelik halka, 940 px),
+`.face` (krem yüzey, 800 px), `.gold` (altın çember, 772 px / 13 px kalınlık),
+`.word` (yazı genişliği, 770 px), script'teki `R` (karakterlerin yerleşim yarıçapı).
+
+## Yazıyı kendi görselinin üzerine yerleştirme
 
 PNG'yi madalyonun krem iç alanına ortalayarak koy; yazı genişliği iç altın çemberin
 yaklaşık %72'si olduğunda orijinal düzenle örtüşür. SVG'de dolgu alanı (padding)

@@ -1,0 +1,116 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  @font-face{
+    font-family:"Sora";font-weight:600;font-style:normal;
+    src:url("/home/user/bunadak/frontend/dist/libs/fonts/files/sora-latin-600-normal.woff2") format("woff2");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1244px;height:1244px;overflow:hidden}
+  body{background:#f7f6f2;display:flex;align-items:center;justify-content:center}
+
+  /* --- plaka: celik dis halka ------------------------------------------ */
+  .plaque{
+    position:relative;width:940px;height:940px;border-radius:50%;
+    background:
+      conic-gradient(from -52deg,
+        #dcdcda 0%,  #c8c8c6 7%,  #adaeac 15%, #9c9d9c 21%,
+        #bcbdbb 29%, #d8d8d6 37%, #e6e6e3 43%, #d0d1cf 50%,
+        #b5b6b4 57%, #a0a1a0 64%, #b8b9b7 72%, #d2d2d0 80%,
+        #e0e0dd 88%, #cccdca 95%, #dcdcda 100%);
+    box-shadow:
+      0 26px 46px rgba(60,55,48,.17),
+      0 6px 14px rgba(60,55,48,.10),
+      inset 0 2px 3px rgba(255,255,255,.85),
+      inset 0 -3px 5px rgba(0,0,0,.22);
+  }
+  /* firca dokusu (radyal taramali celik) */
+  .plaque::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:repeating-conic-gradient(from 0deg,
+      rgba(255,255,255,.028) 0deg .34deg, rgba(0,0,0,.024) .34deg .68deg);
+    mix-blend-mode:overlay;opacity:.75;
+  }
+  /* dis kenar pahi */
+  .plaque::after{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    box-shadow:
+      inset 0 0 0 3px rgba(255,255,255,.30),
+      inset 0 0 0 5px rgba(0,0,0,.10),
+      inset 0 0 22px rgba(0,0,0,.13);
+  }
+
+  /* --- kazima karakterler (pi 2 3 0 5) --------------------------------- */
+  .marks{position:absolute;inset:0;z-index:3}
+  .marks span{
+    position:absolute;left:50%;top:50%;
+    font-family:"Sora",sans-serif;font-weight:600;font-size:44px;line-height:1;
+    color:#8b9197;
+    text-shadow:
+      0 -1px 1px rgba(0,0,0,.42),
+      0 1px 0 rgba(255,255,255,.62);
+  }
+
+  /* --- ic krem yuzey ---------------------------------------------------- */
+  .face{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:800px;height:800px;border-radius:50%;
+    background:radial-gradient(circle at 36% 28%, #f4f0e5 0%, #ece7d9 55%, #e0dac9 100%);
+    box-shadow:
+      inset 0 12px 22px rgba(83,74,58,.22),
+      inset 0 -6px 14px rgba(255,255,255,.55),
+      0 0 0 1px rgba(120,110,92,.20),
+      0 0 0 4px rgba(255,255,255,.30),
+      0 2px 7px rgba(60,52,38,.22);
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* --- altin ic cember (annulus: dis altin daire + ic krem daire) ------- */
+  .gold{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:772px;height:772px;border-radius:50%;
+    background:linear-gradient(158deg,
+      #f6e0ab 0%, #e2c481 14%, #c8a054 34%, #a67f37 52%,
+      #8d6a2c 66%, #c8a458 82%, #eed9a4 100%);
+    box-shadow:
+      0 3px 6px rgba(70,55,25,.30),
+      inset 0 1px 1px rgba(255,255,255,.65);
+  }
+  .gold::after{
+    content:"";position:absolute;inset:13px;border-radius:50%;
+    background:radial-gradient(circle at 36% 28%, #f4f0e5 0%, #ece7d9 55%, #e1dbca 100%);
+    box-shadow:inset 0 3px 7px rgba(83,74,58,.17);
+  }
+
+  /* --- kelime markasi --------------------------------------------------- */
+  .word{
+    position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    width:770px;display:block;
+  }
+</style>
+
+<div class="plaque">
+  <div class="face"></div>
+  <div class="gold"></div>
+  <img class="word" src="mathera-wordmark.svg" alt="MATHERA">
+  <div class="marks" id="marks"></div>
+</div>
+
+<script>
+// 8 karakter, saat 12'den baslayarak 45 derece araliklarla; glyph'ler dik durur
+const items = [
+  ["π",   0],  ["3",  45], ["0",  90], ["5", 135],
+  ["π", 180],  ["5", 225], ["0", 270], ["2", 315],
+];
+const R = 433;                      // halka ortasindaki yerlesim yaricapi
+const host = document.getElementById("marks");
+for (const [ch, deg] of items) {
+  const rad = (deg - 90) * Math.PI / 180;
+  const el = document.createElement("span");
+  el.textContent = ch;
+  el.style.transform =
+    `translate(-50%,-50%) translate(${Math.cos(rad)*R}px, ${Math.sin(rad)*R}px)`;
+  host.appendChild(el);
+}
+</script>
