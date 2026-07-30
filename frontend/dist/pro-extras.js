@@ -108,6 +108,9 @@
     clearInterval(nightTimer); nightTimer = null;
     if (!PS.autoNight) return;
     var tick = function () {
+      /* Karanlık Mod arayüzü devraldıysa otomatik tema ona karışmaz —
+         iki opsiyon aynı anda açıkken tema gidip gelmez. */
+      try { if (window.proDark && proDark.active() && proDark.opts().ui) return; } catch (_) {}
       var h = new Date().getHours();
       var want = (h >= 19 || h < 7) ? "ink" : "light";
       if (root().dataset.theme !== want) {

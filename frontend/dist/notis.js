@@ -68,9 +68,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',panelCycle:'F9',blackPen:'k',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',panelCycle:'F9',blackPen:'k',darkMode:'d',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',darkMode:'Karanlık mod (tüm uygulama) aç/kapat',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -95,6 +95,31 @@ const EMOJI=['⭐','❤️','✅','🔥','📌','💡','🎯','📚','☕','🌙
 
 function newLayer(name){return{id:uid(),name,visible:true,locked:false,opacity:1,objects:[]}}
 function newPage(paper='plain'){return{id:uid(),name:'Sayfa '+(doc.pages.length+1),paper,bookmark:false,infinite:false,bg:null,bgImg:null,w:1000,h:1414,layers:[newLayer('Katman 1')],_undo:[],_redo:[]}}
+/* SAYFA SERİLEŞTİRME — TEK KAPI (kritik kayıt güvenliği)
+   Sayfa nesnesine çalışma anında iliştirilen geçici alanlar (görsel önbellekleri,
+   ölçüm yardımcıları, tembel yükleme bayrakları) JSON'a ASLA yazılmaz. Bir DOM
+   nesnesi (Image/Canvas) JSON.stringify'dan '{}' olarak geçer; kayda sızarsa
+   dosya yeniden açıldığında o alan "gerçek görsel" sanılıp sayfa boş kalır.
+   Kural: 'bgImg' ve alt çizgiyle başlayan TÜM alanlar atılır.
+   thin=true → sayfa görselleri '@keep' ile kısaltılır (ince yama kaydı). */
+/* JSON yazarken geçici alanları eler — nesnelere iliştirilen görsel/ölçüm
+   önbellekleri (o._img, o._bb ...) kayda '{}' olarak sızamaz. serializePage
+   sayfa düzeyini, bu eleyici nesne düzeyini korur. */
+function jsonSafe(k,v){return (k.charAt(0)==='_'&&k!=='_undo'&&k!=='_redo')?undefined:v}
+function serializePage(p,thin){
+  const o={};
+  for(const k in p){if(k==='bgImg'||k.charAt(0)==='_')continue;o[k]=p[k]}
+  o._undo=[];o._redo=[];
+  if(thin)o.bg=p.bg?'@keep':null;
+  return o;
+}
+/* Kayıttan gelen sayfayı temizler: eski sürümlerin kayda sızdırdığı bozuk
+   görsel alanları silinir, sayfa her zaman tertemiz durumda açılır. */
+function sanitizePage(p){
+  for(const k in p)if(k.charAt(0)==='_')delete p[k];
+  p._undo=[];p._redo=[];p.bgImg=null;p._bgLoad=false;
+  return p;
+}
 function page(){return scratch?scratch.page:doc.pages[cur]}
 function layer(){const p=page();return p.layers.find(l=>l.id===curLayerId)||p.layers[p.layers.length-1]}
 function boardMode(){return !!scratch||(doc.pages.length===1&&doc.pages[0].infinite)}
@@ -1582,7 +1607,7 @@ function renderPageTo(c,p,scale){INK.z=1;const g=c.getContext('2d');g.setTransfo
   if(p.bgImg&&p.bgImg.complete)g.drawImage(p.bgImg,0,0,p.w,p.h);
   paperPattern(g,p.paper,0,0,p.w,p.h);
   for(const l of p.layers){if(!l.visible)continue;g.save();g.globalAlpha=l.opacity;for(const o of l.objects)drawObj(g,o);g.restore()}}
-function dupPage(i){const sPg=doc.pages[i];const c=JSON.parse(JSON.stringify(sPg));c.id=uid();c.name+=' (kopya)';c._undo=[];c._redo=[];
+function dupPage(i){const sPg=doc.pages[i];const c=sanitizePage(JSON.parse(JSON.stringify(serializePage(sPg),jsonSafe)));c.id=uid();c.name+=' (kopya)';
   c.layers.forEach(l=>l.objects.forEach(hydrate));if(sPg.bgImg)c.bgImg=sPg.bgImg;
   if(boardMode())doc.pages[0].infinite=false;
   doc.pages.splice(i+1,0,c);invalidateLayout();renderPages();gotoPage(i+1)}
@@ -1627,7 +1652,7 @@ $('#pgAdd').addEventListener('click',()=>{
   if(boardMode())doc.pages[0].infinite=false; // tahtadan belgeye geç
   doc.pages.splice(cur+1,0,newPage(page().paper==='plain'&&doc.pages.length===1?'dotted':page().paper));
   invalidateLayout();renderPages();gotoPage(cur+1);toast('Yeni sayfa eklendi')});
-$('#pgDup').addEventListener('click',()=>{const c=JSON.parse(JSON.stringify(page()));c.id=uid();c.name+=' (kopya)';c._undo=[];c._redo=[];
+$('#pgDup').addEventListener('click',()=>{const c=sanitizePage(JSON.parse(JSON.stringify(serializePage(page()),jsonSafe)));c.id=uid();c.name+=' (kopya)';
   c.layers.forEach(l=>l.objects.forEach(hydrate));if(page().bgImg)c.bgImg=page().bgImg;
   if(boardMode())doc.pages[0].infinite=false;
   doc.pages.splice(cur+1,0,c);invalidateLayout();renderPages();gotoPage(cur+1)});
@@ -1923,7 +1948,7 @@ $('#expGo').addEventListener('click',async()=>{
         dl(c.toDataURL('image/png'),title+'.png');
       }
     }}
-  else if(fmt==='notis'){const data=JSON.stringify({title:doc.title,pages:doc.pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined}))});
+  else if(fmt==='notis'){const data=JSON.stringify({title:doc.title,pages:doc.pages.map(p=>serializePage(p))},jsonSafe);
     dl('data:application/json;charset=utf-8,'+encodeURIComponent(data),title+'.notis')}
   else{
     toast('PDF hazırlanıyor…');
@@ -1984,6 +2009,15 @@ function blackPen(){
   if(typeof buildMiniBar==='function')try{buildMiniBar()}catch(_){}
   if(window.proCursorSync)try{window.proCursorSync()}catch(_){}
   drawOverlay();
+}
+/* 🌑 Karanlık mod — tüm uygulamayı (arayüz + tahta + belge) tek tuşla çevirir.
+   Opsiyon modülü yüklü değilse sessizce hiçbir şey yapmaz. */
+function toggleDark(){
+  if(!window.proDark)return;
+  window.proDark.toggle();
+  const on=window.proDark.active();
+  const b=$('#oDark');if(b)b.checked=on;
+  toast(on?'Karanlık mod AÇIK 🌑':'Karanlık mod kapalı');
 }
 /* 🔭 Akıllı sığdır: slayt modunda slaydı, diğer hâllerde sayfayı/tahtayı
    çalışma alanına oturtur. Kısayol: Ayarlar › Kısayollar › 'Sığdır'. */
@@ -2192,6 +2226,7 @@ window.addEventListener('keydown',e=>{
     if(act==='boardSwap'){boardSwap();return}
     if(act==='panelCycle'){panelCycle();return}
     if(act==='blackPen'){blackPen();return}
+    if(act==='darkMode'){toggleDark();return}
     if(act==='solve'){solveClick();return}
   }
   if(k==='x'&&!Object.values(KEYMAP).includes('x')){swapPen();return}
@@ -2416,6 +2451,7 @@ function PAL_CMDS(){return[
  {t:'Boş tahta ↔ son çalışmaya dön',k:(KEYMAP.boardSwap||'').toUpperCase(),sec:'Eylem',fn:()=>boardSwap()},
  {t:'Panel gizle döngüsü',k:(KEYMAP.panelCycle||'').toUpperCase(),sec:'Eylem',fn:()=>panelCycle()},
  {t:'Siyah kaleme geç',k:(KEYMAP.blackPen||'').toUpperCase(),sec:'Eylem',fn:()=>blackPen()},
+ {t:'Karanlık mod — tüm uygulama',k:(KEYMAP.darkMode||'').toUpperCase(),sec:'Eylem',fn:()=>toggleDark()},
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
@@ -3014,7 +3050,7 @@ const LIB=(()=>{
     t.oncomplete=()=>res(r&&'result'in r?r.result:undefined);t.onerror=()=>rej(t.error)}));
   const hasContent=()=>doc.pages.some(p=>p.bg||p.layers.some(l=>l.objects.length))||doc.pages.length>1;
   function serialize(){return JSON.stringify({title:doc.title,cur,
-    pages:doc.pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined}))})}
+    pages:doc.pages.map(p=>serializePage(p))},jsonSafe)}
   function thumb(){try{const p=doc.pages[0];const w=220,h=Math.max(80,Math.min(300,Math.round(w*p.h/p.w)));
     const c=document.createElement('canvas');c.width=w;c.height=h;renderPageTo(c,p,w/p.w);
     return c.toDataURL('image/jpeg',.72)}catch{return ''}}
@@ -3027,7 +3063,7 @@ const LIB=(()=>{
       if(SRV){
         /* İNCE YAMA: değişmeyen sayfa görselleri '@keep' — 50MB yerine KB'lar gider */
         const thin=JSON.stringify({title:doc.title,cur,
-          pages:doc.pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined,bg:p.bg?'@keep':null}))});
+          pages:doc.pages.map(p=>serializePage(p,true))},jsonSafe);
         if(thin===lastJson)return;lastJson=thin;
         const r=await fetch('/lib/patch',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({meta,thinJson:thin})});
@@ -3061,12 +3097,11 @@ const LIB=(()=>{
     doc={title:o.title||'Adsız Tahta',pages:o.pages||[]};
     if(!doc.pages.length)return toast('Kayıt boş');
     if(typeof bgqReset==='function')bgqReset();
-    doc.pages.forEach(p=>{p._undo=[];p._redo=[];
-      p.bgImg=null;p._bgLoad=false;             // tembel: görünen sayfa gelince yüklenecek
+    doc.pages.forEach(p=>{sanitizePage(p);      // tembel: görünen sayfa gelince yüklenecek
       p.layers.forEach(l=>l.objects.forEach(hydrate))});
     sessId=id;kind=(meta&&meta.kind)||'board';
     lastJson=SRV?JSON.stringify({title:doc.title,cur:clamp(o.cur||0,0,doc.pages.length-1),
-      pages:doc.pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined,bg:p.bg?'@keep':null}))}):rec.json;
+      pages:doc.pages.map(p=>serializePage(p,true))},jsonSafe):rec.json;
     selection=[];curLayerId=doc.pages[0].layers[0].id;
     invalidateLayout();cur=clamp(o.cur||0,0,doc.pages.length-1);
     renderPages();renderLayers();gotoPage(cur);updUndoBtns();
@@ -3086,7 +3121,7 @@ const LIB=(()=>{
   async function saveExternal(title,pages,knd,fixedId,thumbOverride){
     const id=fixedId||uid();
     const json=JSON.stringify({title,cur:0,
-      pages:pages.map(p=>({...p,_undo:[],_redo:[],bgImg:undefined}))});
+      pages:pages.map(p=>serializePage(p))},jsonSafe);
     let th=thumbOverride||'';
     try{if(!th){const p=pages[0];const w=220,h=Math.max(80,Math.min(300,Math.round(w*p.h/p.w)));
       const c=document.createElement('canvas');c.width=w;c.height=h;

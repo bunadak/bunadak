@@ -391,4 +391,7 @@ body.pro-web-drag { user-select: none; }
   font-weight: 700; color: var(--mut); letter-spacing: .2px; margin-top: 4px; }
 
 /* 🌙 Gece Okuma Modu — belge açıkken sahne zemini de gece tonuna iner */
-body.pro-night #stage { background: #0C0E13; }
+/* --- Karanlık Mod (tüm uygulama) --------------------------------------- */
+body.pro-dark #stage { background: var(--pro-dark-bg, #12151B); }
+body.pro-dark #stage::after { opacity: .35; }          /* doku aşırı parlamasın */
+body.pro-dark #miniBar, body.pro-dark #corner { filter: saturate(.9); }
