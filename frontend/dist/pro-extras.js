@@ -30,7 +30,7 @@
     for (var k in DEF) out[k] = (o[k] === undefined ? DEF[k] : o[k]);
     return out;
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(PS)); } catch (_) {} }
+  function save() { try { (window.notisLsSet || function (k, v) { localStorage.setItem(k, v); })(KEY, JSON.stringify(PS)); } catch (_) {} }
   function root() { return document.documentElement; }
   function has(fn) { return typeof window[fn] === "function"; }
   function redrawSafe() { try { if (typeof redraw === "function") redraw(); } catch (_) {} }

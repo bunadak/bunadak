@@ -32,7 +32,7 @@
     var out = {}; for (var k in DEF) out[k] = (o[k] === undefined ? DEF[k] : o[k]);
     return out;
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (_) {} }
+  function save() { try { (window.notisLsSet || function (k, v) { localStorage.setItem(k, v); })(KEY, JSON.stringify(P)); } catch (_) {} }
   function $id(x) { return document.getElementById(x); }
 
   /* Seviye profilleri — hata eşiği (px), filtre kesim frekansı, örnek sıklığı */

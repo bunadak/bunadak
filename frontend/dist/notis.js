@@ -120,6 +120,28 @@ function sanitizePage(p){
   p._undo=[];p._redo=[];p.bgImg=null;p._bgLoad=false;
   return p;
 }
+/* AYAR YAZIMI — KOTA KORUMALI
+   Tarayıcı deposu dolduğunda setItem sessizce hata fırlatır; eski kodda bu
+   hata yutulduğu için AYARLAR ARTIK KAYDEDİLMİYORDU. Kullanıcı açısından
+   görüntü tam olarak şuydu: "bir opsiyonu bir kez kullandım, ikincisinde
+   kullanım iznim bitmiş gibi" — çünkü tercih diske hiç yazılmıyordu.
+   Artık kota dolduğunda önemsiz veriler (yazı geçmişi, kalem istatistiği)
+   budanır, yazım tekrar denenir ve durum kullanıcıya BİR KEZ bildirilir. */
+let lsWarned=false;
+function lsSet(k,v){
+  try{localStorage.setItem(k,v);return true}catch(e){}
+  const junk=['notis_memtx','notis_dna'];
+  for(const j of junk){
+    try{localStorage.removeItem(j)}catch(_){}
+    try{localStorage.setItem(k,v);
+      if(!lsWarned){lsWarned=true;setTimeout(()=>toast('Depolama doluydu — geçmiş veriler temizlendi, ayarların kaydedildi'),400)}
+      return true}catch(_){}
+  }
+  if(!lsWarned){lsWarned=true;
+    setTimeout(()=>toast('⚠ Ayarlar kaydedilemiyor: tarayıcı deposu dolu. Ayarlar › Depolama\'dan yer aç.',7000),400)}
+  return false;
+}
+window.notisLsSet=lsSet;
 function page(){return scratch?scratch.page:doc.pages[cur]}
 function layer(){const p=page();return p.layers.find(l=>l.id===curLayerId)||p.layers[p.layers.length-1]}
 function boardMode(){return !!scratch||(doc.pages.length===1&&doc.pages[0].infinite)}
@@ -615,21 +637,39 @@ function redraw(){ctx.imageSmoothingQuality='high';
 /* TEMBEL SAYFA GÖRSELİ YÜKLEYİCİ + BELLEK TAHLİYESİ
    200 sayfalık PDF açılırken artık TÜM görseller çözülmez (4+ GB bellek!) —
    yalnız görünür sayfalar (±6 komşu) yüklenir, uzaklaşınca bellekten bırakılır. */
-const BGQ={q:[],busy:0,MAX:5};
+const BGQ={q:[],busy:0,MAX:5,t:0};   // t: son ilerleme zamanı (tıkanma tespiti)
 function ensureBg(p){
   if(!p||!p.bg||p.bgImg||p._bgLoad)return;
   p._bgLoad=true;BGQ.q.unshift(p);pumpBG();      // LIFO: en son görünen ÖNCE yüklenir
 }
-function bgqReset(){BGQ.q.length=0}              // belge değişince kuyruk temizlenir
+/* Belge değişince kuyruk temizlenir. KRİTİK: kuyruktan düşen sayfaların
+   '_bgLoad' bayrağı da sıfırlanmalı — yoksa ensureBg() o sayfaları bir daha
+   asla sıraya almaz ve sayfa kalıcı olarak BOŞ görünür. */
+function bgqReset(){
+  const q=BGQ.q.slice();BGQ.q.length=0;
+  q.forEach(p=>{if(p&&!p.bgImg)p._bgLoad=false});
+  BGQ.t=performance.now();
+}
 function pumpBG(){
   while(BGQ.busy<BGQ.MAX&&BGQ.q.length){
     const p=BGQ.q.shift();
     if(!p._bgLoad)continue;
-    BGQ.busy++;
+    BGQ.busy++;BGQ.t=performance.now();
     const im=new Image();
     im.decoding='async';
-    im.onload=()=>{if(p._bgLoad)p.bgImg=im;p._bgLoad=false;BGQ.busy--;pumpBG();requestRedraw()};
-    im.onerror=()=>{p._bgLoad=false;BGQ.busy--;pumpBG()};
+    /* Her görsel için tek seferlik bitiş: onload/onerror/zaman aşımı hangisi
+       önce gelirse. Sayaç ASLA askıda kalmaz — bir görsel hiç yanıt vermezse
+       bile kuyruk akmaya devam eder (PDF'in boş kalması hatasının kökü). */
+    let done=false;
+    const finish=(ok)=>{
+      if(done)return;done=true;clearTimeout(tm);
+      if(ok&&p._bgLoad)p.bgImg=im;
+      p._bgLoad=false;BGQ.busy--;BGQ.t=performance.now();
+      pumpBG();if(ok)requestRedraw();
+    };
+    const tm=setTimeout(()=>finish(false),25000);
+    im.onload=()=>finish(true);
+    im.onerror=()=>finish(false);
     im.src=p.bg;
   }
 }
@@ -670,6 +710,13 @@ function updCornerPg(){$('#cornerPg').textContent=(cur+1)+'/'+doc.pages.length;
    GİRİŞ — işaretçi olayları (yerel sayfa koordinatı)
 ============================================================ */
 let pointers=new Map(), pinch=null, panning=false, spaceHeld=false, hoverPt=null;
+/* Son GERÇEK kullanıcı girdisinin zamanı — öz-onarım bekçisi askıda kalmış
+   durumu ancak kullanıcı bir süredir hiçbir şey yapmıyorken sıfırlar, böylece
+   uzun bir çizginin ortasına asla müdahale etmez. */
+let lastInputT=performance.now();
+{const mark=()=>{lastInputT=performance.now()};
+ ['pointerdown','pointermove','pointerup','wheel','keydown','keyup'].forEach(t=>
+   window.addEventListener(t,mark,{capture:true,passive:true}));}
 let live=null, drag=null, lineDraft=null, compassDraft=null;
 let laserTrail=[], stabPt=null;
 /* Aktif çizgiyi BAŞLATAN işaretçinin kimliği — mürekkep hattına yalnız bu işaretçi
@@ -1645,7 +1692,7 @@ function paperName(p){return{plain:'Düz',lined:'Çizgili',dotted:'Noktalı',gri
 function gotoPage(i){if(scratch)return;i=clamp(i,0,doc.pages.length-1);switchPage(i);if(window.LIB)LIB.dirty();
   if(presenting)fitPresent();
   else if(!boardMode()){invalidateLayout();const off=layout()[cur];
-    scrollDetectLock=true;view.y=-off.y*view.s+26;redraw();scrollDetectLock=false}
+    scrollDetectLock=true;try{view.y=-off.y*view.s+26;redraw()}finally{scrollDetectLock=false}}
   else redraw();
   updCornerPg()}
 $('#pgAdd').addEventListener('click',()=>{
@@ -1660,7 +1707,7 @@ let pageDlgIdx=0;
 function openPageDlg(i){pageDlgIdx=i;const p=doc.pages[i];
   $('#pgName').value=p.name;$('#pgPaper').value=p.paper;$('#pgInf').checked=p.infinite;$('#pgBk').checked=p.bookmark;
   $('#pgInf').disabled=doc.pages.length>1;
-  pageDlg.showModal()}
+  openDlg(pageDlg)}
 $('#pgName').addEventListener('input',e=>{doc.pages[pageDlgIdx].name=e.target.value;renderPages()});
 $('#pgPaper').addEventListener('change',e=>{doc.pages[pageDlgIdx].paper=e.target.value;redraw();renderPages()});
 $('#pgInf').addEventListener('change',e=>{doc.pages[pageDlgIdx].infinite=e.target.checked;invalidateLayout();fit();renderPages();updCornerPg()});
@@ -1897,7 +1944,7 @@ async function importPDF(f){
   }catch(err){console.error(err);toast('PDF eklenemedi: '+(err&&err.message||err),4500)}
 }
                                                                                                                                                                                                                                                                                                                                                     
-$('#exportBtn').addEventListener('click',()=>expDlg.showModal());
+$('#exportBtn').addEventListener('click',()=>openDlg(expDlg));
 $('#expGo').addEventListener('click',async()=>{
   const fmt=$('#expFmt').value;expDlg.close();
   const title=(doc.title||'notis').replace(/[^\wğüşöçıİĞÜŞÖÇ -]/g,'');
@@ -2121,7 +2168,16 @@ $$('.set-tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.s==='pens'&&typeof pkSizeCv==='function')requestAnimationFrame(pkSizeCv);
   if(t.dataset.s==='storage'&&window.LIB)LIB.fillPane();
 }));
-function openSettings(tab){setDlg.showModal();if(tab){$$('.set-tab').forEach(x=>x.classList.toggle('on',x.dataset.s===tab));
+/* Kalıcı pencereyi GÜVENLE aç: zaten açıkken showModal() istisna fırlatır ve
+   o tıklamanın geri kalanı hiç çalışmaz — "opsiyon açılmıyor" hatasının bir
+   diğer kaynağı buydu. */
+function openDlg(d){
+  if(!d)return false;
+  try{if(d.open)return true;d.showModal();return true}
+  catch(_){try{d.close()}catch(_){}try{d.showModal();return true}catch(_){return false}}
+}
+window.openDlg=openDlg;
+function openSettings(tab){openDlg(setDlg);if(tab){$$('.set-tab').forEach(x=>x.classList.toggle('on',x.dataset.s===tab));
   $$('.set-pane').forEach(x=>x.classList.toggle('on',x.id==='sp-'+tab))}
   const _cur=$$('.set-tab').find(x=>x.classList.contains('on'));
   if(typeof updPaneHead==='function'&&_cur)updPaneHead(_cur.dataset.s);
@@ -2160,26 +2216,61 @@ const DEFIDS={text:'#dText'}; // kalem kalınlıkları Kalem Stüdyosu kartları
 for(const[k,id]of Object.entries(DEFIDS)){$(id).addEventListener('change',e=>{DEF[k]=clamp(+e.target.value||DEF[k],.5,80);
   e.target.value=DEF[k];if(S.applyDefaults&&tool===k){penSize=DEF[k];$('#sizeRng').value=penSize;$('#sizeOut').textContent=penSize}
   if(typeof saveOpts==='function')saveOpts()})}
-/* klavye düzenleyici */
-let recAction=null;
+/* KLAVYE DÜZENLEYİCİ
+   ------------------------------------------------------------
+   Buradaki kayıt modu (recAction) askıda kalırsa uygulamadaki TÜM kısayollar
+   ölür: aşağıdaki yakalama aşamalı dinleyici her tuşu yutar ve ana klavye
+   dinleyicisi baştan döner. Eskiden kayıt yalnız geçerli bir tuşla veya Esc
+   ile bitiyordu; pencere kapatılırsa, odak kaybedilirse ya da desteklenmeyen
+   bir tuşa basılırsa SONSUZA KADAR açık kalıyordu — "F9 bazen çalışmıyor,
+   kapatıp açınca düzeliyor" şikâyetinin kaynağı buydu.
+   Artık kayıt; geçerli tuş · Esc · pencere kapanışı · sekme değişimi · odak
+   kaybı · dışarı tıklama · 10 sn zaman aşımı — bunların HERHANGİ biriyle
+   güvenle biter, ve bittiğinde hiçbir tuşu yutmaz. */
+let recAction=null, recStartT=0;
+function recStop(msg){
+  if(!recAction)return false;
+  recAction=null;recStartT=0;
+  try{renderKeys()}catch(_){}
+  if(msg)toast(msg);
+  return true;
+}
+function recStart(act){
+  recAction=act;recStartT=performance.now();
+}
 function renderKeys(){const el=$('#keyList');el.innerHTML='';
   for(const[act,lbl]of Object.entries(KEYLABELS)){
     const row=document.createElement('div');row.className='set-row';
     const kb=document.createElement('kbd');kb.className='k';kb.textContent=(KEYMAP[act]||'—').toUpperCase();
-    kb.addEventListener('click',()=>{if(recAction){renderKeys();}recAction=act;kb.classList.add('rec');kb.textContent='tuşa bas…'});
+    kb.addEventListener('click',e=>{e.stopPropagation();const again=recAction===act;if(recAction)renderKeys();
+      if(again)return;recStart(act);
+      const nb=[...el.querySelectorAll('kbd.k')][Object.keys(KEYLABELS).indexOf(act)];
+      if(nb){nb.classList.add('rec');nb.textContent='tuşa bas…'}});
     row.innerHTML=`<div class="t">${lbl}</div>`;row.appendChild(kb);el.appendChild(row);
   }
 }
 window.addEventListener('keydown',e=>{
   if(!recAction)return;
-  e.preventDefault();e.stopPropagation();
   const k=e.key.length===1?e.key.toLowerCase():e.key;
-  if(k==='Escape'){recAction=null;renderKeys();return}
+  /* Değiştirici tuşlar tek başına bir şey seçmez — kaydı da bozmaz */
+  if(k==='Shift'||k==='Control'||k==='Alt'||k==='Meta'||k==='CapsLock')return;
+  e.preventDefault();e.stopPropagation();
+  if(k==='Escape'||k==='Tab'){recStop('Kısayol kaydı iptal edildi');return}
   if(/^([a-z0-9]|F([1-9]|1[0-2]))$/.test(k)){
-    for(const a in KEYMAP)if(KEYMAP[a]===k&&a!==recAction)KEYMAP[a]=null; // çakışmayı boşalt
-    KEYMAP[recAction]=k;recAction=null;renderKeys();buildRail();saveOpts();toast('Kısayol güncellendi')}
+    const act=recAction;
+    for(const a in KEYMAP)if(KEYMAP[a]===k&&a!==act)KEYMAP[a]=null; // çakışmayı boşalt
+    KEYMAP[act]=k;recStop();buildRail();saveOpts();toast('Kısayol güncellendi');return;
+  }
+  /* Desteklenmeyen tuş: kaydı ASKIDA BIRAKMA — iptal et ve klavyeyi serbest bırak */
+  recStop('Bu tuş kısayol olarak kullanılamaz — kayıt iptal edildi');
 },true);
-$('#keyReset').addEventListener('click',()=>{KEYMAP={...KEYDEF};recAction=null;renderKeys();buildRail();saveOpts();toast('Kısayollar sıfırlandı')});
+/* Kayıt modunun kapanmasını garanti eden çıkışlar */
+{const dlg=$('#setDlg');
+ if(dlg){dlg.addEventListener('close',()=>recStop());
+   dlg.addEventListener('cancel',()=>recStop());
+   dlg.addEventListener('pointerdown',ev=>{if(recAction&&!(ev.target instanceof HTMLElement&&ev.target.matches('kbd.k')))recStop()},true);}
+ $$('.set-tab').forEach(t=>t.addEventListener('click',()=>recStop()));}
+$('#keyReset').addEventListener('click',()=>{KEYMAP={...KEYDEF};recStop();buildRail();saveOpts();toast('Kısayollar sıfırlandı')});
 $('#setBtn').addEventListener('click',()=>openSettings());
 $('#fs2Btn').addEventListener('click',()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());
 $('#homeBtn').addEventListener('click',()=>{
@@ -2446,7 +2537,7 @@ function PAL_CMDS(){return[
  {t:'Yeni sayfa',sec:'Eylem',fn:()=>$('#pgAdd').click()},
  {t:'Sayfayı çoğalt',sec:'Eylem',fn:()=>dupPage(cur)},
  {t:'PDF / Görsel içe aktar',sec:'Eylem',fn:()=>$('#importBtn').click()},
- {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>expDlg.showModal()},
+ {t:'Dışa aktar — PNG · PDF · .notis',sec:'Eylem',fn:()=>openDlg(expDlg)},
  {t:'Rastgele renge geç',k:(KEYMAP.randColor||'').toUpperCase(),sec:'Eylem',fn:()=>randPenColor()},
  {t:'Boş tahta ↔ son çalışmaya dön',k:(KEYMAP.boardSwap||'').toUpperCase(),sec:'Eylem',fn:()=>boardSwap()},
  {t:'Panel gizle döngüsü',k:(KEYMAP.panelCycle||'').toUpperCase(),sec:'Eylem',fn:()=>panelCycle()},
@@ -2455,6 +2546,7 @@ function PAL_CMDS(){return[
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
+ {t:'Kurtarma — takılı durumları sıfırla',k:'CTRL+ALT+R',sec:'Eylem',fn:()=>{const f=notisRecover('manual');if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔')}},
  {t:'Sığdır',k:'0',sec:'Eylem',fn:fit},
  {t:'Paneli aç/kapat — Sayfalar · Katmanlar',sec:'Eylem',fn:()=>$('#sideBtn').click()},
  {t:'Önceki kaleme dön',k:'X',sec:'Eylem',fn:swapPen},
@@ -2547,7 +2639,7 @@ let DNA={},dnaSaveT=null;
 try{DNA=JSON.parse(localStorage.getItem('notis_dna')||'{}')}catch{}
 function dnaRecord(o){if(!S.penDNA||!o||!['smart','ball','fountain','pencil','hl'].includes(o.tool))return;
   const k=o.tool+'|'+o.color+'|'+o.size+'|'+o.opacity;DNA[k]=(DNA[k]||0)+1;
-  if(!dnaSaveT)dnaSaveT=setTimeout(()=>{dnaSaveT=null;try{localStorage.setItem('notis_dna',JSON.stringify(DNA))}catch{}},1200)}
+  if(!dnaSaveT)dnaSaveT=setTimeout(()=>{dnaSaveT=null;try{lsSet('notis_dna',JSON.stringify(DNA))}catch{}},1200)}
 function dnaApply(announce){const e=Object.entries(DNA).sort((a,b)=>b[1]-a[1])[0];
   if(!e||e[1]<12){if(announce)toast('Pen DNA öğreniyor — biraz daha çiz, imzanı tanıyacak 🧬');return}
   const[t,c2,s,op]=e[0].split('|');setTool(t);penColor=c2;penSize=+s;penOp=+op;
@@ -2561,7 +2653,7 @@ try{MEMTX=JSON.parse(localStorage.getItem('notis_memtx')||'[]')}catch{}
 const memHint=document.createElement('div');memHint.id='memHint';document.body.appendChild(memHint);
 function memStore(t){if(!S.memCanvas)return;t=t.trim();if(t.length<4)return;
   MEMTX=MEMTX.filter(x=>x!==t);MEMTX.unshift(t);if(MEMTX.length>300)MEMTX.length=300;
-  try{localStorage.setItem('notis_memtx',JSON.stringify(MEMTX))}catch{}}
+  try{lsSet('notis_memtx',JSON.stringify(MEMTX))}catch{}}
 function memCheck(){
   if(!S.memCanvas)return memHide();
   const v=textEdit.value.trim().toLowerCase();
@@ -2743,7 +2835,7 @@ function renderBoards(){const el=$('#boardGrid');if(!el)return;el.innerHTML='';
 
 /* --- Opsiyonlar + kalem varsayılanları: bağla ve kalıcı sakla --- */
 const OPTKEYS={oSnap:'smartSnap',oFocusW:'focusWrite',oAutoZoom:'autoZoom',oLiving:'livingInk',oPenDNA:'penDNA',oMemCanvas:'memCanvas',oEdge:'edgeScroll'};
-function saveOpts(){try{localStorage.setItem('notis_opts',JSON.stringify({
+function saveOpts(){try{lsSet('notis_opts',JSON.stringify({
   smartSnap:S.smartSnap,focusWrite:S.focusWrite,autoZoom:S.autoZoom,livingInk:S.livingInk,
   penDNA:S.penDNA,memCanvas:S.memCanvas,compact:S.compact,edgeScroll:S.edgeScroll,esD:2,cornerUI:S.cornerUI,board:S.board,defColor:S.defColor,defOp:S.defOp,DEF,DEFV,CPV,
   S2:{...S},                                   // TÜM ayarlar — hiçbir ayar unutulmaz
@@ -3006,7 +3098,7 @@ function updPaneHead(s){const m=PANE_META[s];if(!m)return;
   const t=$$('.set-tab').find(x=>x.dataset.s===s);
   $('#paneIco').innerHTML=t?t.querySelector('svg').outerHTML:''}
 /* --- kalıcılık + fabrika --- */
-function savePK(){try{localStorage.setItem('notis_pk1',JSON.stringify({PCFG,PKCUSTOM}))}catch{}}
+function savePK(){try{lsSet('notis_pk1',JSON.stringify({PCFG,PKCUSTOM}))}catch{}}
 function loadPK(){try{const o=JSON.parse(localStorage.getItem('notis_pk1')||'null');if(!o)return;
   if(o.PCFG)for(const k in PCFG)if(o.PCFG[k])Object.assign(PCFG[k],o.PCFG[k]);
   if(Array.isArray(o.PKCUSTOM))PKCUSTOM=o.PKCUSTOM.slice(0,4)}catch{}}
@@ -3039,15 +3131,57 @@ const LIB=(()=>{
     ?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);
     if(!r.ok)throw new Error(u+' '+r.status);return r.json()};
   const AS=()=>{try{return localStorage.getItem('notis_autosave')!=='0'}catch{return true}};
-  function open(){return new Promise((res,rej)=>{if(db)return res(db);
-    const rq=indexedDB.open(DBN,1);
-    rq.onupgradeneeded=()=>{const d=rq.result;
-      if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('data'))d.createObjectStore('data',{keyPath:'id'})};
-    rq.onsuccess=()=>{db=rq.result;res(db)};rq.onerror=()=>rej(rq.error)})}
-  const tx=(st,mode,fn)=>open().then(d=>new Promise((res,rej)=>{
-    const t=d.transaction(st,mode);const r=fn(t.objectStore(st));
-    t.oncomplete=()=>res(r&&'result'in r?r.result:undefined);t.onerror=()=>rej(t.error)}));
+  /* VERİTABANI ERİŞİMİ — HİÇBİR ÇAĞRI SONSUZA KADAR ASKIDA KALAMAZ
+     Eski hâlde iki delik vardı ve ikisi de "kütüphaneden PDF seçiyorum ama
+     açılmıyor" şikâyetini birebir üretiyordu:
+       1. İşlem iptal edilirse (kota dolması, bağlantı düşmesi) 'onabort'
+          dinlenmediği için söz (promise) hiç sonuçlanmıyordu.
+       2. Başka bir sekme/pencere sürüm yükseltmesi beklerken 'onblocked'
+          dinlenmediği için açılış sonsuza kadar bekliyordu.
+     openWork() ilk iş olarak 'await saveNow()' yaptığı için tek bir askıda
+     söz, kütüphaneyi kalıcı olarak kilitliyordu. Artık her erişim zaman
+     aşımlıdır ve bağlantı düşerse kendini yeniden kurar. */
+  const DBTIMEOUT=5000;   // hiçbir depolama çağrısı bundan uzun bekletemez
+  function withTimeout(p,ms,tag){
+    return new Promise((res,rej)=>{
+      let done=false;
+      const t=setTimeout(()=>{if(!done){done=true;rej(new Error('zaman aşımı: '+tag))}},ms);
+      p.then(v=>{if(!done){done=true;clearTimeout(t);res(v)}},
+             e=>{if(!done){done=true;clearTimeout(t);rej(e)}});
+    });
+  }
+  function open(){
+    if(db)return Promise.resolve(db);
+    return withTimeout(new Promise((res,rej)=>{
+      let rq;
+      try{rq=indexedDB.open(DBN,1)}catch(e){return rej(e)}
+      rq.onupgradeneeded=()=>{const d=rq.result;
+        if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'id'});
+        if(!d.objectStoreNames.contains('data'))d.createObjectStore('data',{keyPath:'id'})};
+      rq.onsuccess=()=>{
+        db=rq.result;
+        /* Bağlantı düşerse (tarayıcı depolamayı boşaltırsa, sürüm değişirse)
+           önbelleği bırak — sonraki çağrı temiz bir bağlantı açar. */
+        db.onclose=()=>{db=null};
+        db.onversionchange=()=>{try{db.close()}catch(_){}db=null};
+        res(db);
+      };
+      rq.onerror=()=>rej(rq.error||new Error('IndexedDB açılamadı'));
+      rq.onblocked=()=>rej(new Error('IndexedDB engellendi'));
+    }),DBTIMEOUT,'db-open').catch(e=>{db=null;throw e});
+  }
+  const tx=(st,mode,fn)=>open().then(d=>withTimeout(new Promise((res,rej)=>{
+    let t;
+    try{t=d.transaction(st,mode)}catch(e){db=null;return rej(e)}
+    let r;
+    try{r=fn(t.objectStore(st))}catch(e){try{t.abort()}catch(_){}return rej(e)}
+    t.oncomplete=()=>res(r&&'result'in r?r.result:undefined);
+    t.onerror=()=>rej(t.error||new Error('işlem hatası'));
+    t.onabort=()=>rej(t.error||new Error('işlem iptal edildi'));
+  }),DBTIMEOUT,'db-tx').catch(e=>{
+    if(String(e&&e.message||'').indexOf('zaman aşımı')===0)db=null;   // takılı bağlantıyı bırak
+    throw e;
+  }));
   const hasContent=()=>doc.pages.some(p=>p.bg||p.layers.some(l=>l.objects.length))||doc.pages.length>1;
   function serialize(){return JSON.stringify({title:doc.title,cur,
     pages:doc.pages.map(p=>serializePage(p))},jsonSafe)}
@@ -3075,20 +3209,45 @@ const LIB=(()=>{
       fillPane(); // depolama paneli açıksa sayıları tazele (sessiz)
     }catch(e){console.warn('kütüphane kaydı:',e)}
   }
+  let dirtyT0=0;
   function dirty(){if(!AS())return;clearTimeout(tmr);
+    if(!dirtyT0)dirtyT0=Date.now();
     tmr=setTimeout(()=>{
       /* PERFORMANS: kalem kâğıttayken / nesne sürüklenirken ağır serileştirme
-         çalışmasın — kayıt, el kalkana kadar sessizce ertelenir (takılma yok). */
-      if(live||drag||pinch||panning){dirty();return}
-      saveNow();
+         çalışmasın — kayıt, el kalkana kadar sessizce ertelenir (takılma yok).
+         GÜVENLİK TAVANI: bir durum bayrağı askıda kalırsa erteleme sonsuza
+         gitmesin; 10 saniye sonra kayıt HER HÂLÜKÂRDA yapılır (iş kaybı yok). */
+      if((live||drag||pinch||panning)&&Date.now()-dirtyT0<10000){dirty();return}
+      dirtyT0=0;saveNow();
     },1200)}
   function fresh(){saveNow();sessId=uid();kind='board';lastJson='';if(typeof bgqReset==='function')bgqReset()}
   function tag(k,name){kind=k;
     if(name&&(doc.title==='Adsız Tahta'||!doc.title))doc.title=name.replace(/\.(pdf|png|jpe?g|webp|gif)$/i,'');
     dirty()}
   const all=()=>SRV?api('/lib'):tx('meta','readonly',s=>s.getAll()).then(a=>(a||[]).sort((x,y)=>y.updatedAt-x.updatedAt));
+  /* Kütüphaneden açma — SESSİZ BAŞARISIZLIK YOK.
+     Bir okuma hata verirse veya zaman aşımına uğrarsa bağlantı tazelenip BİR
+     kez daha denenir; yine olmazsa kullanıcı nedenini görür. Eskiden bu yol
+     sessizce askıda kalabiliyordu: "kütüphaneden PDF seçiyorum, açılmıyor". */
   async function openWork(id){
-    await saveNow();  // mevcut çalışmayı sessizce mühürle
+    try{return await openWorkOnce(id)}
+    catch(e){
+      console.warn('kütüphane açma 1. deneme:',e);
+      toast('Kütüphane yanıt vermedi — yeniden deneniyor…',2500);
+      db=null;                                   // bağlantıyı tazele
+      try{return await openWorkOnce(id)}
+      catch(e2){
+        console.warn('kütüphane açma 2. deneme:',e2);
+        toast('Kayıt açılamadı — depolama yanıt vermedi. Tekrar dene (Ctrl+Alt+R ile de toparlayabilirsin).',6000);
+      }
+    }
+  }
+  async function openWorkOnce(id){
+    /* Mevcut çalışmayı mühürlemeye çalış — ama başarısız olursa ya da
+       gecikirse AÇILIŞI ENGELLEME. Eskiden buradaki tek bir askıda kalmış
+       yazma, kütüphaneden hiçbir şeyin açılamamasına yol açıyordu. */
+    try{await withTimeout(Promise.resolve(saveNow()),3000,'onceki-kayit')}
+    catch(e){console.warn('önceki çalışma mühürlenemedi:',e)}
     let rec,meta;
     if(SRV){try{const r=await api('/lib/get?id='+encodeURIComponent(id));rec={json:r.json};meta=r.meta}catch{rec=null}}
     else{rec=await tx('data','readonly',s=>s.get(id));meta=await tx('meta','readonly',s=>s.get(id))}
@@ -3212,7 +3371,7 @@ const LIB=(()=>{
   window.addEventListener('beforeunload',()=>{clearTimeout(tmr);saveNow()});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(tmr);saveNow()}});
   window.addEventListener('pagehide',()=>{clearTimeout(tmr);saveNow()});
-  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,
+  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,all,
     currentId:()=>sessId};
 })();
 window.LIB=LIB;   // kancalar window.LIB üzerinden erişir — const window'a çıkmaz
@@ -3302,4 +3461,154 @@ function init(){
   if(S.penDNA)dnaApply(); // imza kalem: en çok kullanılan kombinasyon
   toast('Notis hazır — Ctrl+K: komut paleti · sağ tık basılı tut: hızlı araçlar');
 }
+/* ============================================================
+   ÖZ-ONARIM (SELF-HEAL)
+   ------------------------------------------------------------
+   "Bir kez çalıştı, ikincisinde çalışmıyor; kapatıp açınca düzeliyor"
+   hatalarının TAMAMI aynı kökten gelir: bir etkileşim yarıda kesilince
+   (pencere odağı gidince, Alt+Tab, işaretçi olayı kaybolunca, bir istisna
+   atılınca) geçici bir durum bayrağı AÇIK kalır ve o günden sonra ilgili
+   yol hep erken çıkar. Örnekler:
+     • recAction  → klavye kaydı askıda: TÜM kısayollar ölür (F9 dahil)
+     • spaceHeld  → kalem kalıcı olarak "kaydırma" moduna düşer
+     • pointers   → içinde hayalet işaretçi kalır, her dokunuş "iki parmak"
+                    sanılır, çizim başlamaz
+     • rightState → pointermove baştan döner, tuval tümüyle cevapsız kalır
+     • ringOpen   → halka görünmeden açık kalır, tıklamalar yutulur
+     • BGQ.busy   → sayfa görseli yükleyicisi tıkanır, PDF boş görünür
+   notisRecover() bu bayrakların hepsini güvenle sıfırlar. Yarım kalan çizgi
+   ATILMAZ, mühürlenir — hiçbir iş kaybı olmaz. Çağrı yerleri: pencere odak
+   kaybı, sekme gizlenmesi, işaretçi iptali, bekçi zamanlayıcı ve Ctrl+Alt+R.
+============================================================ */
+function notisRecover(reason){
+  const fixed=[];
+  try{
+    if(typeof recStop==='function'&&recStop())fixed.push('kısayol kaydı');
+    if(live){try{sealOrphanLive(true)}catch(_){live=null}}
+    if(pointers.size){pointers.clear();fixed.push('işaretçi')}
+    if(pinch){pinch=null;fixed.push('iki parmak')}
+    if(panning){panning=false;fixed.push('kaydırma')}
+    if(spaceHeld){spaceHeld=false;try{stage.style.cursor=tool==='pan'?'grab':'default'}catch(_){}fixed.push('boşluk tuşu')}
+    if(rightState){rightState=null;fixed.push('sağ tuş')}
+    if(ringOpen){try{closeRing(false)}catch(_){ringOpen=false;try{gring.classList.remove('on')}catch(_){}}fixed.push('araç halkası')}
+    if(laserOn){laserOn=false;fixed.push('lazer')}
+    if(scrollDetectLock){scrollDetectLock=false;fixed.push('sayfa algılama')}
+    if(drag){drag=null;fixed.push('sürükleme')}
+    if(solveDraft){solveDraft=null;fixed.push('çözüm çerçevesi')}
+    if(lineDraft){lineDraft=null}
+    if(compassDraft){compassDraft=null}
+    strokePid=null;
+    /* Tembel sayfa yükleyicisi tıkandıysa aç: kuyruk boş ama meşgul sayacı
+       takılı kalmışsa hiçbir sayfa görseli bir daha yüklenmez. */
+    if(BGQ.busy>0&&performance.now()-BGQ.t>12000){
+      BGQ.busy=0;BGQ.t=performance.now();
+      doc.pages.forEach(p=>{if(!p.bgImg)p._bgLoad=false});
+      pumpBG();fixed.push('sayfa yükleyici');
+    }
+    /* Görünmeden açık kalmış bir kalıcı pencere tüm uygulamayı tıklanamaz
+       yapar — boyutu sıfırsa kapat. */
+    document.querySelectorAll('dialog[open]').forEach(d=>{
+      const r=d.getBoundingClientRect();
+      if(r.width<2||r.height<2){try{d.close()}catch(_){}fixed.push('takılı pencere')}
+    });
+    try{drawOverlay()}catch(_){}
+  }catch(_){}
+  if(fixed.length&&reason==='manual')toast('Kurtarma: '+fixed.join(' · ')+' sıfırlandı ✔');
+  return fixed;
+}
+window.notisRecover=notisRecover;
+
+/* ------------------------------------------------------------------------
+   PENCERE KENDİLİĞİNDEN ÖNE FIRLAMASIN
+   Windows/WebView2'de arka plandaki bir pencerede programatik odaklanma
+   (element.focus()) pencereyi ÖNE ÇEKER. Uygulamada zamanlayıcıyla çalışan
+   odak istekleri var (metin kutusu geri-odaklama döngüsü, komut paleti);
+   kullanıcı Chrome'a geçtiği anda bunlardan biri tetiklenirse Notis penceresi
+   kendiliğinden önüne fırlıyordu. Çözüm: pencere odakta değilken odak isteği
+   ERTELENİR, odak geri geldiğinde uygulanır. Normal kullanımda hiçbir fark
+   yoktur. (Not: yansıtılan bir web sayfası KENDİ kodundan odak çalarsa bunu
+   engelleyemeyiz — o durumda web katmanını kapatmak gerekir.)
+   ------------------------------------------------------------------------ */
+(function(){
+  const F=HTMLElement.prototype.focus;
+  let pend=null;
+  const appFocused=()=>{try{return !document.hidden&&document.hasFocus()}catch(_){return true}};
+  HTMLElement.prototype.focus=function(){
+    if(!appFocused()){pend=[this,arguments];return}
+    return F.apply(this,arguments);
+  };
+  const flush=()=>{if(!pend)return;const p=pend;pend=null;
+    try{if(p[0]&&p[0].isConnected)F.apply(p[0],p[1])}catch(_){}};
+  window.addEventListener('focus',flush);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)flush()});
+  /* Kullanıcı uygulamaya dokunduğu anda bekleyen odak isteği uygulanır —
+     hasFocus() bazı pencere yöneticilerinde geç güncellenir, metin kutusu
+     hiçbir koşulda odaksız kalmaz. */
+  window.addEventListener('pointerdown',flush,true);
+  window.addEventListener('keydown',flush,true);
+})();
+/* Metin kutusunun geri-odaklama döngüsü yalnız pencere ÖNDEYKEN çalışsın */
+window.addEventListener('blur',()=>{try{if(textEdit&&textEdit.style.display==='block')commitText()}catch(_){}});
+
+/* Beklenmedik bir istisna askıda durum bırakmasın: hata yakalanır, kaydedilir
+   ve uygulama kendini toparlar. Böylece tek bir hata "artık hiçbir şey
+   çalışmıyor" hâline dönüşemez. */
+window.__notisErrors=[];
+function noteErr(kind,msg){
+  try{window.__notisErrors.push({t:new Date().toISOString(),kind,msg:String(msg).slice(0,300)});
+    if(window.__notisErrors.length>50)window.__notisErrors.shift()}catch(_){}
+  setTimeout(()=>notisRecover('error'),0);
+}
+window.addEventListener('error',e=>noteErr('error',(e&&e.message)||'bilinmeyen'));
+window.addEventListener('unhandledrejection',e=>noteErr('promise',(e&&e.reason&&e.reason.message)||e.reason||'bilinmeyen'));
+
+/* Odak kaybı / sekme gizlenmesi: yarım kalan her etkileşim burada kapanır.
+   Kullanıcı Alt+Tab ile Chrome'a geçip döndüğünde uygulama TAM çalışır. */
+window.addEventListener('blur',()=>notisRecover('blur'));
+document.addEventListener('visibilitychange',()=>{if(document.hidden)notisRecover('hidden')});
+window.addEventListener('pointercancel',()=>notisRecover('cancel'),true);
+/* Fare tüm düğmeleri bırakılmışken hâlâ "basılı" durum varsa temizle */
+window.addEventListener('pointerup',e=>{if(e.buttons===0&&!pointers.size&&(rightState||panning))notisRecover('up')},true);
+
+/* BEKÇİ: 2 saniyede bir tutarlılık denetimi. Hiçbir tuş/düğme basılı değilken
+   askıda kalmış bir durum varsa sessizce sıfırlanır (kullanıcı fark etmez). */
+setInterval(()=>{
+  try{
+    if(live||drag||pointers.size||rightState||panning||pinch){
+      if(performance.now()-lastInputT>5000)notisRecover('watchdog');
+    }
+    if(scrollDetectLock&&performance.now()-lastInputT>3000)scrollDetectLock=false;
+    if(recAction&&performance.now()-recStartT>10000)
+      recStop('Kısayol kaydı zaman aşımına uğradı — kısayollar yeniden aktif');
+    if(BGQ.busy>0&&BGQ.q.length===0&&performance.now()-BGQ.t>12000){
+      BGQ.busy=0;doc.pages.forEach(p=>{if(!p.bgImg)p._bgLoad=false});pumpBG();
+    }
+  }catch(_){}
+},2000);
+/* Acil kurtarma kısayolu — hiçbir şey çalışmıyorsa tek hamlede toparlar */
+window.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.altKey&&(e.key==='r'||e.key==='R')){e.preventDefault();e.stopPropagation();
+    const f=notisRecover('manual');if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔')}
+},true);
+
+/* Ayarlar › Depolama'ya görünür bir "Onarım" satırı: kullanıcı kısayol
+   ezberlemek zorunda kalmadan takılı durumları tek tıkla sıfırlayabilir. */
+{const sp=$('#sp-storage');
+ if(sp&&!sp.dataset.heal){sp.dataset.heal='1';
+  const w=document.createElement('div');
+  w.innerHTML='<div class="set-sec-t" style="margin-top:18px">Onarım</div>'+
+    '<div class="set-row"><div><div class="t">🛟 Takılı durumları sıfırla</div>'+
+    '<div class="d">Bir kısayol, panel ya da opsiyon aniden cevap vermez olursa uygulamayı kapatmadan buradan toparlayabilirsin. '+
+    'Çizimlerine ve kayıtlarına <b>dokunmaz</b>; yalnız yarım kalmış etkileşimleri temizler. Kısayol: <b>Ctrl+Alt+R</b>.</div></div>'+
+    '<button class="btn" id="healBtn" type="button">Onar</button></div>'+
+    '<div class="set-row"><div><div class="t">🧾 Son hatalar</div><div class="d" id="healLog">Kayıtlı hata yok.</div></div></div>';
+  while(w.firstChild)sp.appendChild(w.firstChild);
+  const log=()=>{const el=$('#healLog');if(!el)return;
+    const e=(window.__notisErrors||[]);
+    el.innerHTML=e.length?e.slice(-5).reverse().map(x=>x.t.slice(11,19)+' · '+x.kind+': '+x.msg).join('<br>'):'Kayıtlı hata yok.'};
+  $('#healBtn').addEventListener('click',()=>{const f=notisRecover('manual');
+    if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔');log()});
+  const st=$$('.set-tab').find(x=>x.dataset.s==='storage');if(st)st.addEventListener('click',log);
+  log();
+ }}
 init();

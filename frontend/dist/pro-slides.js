@@ -48,11 +48,14 @@
     i = Math.max(0, Math.min(n - 1, i));
     if (i === cur) { fitSlide(); return; }
     /* Kaydırmayla sayfa algılamayı kilitle: geçiş yalnız bizim kontrolümüzde */
+    /* Kilit MUTLAKA açılmalı: bir istisna kilidi açık bırakırsa kaydırmayla
+       sayfa algılama kalıcı olarak ölür (uygulama yeniden başlayana dek). */
     scrollDetectLock = true;
-    try { if (typeof commitText === "function") commitText(); } catch (_) {}
-    gotoPage(i);
-    fitSlide();
-    scrollDetectLock = false;
+    try {
+      try { if (typeof commitText === "function") commitText(); } catch (_) {}
+      gotoPage(i);
+      fitSlide();
+    } finally { scrollDetectLock = false; }
   }
 
   /* -------------------------------------------------------- AÇ / KAPAT */
