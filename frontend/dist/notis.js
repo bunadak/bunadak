@@ -56,9 +56,61 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const uid=()=>Math.random().toString(36).slice(2,10);
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function toast(){/* Bildirimler kapalı: çalışma ekranına hiçbir uyarı, bilgi ya da onay metni düşmez. */}
+/* BİLDİRİMLER — İKİ SEVİYELİ
+   Eskiden bu fonksiyon boştu; koddaki 60+ mesaj ("Bu katman kilitli", "Kayıt
+   açılamadı", "PDF eklenemedi", "Son sayfa silinemez"…) sessizce yutuluyordu.
+   Kullanıcı kilitli katmana çiziyor, hiçbir şey olmuyor, "uygulama dondu"
+   diyordu. Artık:
+     • bilgi  → sağ altta 2.4 sn, sunum/odak modunda gizli, opsiyonla kapatılabilir
+     • hata   → kalıcı, kapat düğmeli, ASLA kapatılamaz (opsiyondan bağımsız)
+     • eylem  → "Geri al" gibi bir düğme taşıyabilir (yıkıcı işlemler için) */
+let TOASTW=null;
+function toastWrap(){
+  if(TOASTW&&TOASTW.isConnected)return TOASTW;
+  TOASTW=document.createElement('div');TOASTW.id='toastWrap';
+  document.body.appendChild(TOASTW);return TOASTW;
+}
+function toastInfoOn(){try{return localStorage.getItem('notis_toast_info')!=='0'}catch(_){return true}}
+function toastShow(msg,opt){
+  opt=opt||{};
+  const err=opt.level==='error';
+  try{
+    if(!err&&!toastInfoOn())return null;
+    if(!err&&(typeof presenting!=='undefined'&&presenting))return null;
+  }catch(_){}
+  const w=toastWrap();
+  const t=document.createElement('div');
+  t.className='ntoast'+(err?' err':'');
+  const sp=document.createElement('span');sp.className='nt-msg';sp.innerHTML=msg;
+  t.appendChild(sp);
+  const kill=()=>{if(!t.isConnected)return;t.classList.add('out');setTimeout(()=>t.remove(),220)};
+  if(opt.action&&typeof opt.onAction==='function'){
+    const ab=document.createElement('button');ab.className='nt-act';ab.type='button';ab.textContent=opt.action;
+    ab.addEventListener('click',()=>{try{opt.onAction()}catch(_){}kill()});
+    t.appendChild(ab);
+  }
+  if(err||opt.action){
+    const cb=document.createElement('button');cb.className='nt-x';cb.type='button';cb.setAttribute('aria-label','Kapat');cb.textContent='✕';
+    cb.addEventListener('click',kill);t.appendChild(cb);
+  }
+  w.appendChild(t);
+  while(w.children.length>4)w.firstChild.remove();
+  requestAnimationFrame(()=>t.classList.add('in'));
+  const ms=opt.ms!=null?opt.ms:(err?0:2400);
+  if(ms>0)setTimeout(kill,ms);
+  return {close:kill};
+}
+/* Geriye dönük imza: toast('mesaj') ve toast('mesaj', süreMs) her yerde çalışır */
+function toast(msg,ms){
+  if(msg==null)return null;
+  return toastShow(String(msg),{ms:typeof ms==='number'?ms:undefined});
+}
+toast.info =(m,ms)=>toastShow(String(m),{ms:typeof ms==='number'?ms:undefined});
+toast.error=(m)=>toastShow(String(m),{level:'error'});
+toast.action=(m,label,fn,ms)=>toastShow(String(m),{action:label,onAction:fn,ms:ms==null?8000:ms});
+window.toast=toast;
 
-const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:true,miniBar:true,ring:true,grain:true,
+const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:true,miniBar:true,ring:true,grain:true,leftHanded:false,
   snapGrid:false,grid:20,guides:true,angleSnap:false,laser:'#FF4D5E',spot:150,
   applyDefaults:true,wheelPage:true,
   /* Opsiyonlar — hepsi kapalı başlar */
@@ -88,7 +140,7 @@ let selection=[];
 let eraserTypes={stroke:true,hl:true,text:true,image:false}; // Matis kurali: resimler varsayilan korunur
 let laserOn=false, spotOn=false, protractor=null;
 let activeSticker=null, importedStickers=[];
-let presenting=false, focusMode=false;
+let presenting=false;
 let scratch=null, solveDraft=null;
 let prevPen='ball';
 const EMOJI=['⭐','❤️','✅','🔥','📌','💡','🎯','📚','☕','🌙','☀️','🌈','✏️','📎','🏆','🎉','🧠','⏰','🍀','🎵','💪','🔖','🌸','⚡'];
@@ -761,7 +813,7 @@ stage.addEventListener('pointerdown',e=>{
   if(tool==='solve'){solveDraft={a:pt,b:pt};return}
   if(tool==='line'){lineDraft={a:pt,b:pt};return}
   if(tool==='compass'){compassDraft={c:pt,r:0};return}
-  if(layer().locked){toast('Bu katman kilitli 🔒');return}
+  if(layer().locked){toast.error('Bu katman kilitli 🔒 — çizmek için katman panelinden kilidi aç.');return}
   const p0=S.pressure?(e.pressure||0.5):0.5;
   stabPt={x:pt.x,y:pt.y};
   live={type:'stroke',tool,color:tool==='hl'?'#FFE066':penColor,size:penSize,
@@ -1204,7 +1256,9 @@ function drawProtractor(){
     if(long)octx.fillText(a,x+Math.cos(t)*(R-30),y-Math.sin(t)*(R-30)+4)}
   octx.beginPath();octx.arc(x,y,3.5,0,7);octx.fill();octx.restore();
 }
-function pushLaser(e){const r=stage.getBoundingClientRect();laserTrail.push({x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()})}
+function pushLaser(e){laserKick();const r=stage.getBoundingClientRect();laserTrail.push({x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()})}
+let laserRunning=false;
+function laserKick(){if(!laserRunning){laserRunning=true;requestAnimationFrame(laserLoop)}}
 function laserLoop(){
   const now=performance.now();laserTrail=laserTrail.filter(p=>now-p.t<550);
   if(laserTrail.length){
@@ -1218,7 +1272,9 @@ function laserLoop(){
       octx.fillStyle=S.laser;octx.globalAlpha=.45;octx.beginPath();octx.arc(lp.x,lp.y,9,0,7);octx.fill()}
     octx.restore();
   }
-  requestAnimationFrame(laserLoop);
+  /* İz boşken döngü DURUR: laptopta boşuna 60 fps uyanma, fan ve pil tüketimi
+     yoktu yere sürüyordu. pushLaser() yeniden başlatır. */
+  if(laserTrail.length||laserOn)requestAnimationFrame(laserLoop);else laserRunning=false;
 }
 const spot=$('#spot');
 function moveSpot(e){const r=stage.getBoundingClientRect();
@@ -1576,7 +1632,7 @@ function renderOpts(){
   const tgl=(lbl,key,scope)=>{const on=scope?eraserTypes[key]:S[key];
     const l=document.createElement('label');l.className='tglrow'+(on?' on':'');
     const c=document.createElement('input');c.type='checkbox';c.checked=on;
-    c.addEventListener('change',()=>{if(scope)eraserTypes[key]=c.checked;else{S[key]=c.checked;syncSettingsUI()}l.classList.toggle('on',c.checked);redraw()});
+    c.addEventListener('change',()=>{if(scope)eraserTypes[key]=c.checked;else{S[key]=c.checked;syncSettingsUI()}l.classList.toggle('on',c.checked);saveOpts();redraw()});
     l.append(c,document.createTextNode(lbl));box.appendChild(l)};
   if(tool==='hl')tgl('Düzleştir','snapHl');
   if(['ball','fountain','pencil'].includes(tool))tgl('Şekil düzelt','shapeFix');
@@ -1627,15 +1683,23 @@ function renderFavs(){const el=$('#favRow');el.innerHTML='';
     b.title=`${f.name} · ${TOOLNAMES[f.tool]} ${f.size}px  (${i+1} · sağ tık: sil)`;
     b.innerHTML=`<span>${i+1}</span>`;
     b.addEventListener('click',()=>applyFav(i));
-    b.addEventListener('contextmenu',e=>{e.preventDefault();favs.splice(i,1);renderFavs();toast('Profil silindi')});
+    b.addEventListener('contextmenu',e=>{e.preventDefault();
+      const gone=favs.splice(i,1)[0];renderFavs();saveOpts();
+      toast.action('“'+gone.name+'” profili silindi','Geri al',()=>{favs.splice(i,0,gone);renderFavs();saveOpts()})});
     el.appendChild(b)})}
-function applyFav(i){const f=favs[i];if(!f)return;if(f.tool!=='hl')penColor=f.color;penOp=f.op;
-  tool=f.tool;penSize=f.size; // profil kalınlığı varsayılanı ezer
+function applyFav(i){const f=favs[i];if(!f)return;
+  /* ÖNCE setTool: çark kalemi (curCP) sıfırlanır ve pkOnTool() çalışır.
+     Eskiden doğrudan tool=f.tool atanıyordu; Air Brush aktifken profile
+     geçince profil adı değişiyor ama püskürtme motoru devrede kalıyordu. */
+  if(typeof setTool==='function')setTool(f.tool);else tool=f.tool;
+  if(f.tool!=='hl')penColor=f.color;penOp=f.op;
+  penSize=f.size; // profil kalınlığı varsayılanı ezer
   $('#sizeRng').value=f.size;$('#sizeOut').textContent=f.size;$('#opRng').value=f.op*100;$('#opOut').textContent=Math.round(f.op*100);
   buildSwatches();markRail();renderOpts();stage.style.cursor='default'}
-$('#favSave').addEventListener('click',()=>{if(favs.length>=6)return toast('En fazla 6 profil (sağ tık: sil)');
-  const nm=prompt('Profil adı:',TOOLNAMES[tool]||'Kalem');if(!nm)return;
-  favs.push({name:nm.slice(0,12),tool:['smart','ball','fountain','pencil','hl'].includes(tool)?tool:'ball',color:penColor,size:penSize,op:penOp});renderFavs()});
+$('#favSave').addEventListener('click',async()=>{if(favs.length>=6)return toast('En fazla 6 profil (sağ tık: sil)');
+  const nm=await askText('Kalem profili kaydet','Bu renk, kalınlık ve araç birlikte saklanır.',TOOLNAMES[tool]||'Kalem');
+  if(!nm)return;
+  favs.push({name:String(nm).slice(0,12),tool:['smart','ball','fountain','pencil','hl'].includes(tool)?tool:'ball',color:penColor,size:penSize,op:penOp});renderFavs();saveOpts()});
 
 /* ============================================================
    PANELLER
@@ -1675,11 +1739,12 @@ function renderPages(){if(scratch)return;const el=$('#pgList');if(!document.body
     const mkA=(title,svg,fn,danger)=>{const b=document.createElement('button');if(danger)b.className='danger';b.title=title;b.innerHTML=svg;
       b.addEventListener('click',e=>{e.stopPropagation();fn()});acts.appendChild(b)};
     mkA('Çoğalt','<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',()=>dupPage(i));
-    mkA('Yeniden adlandır','<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',()=>{const v=prompt('Sayfa adı:',p.name);if(v){p.name=v;renderPages()}});
+    mkA('Yeniden adlandır','<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',async()=>{const v=await askText('Sayfa adı','',p.name);if(v){p.name=v;renderPages();if(window.LIB)LIB.dirty()}});
     mkA('Özellikler','<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M1 12h3m16 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',()=>openPageDlg(i));
     mkA('Sil','<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',()=>{
       if(doc.pages.length===1)return toast('Son sayfa silinemez');
-      doc.pages.splice(i,1);invalidateLayout();renderPages();gotoPage(Math.min(cur,doc.pages.length-1))},true);
+      pgDestructive('“'+(p.name||('Sayfa '+(i+1)))+'” silindi',()=>{
+        doc.pages.splice(i,1);invalidateLayout();renderPages();gotoPage(Math.min(cur,doc.pages.length-1))})},true);
     d.append(th,num,bk,acts,meta);
     d.addEventListener('click',()=>gotoPage(i));
     d.addEventListener('dblclick',()=>openPageDlg(i));
@@ -1714,8 +1779,11 @@ $('#pgInf').addEventListener('change',e=>{doc.pages[pageDlgIdx].infinite=e.targe
 $('#pgBk').addEventListener('change',e=>{doc.pages[pageDlgIdx].bookmark=e.target.checked;renderPages()});
 $('#pgBg').addEventListener('click',()=>{imgTarget='bg';$('#fileInp').accept='image/*';$('#fileInp').click();pageDlg.close()});
 $('#pgRot').addEventListener('click',()=>{const p=doc.pages[pageDlgIdx];[p.w,p.h]=[p.h,p.w];invalidateLayout();fit();renderPages()});
-$('#pgDel').addEventListener('click',()=>{if(doc.pages.length===1)return toast('Son sayfa silinemez');
-  doc.pages.splice(pageDlgIdx,1);invalidateLayout();pageDlg.close();renderPages();gotoPage(Math.min(cur,doc.pages.length-1))});
+$('#pgDel').addEventListener('click',()=>{if(doc.pages.length===1)return toast.error('Son sayfa silinemez — belgede en az bir sayfa kalmalı.');
+  const nm=doc.pages[pageDlgIdx]&&doc.pages[pageDlgIdx].name||('Sayfa '+(pageDlgIdx+1));
+  pageDlg.close();
+  pgDestructive('“'+nm+'” silindi',()=>{
+    doc.pages.splice(pageDlgIdx,1);invalidateLayout();renderPages();gotoPage(Math.min(cur,doc.pages.length-1))})});
 
 function renderLayers(){const el=$('#layList');if(!el)return;el.innerHTML='';const p=page();
   [...p.layers].reverse().forEach(l=>{
@@ -1727,7 +1795,7 @@ function renderLayers(){const el=$('#layList');if(!el)return;el.innerHTML='';con
     lock.innerHTML=l.locked?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.7-1.5"/></svg>';
     lock.addEventListener('click',e=>{e.stopPropagation();l.locked=!l.locked;renderLayers()});
     const nm=document.createElement('span');nm.className='nm';nm.textContent=l.name;
-    nm.addEventListener('dblclick',e=>{e.stopPropagation();const v=prompt('Katman adı:',l.name);if(v){l.name=v;renderLayers()}});
+    nm.addEventListener('dblclick',async e=>{e.stopPropagation();const v=await askText('Katman adı','',l.name);if(v){l.name=v;renderLayers();if(window.LIB)LIB.dirty()}});
     const op=document.createElement('input');op.type='range';op.min=10;op.max=100;op.value=l.opacity*100;op.title='Katman opaklığı';
     op.addEventListener('input',e=>{l.opacity=e.target.value/100;redraw()});op.addEventListener('pointerdown',e=>e.stopPropagation());
     const del=document.createElement('button');del.className='icobtn';del.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
@@ -1751,7 +1819,7 @@ function renderStickers(){const el=$('#stkGrid');el.innerHTML='';
 }
 $('#stkImport').addEventListener('click',()=>$('#stkInp').click());
 $('#stkInp').addEventListener('change',e=>{const files=[...e.target.files];let n=0;
-  files.forEach(f=>{const r=new FileReader();r.onload=()=>{importedStickers.unshift({src:r.result});if(++n===files.length){renderStickers();toast(n+' çıkartma içe aktarıldı')}};r.readAsDataURL(f)});
+  files.forEach(f=>{const r=new FileReader();r.onload=()=>{importedStickers.unshift({src:r.result});if(++n===files.length){renderStickers();saveOpts();toast(n+' çıkartma içe aktarıldı')}};r.readAsDataURL(f)});
   e.target.value=''});
 
 /* ============================================================
@@ -1819,9 +1887,13 @@ stage.addEventListener('drop',e=>{e.preventDefault();
   }
 });
 async function importPDF(f){
-  toast('PDF kütüphaneye ekleniyor…');
+  let cancelWorker=null;
+  impStart((f&&f.name||'PDF')+' içe aktarılıyor',()=>{if(cancelWorker)try{cancelWorker()}catch(_){}});
   try{
-    const LB=window.__NOTIS_SRV?(location.origin+'/libs'):'https://cdnjs.cloudflare.com/ajax/libs';
+    /* ÇEVRİMDIŞI ÖNCELİK — pdf.js ve worker uygulamanın İÇİNDE gömülüdür.
+       Eskiden bu satır exe'de cdnjs.cloudflare.com'a düşüyordu; internet yoksa
+       ya da kurumsal vekil sunucu varsa PDF özelliklerinin tamamı ölüydü. */
+    const LB=location.origin;
     const N0=2000;
     let targetW=Math.min(2400,Math.max(1600,(screen.width||1920)*(window.devicePixelRatio||1)));
     /* OLED Ultra Görüntü: PDF sayfaları 4K dokuya kadar yüksek çözünürlükte
@@ -1857,10 +1929,13 @@ async function importPDF(f){
       const tg=tc.getContext('2d');tg.imageSmoothingQuality='high';
       const im=new Image();await new Promise(r=>{im.onload=r;im.onerror=r;im.src=bg});
       tg.drawImage(im,0,0,tc.width,tc.height);window.__pdfThumb=tc.toDataURL('image/jpeg',.72)}catch(e){}};
-    const canWorker=window.__NOTIS_SRV&&typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined';
+    /* Worker koşulundan __NOTIS_SRV kaldırıldı: exe'de her zaman false olduğu için
+   PDF içe aktarma DAİMA ana iş parçacığında çalışıyor, arayüz tamamen donuyordu.
+   OffscreenCanvas varsa worker kullanılır — arayüz akıcı kalır. */
+const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined';
     if(canWorker){
       await new Promise((resolve,reject)=>{
-        const w=new Worker('/libs/notis/pdf-import-worker.js');
+        const w=new Worker(location.origin+'/libs/notis/pdf-import-worker.js');
         let pending=Promise.resolve();
         let wd=null;const kick=()=>{clearTimeout(wd);wd=setTimeout(()=>{
           w.terminate();
@@ -1879,7 +1954,8 @@ async function importPDF(f){
                 layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
               total++;ev.data.bg=null;
               if(chunk.length>=4)await flushChunk();
-              if(m.i%10===0)toast('PDF işleniyor… '+m.i+'/'+N);
+              impStep(m.i,N);
+              if(impCancelled){try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);await flushChunk();return resolve()}
               w.postMessage({t:'ack'});
             }
             else if(m.t==='skip'){atlanan++;w.postMessage({t:'ack'})}
@@ -1887,6 +1963,7 @@ async function importPDF(f){
             else if(m.t==='err'){clearTimeout(wd);w.terminate();reject(new Error(m.m))}
           }).catch(e=>{w.terminate();reject(e)});
         };
+        cancelWorker=()=>{try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);resolve()};
         w.postMessage({buf,targetW,cap:3.0,maxN:N0,base:LB},[buf]);
       });
     }else{
@@ -1894,7 +1971,7 @@ async function importPDF(f){
          kopya denenir (internet gerekmez, açılış anında hazır); yalnız o
          bulunamazsa CDN'e düşülür. Böylece PDF ve SLAYT içe aktarma
          internetsiz makinelerde de tam çalışır. */
-      let PB=window.__NOTIS_SRV?LB:location.origin;
+      let PB=location.origin;
       if(!window.pdfjsLib){
         try{await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
         catch(e){PB='https://cdnjs.cloudflare.com/ajax/libs';await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
@@ -1924,7 +2001,8 @@ async function importPDF(f){
           total++;pg.cleanup&&pg.cleanup();
         }catch(pe){atlanan++}
         if(chunk.length>=4)await flushChunk();
-        if(i%10===0)toast('PDF işleniyor… '+i+'/'+N);
+        impStep(i,N);
+        if(impCancelled){await flushChunk();break}
         await new Promise(r=>requestAnimationFrame(r));
       }
       await flushChunk();cnv.width=cnv.height=0;
@@ -1938,10 +2016,122 @@ async function importPDF(f){
     }catch(e){}}
     if(typeof LIB!=='undefined'&&LIB.renderLib)LIB.renderLib();
     if(diskte<total)
-      toast('⚠ '+total+' sayfadan '+diskte+' tanesi kaydedilebildi.',7000);
+      toast.error('⚠ '+total+' sayfadan yalnız '+diskte+' tanesi kaydedilebildi.');
     else
-      toast('“'+title+'” kütüphaneye eklendi ('+total+' sayfa'+(atlanan?' · '+atlanan+' sayfa atlandı':'')+') 📚');
-  }catch(err){console.error(err);toast('PDF eklenemedi: '+(err&&err.message||err),4500)}
+      toast('“'+title+'” hazır — '+total+' sayfa'+(atlanan?' · '+atlanan+' sayfa atlandı':'')+' 📚');
+    /* KRİTİK: içe aktarma bitince BELGEYİ AÇ. Eskiden PDF yalnız kütüphaneye
+       yazılıyor, ekranda hiçbir şey değişmiyordu — kullanıcı 30 saniye bekleyip
+       "hiçbir şey olmadı" diyordu. */
+    impDone();
+    if(!impCancelled&&workId&&window.LIB&&LIB.openWork)await LIB.openWork(workId);
+  }catch(err){
+    console.error(err);impDone();
+    if(impCancelled)toast('İçe aktarma iptal edildi'+(total?' — '+total+' sayfa kütüphanede duruyor':''));
+    else toast.error('PDF eklenemedi: '+(err&&err.message||err));
+  }
+}
+/* SAYFA İŞLEMLERİ İÇİN GERİ ALMA
+   Sayfa silme/ekleme/çoğaltma Ctrl+Z kapsamında değildi ve onay da yoktu:
+   tek tıkla kalıcı veri kaybı. Artık her yıkıcı sayfa işlemi önce bir anlık
+   görüntü alır, kullanıcıya 8 saniyelik "Geri al" bildirimi gösterilir. */
+/* UYGULAMA İÇİ ONAY / GİRİŞ PENCERESİ
+   window.confirm ve window.prompt WebView2'de sistem penceresi olarak çıkar,
+   tasarımla uyumsuzdur ve bazı yapılandırmalarda hiç görünmez. Bunlar yerine
+   uygulamanın kendi <dialog> bileşeni kullanılır.
+   askConfirm(): yıkıcı işlemlerde onay. type:'text' verilirse kullanıcının
+   belirtilen kelimeyi (ör. SİL) yazması istenir. */
+function askConfirm(o){
+  return new Promise(res=>{
+    const d=document.createElement('dialog');d.className='ask-dlg';
+    const need=o.confirmWord||'';
+    d.innerHTML='<div class="ask-w"><div class="ask-t"></div><div class="ask-d"></div>'+
+      (need?'<input class="ask-in" type="text" autocomplete="off" spellcheck="false">':'')+
+      (o.input!=null?'<input class="ask-in ask-val" type="text" autocomplete="off">':'')+
+      '<div class="ask-r"><button type="button" class="ask-no"></button>'+
+      '<button type="button" class="ask-yes"></button></div></div>';
+    d.querySelector('.ask-t').textContent=o.title||'Emin misin?';
+    d.querySelector('.ask-d').innerHTML=o.body||'';
+    d.querySelector('.ask-no').textContent=o.cancelText||'Vazgeç';
+    const yes=d.querySelector('.ask-yes');
+    yes.textContent=o.okText||'Devam et';
+    if(o.danger)yes.classList.add('danger');
+    const val=d.querySelector('.ask-val'),word=need?d.querySelector('.ask-in'):null;
+    if(val)val.value=o.input||'';
+    if(need){word.placeholder=need+' yaz';yes.disabled=true;
+      word.addEventListener('input',()=>{yes.disabled=word.value.trim().toLocaleUpperCase('tr')!==need.toLocaleUpperCase('tr')})}
+    const done=v=>{try{d.close()}catch(_){}setTimeout(()=>d.remove(),80);res(v)};
+    d.querySelector('.ask-no').addEventListener('click',()=>done(null));
+    yes.addEventListener('click',()=>done(val?(val.value||''):true));
+    d.addEventListener('cancel',e=>{e.preventDefault();done(null)});
+    d.addEventListener('keydown',e=>{
+      e.stopPropagation();
+      if(e.key==='Enter'&&!yes.disabled&&(!need||word.value)){e.preventDefault();yes.click()}
+    });
+    document.body.appendChild(d);
+    openDlg(d);
+    setTimeout(()=>{const f=word||val;if(f){f.focus();if(val)val.select()}},60);
+  });
+}
+window.askConfirm=askConfirm;
+/* prompt() yerine uygulama içi metin girişi */
+function askText(title,body,def){return askConfirm({title,body:body||'',input:def==null?'':def,okText:'Tamam'})}
+window.askText=askText;
+
+const PGUNDO=[];
+function pgSnapshot(){
+  try{
+    PGUNDO.push({json:JSON.stringify({pages:doc.pages.map(p=>serializePage(p))},jsonSafe),cur});
+    if(PGUNDO.length>12)PGUNDO.shift();
+  }catch(_){}
+}
+function pgUndo(){
+  const st=PGUNDO.pop();if(!st)return false;
+  try{
+    const o=JSON.parse(st.json);
+    doc.pages=o.pages.map(p=>{sanitizePage(p);p.layers.forEach(l=>l.objects.forEach(hydrate));return p});
+    cur=clamp(st.cur,0,doc.pages.length-1);
+    if(!doc.pages[cur].layers.find(l=>l.id===curLayerId))curLayerId=doc.pages[cur].layers[0].id;
+    selection=[];invalidateLayout();renderPages();renderLayers();gotoPage(cur);updUndoBtns();
+    if(window.LIB)LIB.dirty();
+    return true;
+  }catch(e){console.warn('sayfa geri alma:',e);return false}
+}
+window.pgUndo=pgUndo;
+/* Yıkıcı sayfa işlemi sarmalayıcısı: anlık görüntü + geri al bildirimi */
+function pgDestructive(msg,fn){
+  pgSnapshot();
+  fn();
+  if(window.LIB)LIB.dirty();
+  toast.action(msg,'Geri al',()=>{if(pgUndo())toast('Geri alındı ✔')});
+}
+
+/* ---- İÇE AKTARMA İLERLEME PENCERESİ (iptal edilebilir) ---------------- */
+let impCancelled=false,impEl=null,impCancelFn=null;
+function impStart(name,onCancel){
+  impCancelled=false;impCancelFn=onCancel||null;
+  if(impEl&&impEl.isConnected)impEl.remove();
+  impEl=document.createElement('div');impEl.id='impWrap';
+  impEl.innerHTML='<div class="imp-card"><div class="imp-t"></div>'+
+    '<div class="imp-bar"><i></i></div><div class="imp-d">Hazırlanıyor…</div>'+
+    '<button type="button" class="imp-x">İptal</button></div>';
+  impEl.querySelector('.imp-t').textContent=name;
+  impEl.querySelector('.imp-x').addEventListener('click',()=>{
+    impCancelled=true;
+    impEl.querySelector('.imp-d').textContent='İptal ediliyor…';
+    try{if(impCancelFn)impCancelFn()}catch(_){}
+  });
+  document.body.appendChild(impEl);
+  requestAnimationFrame(()=>impEl.classList.add('in'));
+}
+function impStep(i,n){
+  if(!impEl||!impEl.isConnected)return;
+  const pct=n?Math.round(i/n*100):0;
+  impEl.querySelector('.imp-bar i').style.width=pct+'%';
+  impEl.querySelector('.imp-d').textContent=n?(i+' / '+n+' sayfa  ·  %'+pct):(i+' sayfa');
+}
+function impDone(){
+  if(!impEl)return;const e=impEl;impEl=null;impCancelFn=null;
+  e.classList.remove('in');setTimeout(()=>e.remove(),200);
 }
                                                                                                                                                                                                                                                                                                                                                     
 $('#exportBtn').addEventListener('click',()=>openDlg(expDlg));
@@ -1999,7 +2189,9 @@ $('#expGo').addEventListener('click',async()=>{
     dl('data:application/json;charset=utf-8,'+encodeURIComponent(data),title+'.notis')}
   else{
     toast('PDF hazırlanıyor…');
-    try{if(!window.jspdf)await loadScript((window.__NOTIS_SRV?'/libs':'https://cdnjs.cloudflare.com/ajax/libs')+'/jspdf/2.5.1/jspdf.umd.min.js');
+    /* jsPDF de gömülüdür — çevrimdışı dışa aktarma çalışsın */
+    try{if(!window.jspdf){try{await loadScript(location.origin+'/jspdf/2.5.1/jspdf.umd.min.js')}
+      catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')}}
       const{jsPDF}=window.jspdf;let pdf=null;
       for(const p of doc.pages){const k=1.5,c=document.createElement('canvas');c.width=p.w*k;c.height=p.h*k;renderPageTo(c,p,k);
         const or=p.w>p.h?'l':'p';
@@ -2015,7 +2207,7 @@ function dl(url,name){const a=document.createElement('a');a.href=url;a.download=
    SUNUM · ODAK · ÇÖZÜM
 ============================================================ */
 let fadeTimer=null;
-function enterPresent(){hideMiniBar();if(ringOpen)closeRing(false);if(focusMode)toggleFocus(false);
+function enterPresent(){hideMiniBar();if(ringOpen)closeRing(false);
   if(presenting)return;presenting=true;
   document.documentElement.requestFullscreen?.().catch(()=>{});
   document.body.classList.add('present-out');  // 1) üst çubuk fade, ray/panel slide
@@ -2151,9 +2343,10 @@ function markPr(){$('#prSmart').classList.toggle('on',tool==='smart');$('#prPen'
   $('#prLaser').classList.toggle('on',tool==='laser');$('#prSpot').classList.toggle('on',spotOn);
   $$('.pdot').forEach(d=>d.classList.toggle('on',d.dataset.c.toLowerCase()===penColor.toLowerCase()))}
 
-function toggleFocus(on){focusMode=on??!focusMode;document.body.classList.toggle('focus',focusMode);
-  markRail();resize();if(focusMode)toast('Odak modu — Esc ile çık')}
-$('#focusExit').addEventListener('click',()=>toggleFocus(false));
+/* Odak modu KALDIRILDI (kullanıcı isteği). Geriye kalan tek kalıntı da temizlendi:
+   önceden KEYMAP'te tuşu, gövdede .focus sınıfı ve çıkış çipi duruyordu; Z'ye
+   basan kullanıcının tüm panelleri kayboluyor ve nasıl çıkacağını bilemiyordu.
+   Panel gizleme artık F9 döngüsüyle yapılıyor (Ayarlar › Kısayollar). */
 
 
 
@@ -2203,10 +2396,13 @@ function renderThemes(){const el=$('#themeGrid');if(!el)return;el.innerHTML='';
     b.innerHTML=`<span class="prev" style="background:${pc}"><b style="background:${ac}"></b></span>${n}`;
     b.addEventListener('click',()=>{document.documentElement.dataset.theme=id;renderThemes();saveOpts()});
     el.appendChild(b)})}
-$('#sLeft').addEventListener('change',e=>{const on=e.target.checked;
+/* Solak düzeni artık S.leftHanded olarak saklanır — her açılışta sıfırlanmaz */
+function applyLeftHanded(on){
   $('#rail').style.order=on?2:'';$('#stage').style.order=on?1:'';
   document.body.style.gridTemplateAreas=on?'"top top top" "canvas rail side"':'';
-  document.body.style.gridTemplateColumns=on?('1fr '+(S.compact?'46px':'58px')+' auto'):'';resize()});
+  document.body.style.gridTemplateColumns=on?('1fr '+(S.compact?'46px':'58px')+' auto'):'';resize();
+}
+$('#sLeft').addEventListener('change',e=>{S.leftHanded=e.target.checked;applyLeftHanded(S.leftHanded);saveOpts()});
 $('#sCorner').addEventListener('change',e=>{S.cornerUI=e.target.checked;$('#corner').style.display=S.cornerUI?'flex':'none';if(typeof saveOpts==='function')saveOpts()});
 bindT('#sMini','miniBar');bindT('#sRing','ring');
 $('#sGrain').addEventListener('change',e=>{S.grain=e.target.checked;document.body.classList.toggle('nograin',!S.grain);saveOpts()});
@@ -2273,9 +2469,18 @@ window.addEventListener('keydown',e=>{
 $('#keyReset').addEventListener('click',()=>{KEYMAP={...KEYDEF};recStop();buildRail();saveOpts();toast('Kısayollar sıfırlandı')});
 $('#setBtn').addEventListener('click',()=>openSettings());
 $('#fs2Btn').addEventListener('click',()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());
-$('#homeBtn').addEventListener('click',()=>{
+$('#homeBtn').addEventListener('click',async()=>{
   const hasContent=doc.pages.some(p=>p.layers.some(l=>l.objects.length))||doc.pages.length>1;
-  /* onay penceresi yok — direkt yeni tahta */
+  /* Tahta kaydı varsayılan KAPALI olduğu için bu işlem çalışmayı tamamen
+     yok edebilir — içerik varken önce onay sorulur. */
+  let boardSaved=true;try{boardSaved=localStorage.getItem('notis_board_save')==='1'}catch(_){}
+  if(hasContent&&!boardSaved&&(!window.LIB||!doc.pages.some(p=>p.bg))){
+    const ok=await askConfirm({title:'Yeni boş tahtaya geç',
+      body:'Bu tahtadaki çizimler <b>kaydedilmiyor</b> (Ayarlar › Depolama › “Tahta çizimlerini de kaydet” kapalı). '+
+           'Devam edersen bu çalışma kaybolur.',
+      okText:'Yine de devam et',danger:true});
+    if(!ok)return;
+  }
   if(scratch)exitScratch();
   if(presenting)exitPresent();
   if(window.LIB)LIB.fresh();               // mevcut çalışmayı mühürle, yeni oturum aç
@@ -2295,6 +2500,11 @@ $('#pgNext').addEventListener('click',()=>gotoPage(cur+1));
 window.addEventListener('keydown',e=>{
   if(recAction)return;
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  /* Açık bir pencerede (ayarlar, dışa aktarma, onay) odak bir DÜĞMEDEYKEN
+     kısayollar tuvale gidiyordu: kullanıcı ayarlarda gezerken farkında olmadan
+     araç değiştiriyor, hatta Backspace ile nesne siliyordu. */
+  try{if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('dialog'))return}catch(_){}
+  if(document.querySelector('dialog[open]'))return;
   const k=e.key.length===1?e.key.toLowerCase():e.key;
   if(e.code==='Space'&&!spaceHeld){spaceHeld=true;stage.style.cursor='grab';e.preventDefault();return}
   if(e.ctrlKey||e.metaKey){
@@ -2324,7 +2534,9 @@ window.addEventListener('keydown',e=>{
   if(['1','2','3','4','5','6'].includes(k)&&!Object.values(KEYMAP).includes(k)){applyFav(+k-1);return}
   if(k==='+'||k==='=')setZoom(view.s*1.2);
   if(k==='-')setZoom(view.s/1.2);
-  if(k==='Delete'||k==='Backspace')deleteSelection();
+  /* Backspace yazı yazdığını sanan kullanıcının nesnelerini siliyordu —
+     artık yalnız seçim aracı aktifken ve bir seçim varken siler. */
+  if(k==='Delete'||(k==='Backspace'&&tool==='select'&&selection.length))deleteSelection();
   if(k==='PageUp'||(presenting&&k==='ArrowLeft'))gotoPage(cur-1);
   if(k==='PageDown'||(presenting&&k==='ArrowRight'))gotoPage(cur+1);
   if(k==='F11'){e.preventDefault();document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
@@ -2335,7 +2547,6 @@ window.addEventListener('keydown',e=>{
     hideMiniBar();
     if(presenting)exitPresent();
     else if(scratch)exitScratch();
-    else if(focusMode)toggleFocus(false);
     else{if(tool==='solve')setTool('smart');selection=[];lineDraft=null;compassDraft=null;solveDraft=null;redraw();drawOverlay()}}
   if(k==='?')openSettings('keys');
 });
@@ -2839,6 +3050,10 @@ function saveOpts(){try{lsSet('notis_opts',JSON.stringify({
   smartSnap:S.smartSnap,focusWrite:S.focusWrite,autoZoom:S.autoZoom,livingInk:S.livingInk,
   penDNA:S.penDNA,memCanvas:S.memCanvas,compact:S.compact,edgeScroll:S.edgeScroll,esD:2,cornerUI:S.cornerUI,board:S.board,defColor:S.defColor,defOp:S.defOp,DEF,DEFV,CPV,
   S2:{...S},                                   // TÜM ayarlar — hiçbir ayar unutulmaz
+  FAVS:favs,                                   // kalem profilleri (her açılışta sıfırlanıyordu)
+  ERT:{...eraserTypes},                        // silgi neyi siler
+  STICK:importedStickers.slice(0,40),          // içe aktarılan çıkartmalar
+  LEFT:!!S.leftHanded,                         // solak düzeni
   KEYS:{...KEYMAP},                            // klavye kısayolları
   theme:document.documentElement.dataset.theme||'',
   CP:CPENS.map(p=>({width:p.width,op:p.op,pressure:p.pressure,velocity:p.velocity,
@@ -2849,6 +3064,10 @@ function loadOpts(){try{const o=JSON.parse(localStorage.getItem('notis_opts')||'
   if(S.defColor==='#243B6B')S.defColor='#111827'; // eski varsayılan lacivert → siyah geçişi
   if(o.S2)for(const k in o.S2){if(k==='edgeScroll')continue;if(k in S)S[k]=o.S2[k]}  // genel ayar geri yüklemesi
   if(o.KEYS)for(const a in KEYDEF)if(a in o.KEYS)KEYMAP[a]=o.KEYS[a];                 // klavye kısayolları
+  if(Array.isArray(o.FAVS)&&o.FAVS.length)favs=o.FAVS.slice(0,6);                     // kalem profilleri
+  if(o.ERT)Object.assign(eraserTypes,o.ERT);                                          // silgi kapsamı
+  if(Array.isArray(o.STICK))importedStickers=o.STICK.slice(0,40);                     // çıkartmalar
+  if(o.LEFT!==undefined)S.leftHanded=!!o.LEFT;                                        // solak düzeni
   if(o.theme)document.documentElement.dataset.theme=o.theme;                          // tema
   if(o.esD===2)S.edgeScroll=!!o.edgeScroll;   // yalnız yeni sürümde kaydedilen tercihi uygula (eski v19'un istem dışı 'açık' kaydı yok sayılır)
   if(o.DEF&&o.DEFV===DEFV)Object.assign(DEF,o.DEF);
@@ -2862,6 +3081,7 @@ for(const[id,key]of Object.entries(OPTKEYS)){$('#'+id).addEventListener('change'
 })}
 function syncOptsUI(){
   for(const[id,key]of Object.entries(OPTKEYS))$('#'+id).checked=!!S[key];
+  {const l=$('#sLeft');if(l){l.checked=!!S.leftHanded;applyLeftHanded(!!S.leftHanded)}}
   $('#sCompact').checked=!!S.compact;
   $('#sCorner').checked=!!S.cornerUI;$('#corner').style.display=S.cornerUI?'flex':'none';
   $('#dColor').value=S.defColor||'#111827';
@@ -2974,9 +3194,9 @@ function renderPenCards(){
   PKCUSTOM.forEach(cp=>mk(cp.id,cp.name,(PK_META[cp.base]||{}).n||'Özel',cp.color,true));
   const nb=document.createElement('div');nb.className='pk-cd new';
   nb.innerHTML='<span class="plus">+</span><div class="nm">Yeni Kalem</div><div class="sb">Seçiliden türet</div>';
-  nb.addEventListener('click',()=>{
-    if(PKCUSTOM.length>=4)return alert('En fazla 4 özel kalem oluşturabilirsin.\nYer açmak için bir kartın üzerine gelip ✕ ile sil.');
-    const nm=prompt('Yeni kalemin adı:','Kalemim');if(!nm)return;
+  nb.addEventListener('click',async()=>{
+    if(PKCUSTOM.length>=4)return toast.error('En fazla 4 özel kalem oluşturabilirsin. Yer açmak için bir kartın üzerine gelip ✕ ile sil.');
+    const nm=await askText('Yeni kalem','Kendi kalem ayarlarını kaydet.','Kalemim');if(!nm)return;
     const s=pkCfg(selPen)||{};
     PKCUSTOM.push({id:'cp'+uid(),name:nm.slice(0,14),base:pkBase(selPen),color:penColor,
       size:pkSizeOf(selPen),op:s.op??1,press:s.press??80,stab:s.stab??2,flow:s.flow??95,nib:s.nib??1});
@@ -3251,10 +3471,10 @@ const LIB=(()=>{
     let rec,meta;
     if(SRV){try{const r=await api('/lib/get?id='+encodeURIComponent(id));rec={json:r.json};meta=r.meta}catch{rec=null}}
     else{rec=await tx('data','readonly',s=>s.get(id));meta=await tx('meta','readonly',s=>s.get(id))}
-    if(!rec||!rec.json)return toast('Kayıt açılamadı');
+    if(!rec||!rec.json)return toast.error('Kayıt açılamadı — dosya bozuk veya boş görünüyor.');
     const o=JSON.parse(rec.json);
     doc={title:o.title||'Adsız Tahta',pages:o.pages||[]};
-    if(!doc.pages.length)return toast('Kayıt boş');
+    if(!doc.pages.length)return toast.error('Kayıt boş — içinde sayfa yok.');
     if(typeof bgqReset==='function')bgqReset();
     doc.pages.forEach(p=>{sanitizePage(p);      // tembel: görünen sayfa gelince yüklenecek
       p.layers.forEach(l=>l.objects.forEach(hydrate))});
@@ -3380,7 +3600,14 @@ $('#libRefresh').addEventListener('click',()=>LIB.renderLib());
 $('#stOpenLib').addEventListener('click',()=>{setDlg.close();
   if(!document.body.classList.contains('side-open'))$('#sideBtn').click();
   const t=$$('.stab').find(x=>x.dataset.p==='library');if(t)t.click()});
-$('#stWipe').addEventListener('click',()=>LIB.wipe());
+$('#stWipe').addEventListener('click',async()=>{
+  const ok=await askConfirm({title:'Tüm kütüphaneyi temelli sil',
+    body:'<b>Bütün kayıtların</b> (PDF çalışmaların, çözümlerin, tahtaların) kalıcı olarak silinecek. '+
+         'Bu işlem <b>geri alınamaz</b> ve çöp kutusu yok.<br><br>Devam etmek için aşağıya <b>SİL</b> yaz.',
+    confirmWord:'SİL',okText:'Temelli sil',danger:true});
+  if(!ok)return;
+  await LIB.wipe();
+});
 $('#exitApp').addEventListener('click',()=>LIB.exit());
 /* Panel gizleme + kalite opsiyonları */
 function applyPanels(refit){
@@ -3450,7 +3677,7 @@ function init(){
   $('#opRng').value=Math.round(penOp*100);$('#opOut').textContent=Math.round(penOp*100);
   seedDoc();buildRail();buildSwatches();renderFavs();renderOpts();renderLayers();renderStickers();renderKeys();renderThemes();
   syncOptsUI();renderCPenSet();renderBoards();applyCompact();
-  resize();fit();updUndoBtns();updCornerPg();laserLoop();
+  resize();fit();updUndoBtns();updCornerPg();
   /* OTOMATİK SIĞDIRMA: çalışma alanı boyutu değişince (pencere, tam ekran,
      panel aç/kapa) PDF/belge sayfası kenarlara yeniden oturur. Kullanıcı
      yakınlaştırdıysa (viewFitted=false) görünümüne dokunulmaz. */
@@ -3596,7 +3823,12 @@ window.addEventListener('keydown',e=>{
 {const sp=$('#sp-storage');
  if(sp&&!sp.dataset.heal){sp.dataset.heal='1';
   const w=document.createElement('div');
-  w.innerHTML='<div class="set-sec-t" style="margin-top:18px">Onarım</div>'+
+  w.innerHTML='<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
+    '<div class="set-row"><div><div class="t">🔔 Bilgi bildirimleri</div>'+
+    '<div class="d">“Kaydedildi”, “Profil silindi” gibi kısa bilgi mesajları. Kapatırsan bunlar görünmez — '+
+    '<b>hata mesajları her koşulda gösterilmeye devam eder</b>, çünkü sessiz hata en kötü hatadır.</div></div>'+
+    '<label class="sw-toggle"><input type="checkbox" id="oToastInfo"><i></i></label></div>'+
+    '<div class="set-sec-t" style="margin-top:18px">Onarım</div>'+
     '<div class="set-row"><div><div class="t">🛟 Takılı durumları sıfırla</div>'+
     '<div class="d">Bir kısayol, panel ya da opsiyon aniden cevap vermez olursa uygulamayı kapatmadan buradan toparlayabilirsin. '+
     'Çizimlerine ve kayıtlarına <b>dokunmaz</b>; yalnız yarım kalmış etkileşimleri temizler. Kısayol: <b>Ctrl+Alt+R</b>.</div></div>'+
@@ -3606,6 +3838,10 @@ window.addEventListener('keydown',e=>{
   const log=()=>{const el=$('#healLog');if(!el)return;
     const e=(window.__notisErrors||[]);
     el.innerHTML=e.length?e.slice(-5).reverse().map(x=>x.t.slice(11,19)+' · '+x.kind+': '+x.msg).join('<br>'):'Kayıtlı hata yok.'};
+  {const ti=$('#oToastInfo');
+   if(ti){ti.checked=toastInfoOn();
+     ti.addEventListener('change',()=>{try{localStorage.setItem('notis_toast_info',ti.checked?'1':'0')}catch(_){}
+       if(ti.checked)toast('Bilgi bildirimleri açık')})}}
   $('#healBtn').addEventListener('click',()=>{const f=notisRecover('manual');
     if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔');log()});
   const st=$$('.set-tab').find(x=>x.dataset.s==='storage');if(st)st.addEventListener('click',log);

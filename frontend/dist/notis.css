@@ -40,9 +40,8 @@ body{
   display:grid; grid-template-rows:54px 1fr; grid-template-columns:58px 1fr auto;
   grid-template-areas:"top top top" "rail canvas side"; user-select:none;
 }
-body.present,body.focus{grid-template-rows:0 1fr; grid-template-columns:0 1fr 0}
+body.present{grid-template-rows:0 1fr; grid-template-columns:0 1fr 0}
 body.present #topbar,body.present #rail,body.present #side,
-body.focus #topbar,body.focus #rail,body.focus #side{display:none}
 /* Odaklı Yazım Modu (opsiyon): kalem kâğıda değince arayüz kenara çekilir */
 #topbar,#rail,#side{transition:opacity .38s var(--ease),transform .38s var(--ease)}
 body.fwrite #topbar{opacity:.18;pointer-events:none}
@@ -179,7 +178,6 @@ body.scratch #pgRow, body.scratch #pgSep{display:none!important}
 .sym{width:32px; height:32px; border-radius:8px; display:grid; place-items:center; background:var(--p1); border:1.5px solid var(--line); color:var(--tx); font-size:16px; font-weight:700; cursor:pointer}
 .sym:hover{border-color:var(--acc); color:var(--acc)}
 #focusExit{position:fixed; top:14px; right:14px; display:none; z-index:60}
-body.focus #focusExit{display:flex}
 /* ---------- SAĞ PANEL (gizlenebilir) ---------- */
 #side{grid-area:side; width:284px; background:var(--p1); border-left:1px solid var(--line); display:none; flex-direction:column; min-height:0; z-index:30}
 body.side-open #side{display:flex}

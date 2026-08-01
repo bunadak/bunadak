@@ -395,3 +395,57 @@ body.pro-web-drag { user-select: none; }
 body.pro-dark #stage { background: var(--pro-dark-bg, #12151B); }
 body.pro-dark #stage::after { opacity: .35; }          /* doku aşırı parlamasın */
 body.pro-dark #miniBar, body.pro-dark #corner { filter: saturate(.9); }
+
+/* --- BİLDİRİMLER (iki seviyeli) ---------------------------------------- */
+#toastWrap{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
+  gap:8px;align-items:flex-end;pointer-events:none;max-width:min(440px,90vw)}
+.ntoast{pointer-events:auto;display:flex;align-items:center;gap:10px;
+  background:var(--p3,#1B2030);color:var(--tx,#E9ECF5);border:1px solid var(--line,#2C3350);
+  border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.45;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;transform:translateY(10px) scale(.98);
+  transition:opacity .2s ease,transform .2s ease}
+.ntoast.in{opacity:1;transform:none}
+.ntoast.out{opacity:0;transform:translateY(6px) scale(.98)}
+.ntoast .nt-msg{flex:1;min-width:0}
+.ntoast.err{border-color:#E2544A;background:linear-gradient(180deg,rgba(226,84,74,.16),transparent),var(--p3,#1B2030)}
+.ntoast.err::before{content:"⚠";font-size:15px;line-height:1}
+.ntoast .nt-act{flex:0 0 auto;background:var(--acc,#FFB454);color:var(--acc-ink,#20160A);
+  border:0;border-radius:8px;padding:5px 10px;font-weight:800;font-size:12px;cursor:pointer}
+.ntoast .nt-x{flex:0 0 auto;background:transparent;border:0;color:inherit;opacity:.6;
+  cursor:pointer;font-size:13px;padding:2px 4px;line-height:1}
+.ntoast .nt-x:hover{opacity:1}
+body.present #toastWrap,body.focus #toastWrap{display:none}
+
+/* --- İÇE AKTARMA İLERLEMESİ ------------------------------------------- */
+#impWrap{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;
+  background:rgba(6,9,16,.55);opacity:0;transition:opacity .18s ease;backdrop-filter:blur(2px)}
+#impWrap.in{opacity:1}
+#impWrap .imp-card{background:var(--p2,#141926);border:1px solid var(--line,#2C3350);
+  border-radius:16px;padding:22px 24px;min-width:min(380px,88vw);text-align:center;
+  box-shadow:0 24px 60px rgba(0,0,0,.5)}
+#impWrap .imp-t{font-weight:800;font-size:14px;color:var(--tx,#E9ECF5);margin-bottom:14px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#impWrap .imp-bar{height:8px;border-radius:6px;background:var(--line,#2C3350);overflow:hidden}
+#impWrap .imp-bar i{display:block;height:100%;width:0;border-radius:6px;
+  background:linear-gradient(90deg,var(--acc,#FFB454),#F59E0B);transition:width .25s ease}
+#impWrap .imp-d{margin-top:10px;font-size:12px;color:var(--mut,#98A2C0);font-weight:600}
+#impWrap .imp-x{margin-top:16px;background:transparent;border:1px solid var(--line,#2C3350);
+  color:var(--tx,#E9ECF5);border-radius:10px;padding:7px 18px;font-weight:700;font-size:12.5px;cursor:pointer}
+#impWrap .imp-x:hover{border-color:#E2544A;color:#E2544A}
+
+/* --- UYGULAMA İÇİ ONAY / GİRİŞ PENCERESİ ------------------------------ */
+dialog.ask-dlg{width:min(440px,92vw);border:1px solid var(--line,#2C3350);border-radius:16px;
+  background:var(--p2,#141926);color:var(--tx,#E9ECF5);padding:0}
+dialog.ask-dlg::backdrop{background:rgba(6,9,16,.55)}
+.ask-w{padding:22px 24px}
+.ask-t{font-size:15px;font-weight:800;margin-bottom:8px}
+.ask-d{font-size:12.8px;line-height:1.6;color:var(--mut,#98A2C0)}
+.ask-in{width:100%;margin-top:14px;background:var(--p1,#0E1220);border:1px solid var(--line,#2C3350);
+  color:var(--tx,#E9ECF5);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700}
+.ask-in:focus{outline:2px solid var(--acc,#FFB454);outline-offset:1px}
+.ask-r{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.ask-r button{border-radius:10px;padding:8px 16px;font-weight:700;font-size:12.5px;cursor:pointer;
+  border:1px solid var(--line,#2C3350);background:transparent;color:var(--tx,#E9ECF5)}
+.ask-r .ask-yes{background:var(--acc,#FFB454);color:var(--acc-ink,#20160A);border-color:transparent}
+.ask-r .ask-yes.danger{background:#E2544A;color:#fff}
+.ask-r .ask-yes:disabled{opacity:.4;cursor:not-allowed}

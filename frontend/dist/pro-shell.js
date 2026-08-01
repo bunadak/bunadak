@@ -104,8 +104,11 @@
       // uyarlayarak varsayılan açıyoruz (ikisi de yumuşatılmış noktalar üzerine
       // çiziyor → en temiz + karakterli sonuç). Kullanıcı Ayarlar › Opsiyonlar'dan
       // kapatabilir; sonrasında tercihe karışılmaz.
-      setToggle("oUltraInk", true);
-      setToggle("oProPens", true);
+      /* ARTIK ZORLA AÇILMIYOR. İkisi de tuvali süper-örnekliyor (applyDPR) —
+         2560×1440 ekranda iki tuval ~470 MB VRAM demek. Dahili grafikli
+         makinelerde ilk açılışta bile takılma yaratıyordu. Kullanıcı isterse
+         Ayarlar › Opsiyonlar'dan açar; ayrıca açılışta gerçek bir kare-süresi
+         ölçümü yapılıp yavaş donanımda "Performans modu" önerilir. */
       localStorage.setItem("notis_proink_v1", "1");
     } catch (_) {}
   }
