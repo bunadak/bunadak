@@ -278,11 +278,56 @@ function _srcTok(v){if(typeof v!=='string'||v.length<512||v.startsWith('@up:'))r
 function packLayers(layers){return JSON.stringify(layers,(k,v)=>k==='src'?_srcTok(v):v)}
 function unpackSrc(o){if(typeof o.src==='string'&&o.src.startsWith('@up:'))o.src=_srcPool.get(o.src)||o.src;
   if(o.type==='group')o.children.forEach(unpackSrc)}
-function snapshot(){const p=page();p._undo.push(packLayers(p.layers));if(p._undo.length>40)p._undo.shift();p._redo.length=0;updUndoBtns();if(window.LIB)LIB.dirty()}
-function restore(json){const p=page();p.layers=JSON.parse(json);p.layers.forEach(l=>l.objects.forEach(o=>{unpackSrc(o);hydrate(o)}));if(!p.layers.find(l=>l.id===curLayerId))curLayerId=p.layers[p.layers.length-1].id;selection=[];redraw();renderLayers();updUndoBtns()}
+/* ============================================================
+   GERİ ALMA — YAPISAL (ucuz) + DERİN (yalnız gerektiğinde)
+   ------------------------------------------------------------
+   Eski hâlde HER çizgide tüm katmanların TAM JSON kopyası alınıyordu ve 40
+   adım saklanıyordu. 500 çizgili bir sayfada her yeni çizgi megabaytlarca
+   serileştirme demekti: kalem gecikmesi giderek artıyor, bellek şişiyordu.
+
+   Gözlem: geri alma adımlarının ezici çoğunluğu nesne EKLEME/SİLME'dir
+   (her çizgi, her silme, her yapıştırma). Bu işlemlerde nesnelerin KENDİSİ
+   değişmez — yalnız hangi dizide oldukları değişir. Bu yüzden:
+
+     • YAPISAL anlık görüntü  → katman dizilerinin işaretçi fotoğrafı.
+       Serileştirme YOK, kopya YOK. Maliyet: O(nesne sayısı) işaretçi.
+     • DERİN anlık görüntü    → yalnız nesne İÇERİĞİ değişecekse (taşı,
+       ölçekle, döndür, hizala, metni düzenle). Eski tam-JSON yolu.
+
+   İkisi aynı yığında karışık durabilir; restore() türü kendisi anlar.
+============================================================ */
+function structSnap(layers){
+  return {__s:1,L:layers.map(l=>({id:l.id,name:l.name,visible:l.visible,locked:l.locked,
+    opacity:l.opacity,objects:l.objects.slice()}))};
+}
+function snapshot(deep){
+  const p=page();p._rev=(p._rev||0)+1;   // küçük resim önbelleğini geçersiz kılar
+  p._undo.push(deep?packLayers(p.layers):structSnap(p.layers));
+  if(p._undo.length>40)p._undo.shift();
+  p._redo.length=0;updUndoBtns();if(window.LIB)LIB.dirty();
+}
+function snapshotDeep(){snapshot(true)}
+function restore(snap){
+  const p=page();
+  if(snap&&snap.__s===1){
+    /* Yapısal: nesneler zaten canlı ve hidratlı — yeniden kurmaya gerek yok */
+    p.layers=snap.L.map(l=>({id:l.id,name:l.name,visible:l.visible,locked:l.locked,
+      opacity:l.opacity,objects:l.objects.slice()}));
+  }else{
+    p.layers=JSON.parse(snap);
+    p.layers.forEach(l=>l.objects.forEach(o=>{unpackSrc(o);hydrate(o)}));
+  }
+  p._rev=(p._rev||0)+1;
+  if(!p.layers.find(l=>l.id===curLayerId))curLayerId=p.layers[p.layers.length-1].id;
+  selection=[];redraw();renderLayers();updUndoBtns();
+}
 function hydrate(o){if(o.type==='image'&&o.src&&!(o._img instanceof HTMLImageElement)){const im=new Image();im.onload=redraw;im.src=o.src;o._img=im}if(o.type==='group')o.children.forEach(hydrate)}
-function undo(){const p=page();if(!p._undo.length)return;p._redo.push(packLayers(p.layers));restore(p._undo.pop())}
-function redo(){const p=page();if(!p._redo.length)return;p._undo.push(packLayers(p.layers));restore(p._redo.pop())}
+/* Karşı yığına daima YAPISAL görüntü konur: o an belgede duran nesne
+   örnekleri zaten doğru içeriğe sahiptir. Derin bir geri alma yapıldığında
+   JSON.parse yeni örnekler ürettiği için eski örnekler belgeden kopar ve
+   yineleme (redo) onları olduğu gibi geri getirir. */
+function undo(){const p=page();if(!p._undo.length)return;p._redo.push(structSnap(p.layers));restore(p._undo.pop())}
+function redo(){const p=page();if(!p._redo.length)return;p._undo.push(structSnap(p.layers));restore(p._redo.pop())}
 function updUndoBtns(){const p=page();$('#undoBtn').disabled=!p._undo.length;$('#redoBtn').disabled=!p._redo.length}
 
 /* ============================================================
@@ -480,7 +525,29 @@ function proInkPts(o){
   const h=src[0],t=src[src.length-1];
   let e=_inkCache.get(o);
   if(e&&e.n===src.length&&e.v===v&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
-  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
+  let pts=null;
+  /* ARTIMLI YUMUŞATMA — uzun çizgide gecikmenin asıl sebebi
+     Canlı çizim sırasında nokta dizisi her karede büyüyor; önbellek yalnız
+     nokta SAYISINA baktığı için her karede ıskalıyor ve TÜM çizgi baştan
+     yumuşatılıyordu (1 alçak-geçiren + 2 Chaikin = 4× nokta). 3000 noktalı bir
+     çizgide kare başına ~12.000 nokta yeniden hesaplanıyordu — kalem giderek
+     geriden geliyordu.
+     Yumuşatma YEREL bir işlemdir (etki yarıçapı ~3 nokta). Bu yüzden sona
+     nokta eklendiğinde yalnız SON PENCERE yeniden hesaplanır, gerisi
+     dondurulmuş kalır. Çıktı uzunluğu tam olarak 4×kaynak olduğu için
+     birleştirme noktası kesin hesaplanabilir. Sonuç birebir aynı çizgidir. */
+  const OVER=10;
+  if(e&&e.v===v&&e.hx===h.x&&e.hy===h.y&&src.length>e.n&&e.n>OVER+4&&e.pts&&e.pts.length===4*e.n){
+    const from=e.n-OVER, keep=4*from;
+    const tailPts=proInkSmooth(src.slice(from));
+    if(tailPts.length>4*OVER){
+      const arr=e.pts;arr.length=keep;
+      for(let i=4*OVER;i<tailPts.length;i++)arr.push(tailPts[i]);
+      pts=arr;
+    }
+  }
+  if(!pts)pts=proInkSmooth(src);
+  _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
 }
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
@@ -925,6 +992,7 @@ stage.addEventListener('pointerdown',e=>{
     pk:(typeof pkPressK==='function'?pkPressK():.8),nib:(typeof pkNibK==='function'?pkNibK():1),
     cp:curCP?{...curCP}:undefined,points:[{x:pt.x,y:pt.y,p:p0}]};
   strokePid=e.pointerId;livePenType=e.pointerType;
+  document.body.classList.add('drawing');   // çizim boyunca cam efekti (blur) durur
   fwEnter();azIn(e); // opsiyonlar: Odaklı Yazım Modu + Otomatik Odak Zoom
 });
 stage.addEventListener('pointermove',e=>{
@@ -933,7 +1001,7 @@ stage.addEventListener('pointermove',e=>{
   if(rightState){if(ringOpen)ringMove(e);return}
   const info=pointers.get(e.pointerId);if(info){info.x=e.clientX;info.y=e.clientY}
   if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);
-    const ns=clamp(pinch.s*d/pinch.d,.1,8);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;const k=ns/pinch.s;const r=stage.getBoundingClientRect();
+    const ns=clamp(pinch.s*d/pinch.d,.1,8);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;const k=ns/pinch.s;const r=stageRect||(stageRect=stage.getBoundingClientRect());
     view.s=ns;
     view.x=(pinch.cx-r.left)-((pinch.cx-r.left)-pinch.vx)*k+(cx-pinch.cx);
     view.y=(pinch.cy-r.top)-((pinch.cy-r.top)-pinch.vy)*k+(cy-pinch.cy);
@@ -943,11 +1011,11 @@ stage.addEventListener('pointermove',e=>{
   if(laserOn&&tool==='laser'){pushLaser(e);return}
   if(tool==='spot'&&spotOn)moveSpot(e);
   hoverPt=pt;
-  if(drag){dragMove(pt,e);return}
+  if(drag){dragSoon(pt,e);return}
   if(solveDraft){solveDraft.b=pt;drawOverlay();return}
   if(lineDraft){lineDraft.b=applyAngleSnap(lineDraft.a,pt,e.shiftKey);drawOverlay();return}
   if(compassDraft){compassDraft.r=dist(compassDraft.c,pt);drawOverlay();return}
-  if(live&&live.erasing){if(e.pointerId===strokePid){if(!e.buttons)sealOrphanLive(true);else markEraseAt(pt)}return}
+  if(live&&live.erasing){if(e.pointerId===strokePid){if(!e.buttons)sealOrphanLive(true);else markEraseSoon(pt)}return}
   if(live&&live.points&&tool==='smart'&&!live.cp&&live.points.length>1){
     const a=live.points[live.points.length-2],b=live.points[live.points.length-1];
     const dt=Math.max(1,(b.t??1)-(a.t??0));const vv=dist(a,b)/dt;
@@ -961,7 +1029,7 @@ stage.addEventListener('pointermove',e=>{
        Yavaş çizerken titremeyi yutar, hızlı çizerken gecikmesiz takip eder (One-Euro yaklaşımı). */
     if(S.edgeScroll){
       /* Kenar oto-kaydırma: rAF ile kare başına TEK tam-çizim — kenarda donma yok */
-      const r2=stage.getBoundingClientRect(),M=34,sp=9;let ddx=0,ddy=0;
+      const r2=stageRect||(stageRect=stage.getBoundingClientRect()),M=34,sp=9;let ddx=0,ddy=0;
       if(e.clientX<r2.left+M)ddx=sp;else if(e.clientX>r2.right-M)ddx=-sp;
       if(e.clientY<r2.top+M)ddy=sp;else if(e.clientY>r2.bottom-M)ddy=-sp;
       if(ddx||ddy){ES.dx+=ddx;ES.dy+=ddy;
@@ -1031,6 +1099,7 @@ stage.addEventListener('pointerup',e=>{
 });
 stage.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);finishPointer(e)});
 function finishPointer(e){
+  document.body.classList.remove('drawing');
   if(rightState){rightRelease(e);return}
   if(pointers.size<2)pinch=null;
   if(panning){panning=false;return}
@@ -1227,6 +1296,11 @@ function commitCompass(){const d=compassDraft;compassDraft=null;if(!d||d.r<4){dr
 /* Matis silgisi: surukledikce degdiklerin SILINECEK diye isaretlenir (soluklasir),
    parmagini kaldirinca hepsi tek hamlede silinir — tek Ctrl+Z ile tumu geri gelir.
    Resimler ve kilitli katmanlar korunur. */
+/* Silgi hareketini kare hızına kilitle: pointermove seli saniyede 200+ kez
+   tüm nesneleri taramıyor, kare başına tek tarama yapılıyor. */
+let eraseRaf=false,erasePt=null;
+function markEraseSoon(pt){erasePt=pt;if(eraseRaf)return;eraseRaf=true;
+  requestAnimationFrame(()=>{eraseRaf=false;if(live&&live.marks)markEraseAt(erasePt)})}
 function markEraseAt(pt){
   if(!live||!live.marks)return;
   /* Silgi yarıçapı EKRAN boyutuna sabitlenir: %400 yakınlaştırmada kocaman,
@@ -1274,9 +1348,9 @@ function startSelect(e,pt){
   if(selection.length){
     const b=selBBox(),hs=10/view.s;
     const corners=[{x:b.x0,y:b.y0},{x:b.x1,y:b.y0},{x:b.x0,y:b.y1},{x:b.x1,y:b.y1}];
-    for(const c of corners)if(dist(pt,c)<hs){drag={type:'scale',b,fix:{x:b.x0+b.x1-c.x,y:b.y0+b.y1-c.y}};snapshot();return}
+    for(const c of corners)if(dist(pt,c)<hs){drag={type:'scale',b,fix:{x:b.x0+b.x1-c.x,y:b.y0+b.y1-c.y}};snapshotDeep();return}
     const rc={x:(b.x0+b.x1)/2,y:b.y0-24/view.s};
-    if(dist(pt,rc)<10/view.s){drag={type:'rotate',cx:(b.x0+b.x1)/2,cy:(b.y0+b.y1)/2,start:Math.atan2(pt.y-(b.y0+b.y1)/2,pt.x-(b.x0+b.x1)/2)};snapshot();return}
+    if(dist(pt,rc)<10/view.s){drag={type:'rotate',cx:(b.x0+b.x1)/2,cy:(b.y0+b.y1)/2,start:Math.atan2(pt.y-(b.y0+b.y1)/2,pt.x-(b.x0+b.x1)/2)};snapshotDeep();return}
   }
   if(selection.length){const b=selBBox();
     if(pt.x>=b.x0&&pt.x<=b.x1&&pt.y>=b.y0&&pt.y<=b.y1){
@@ -1284,16 +1358,22 @@ function startSelect(e,pt){
       if(inHit&&inHit.type==='text'&&selection.includes(inHit)&&e.detail===2){editTextObj(inHit);return}
       if(inHit&&!selection.includes(inHit)&&!e.shiftKey){selection=[inHit]}
       else if(inHit&&e.shiftKey&&!selection.includes(inHit))selection.push(inHit);
-      drag={type:'move',last:pt,moved:false};snapshot();redraw();renderSelInfo();return}}
+      drag={type:'move',last:pt,moved:false};snapshotDeep();redraw();renderSelInfo();return}}
   const hit=topHit(pt);
   if(hit){
     if(hit.type==='text'&&selection.includes(hit)&&e.detail===2){editTextObj(hit);return}
     if(e.shiftKey){selection.includes(hit)?selection=selection.filter(o=>o!==hit):selection.push(hit)}
     else if(!selection.includes(hit))selection=[hit];
-    drag={type:'move',last:pt,moved:false};snapshot();
+    drag={type:'move',last:pt,moved:false};snapshotDeep();
   }else{selection=[];drag={type:'marquee',a:pt,b:pt}}
   redraw();renderSelInfo();
 }
+/* Nesne sürüklerken kare kilidi: her pointermove'da redraw + drawOverlay +
+   renderSelInfo (DOM yazımı) çalışıyordu. 50 çizgilik bir seçimi taşımak
+   ciddi kasıyordu; artık kare başına tek geçiş yapılır. */
+let dragRaf=false,dragPt=null,dragEv=null;
+function dragSoon(pt,e){dragPt=pt;dragEv=e;if(dragRaf)return;dragRaf=true;
+  requestAnimationFrame(()=>{dragRaf=false;if(drag)dragMove(dragPt,dragEv)})}
 function dragMove(pt,e){
   if(drag.type==='prot'){protractor.x=pt.x-drag.off.x;protractor.y=pt.y-drag.off.y;drawOverlay();return}
   if(drag.type==='move'){
@@ -1342,7 +1422,7 @@ function endDrag(){
 function deleteSelection(){if(!selection.length)return;snapshot();
   for(const l of page().layers)l.objects=l.objects.filter(o=>!selection.includes(o));
   selection=[];redraw();renderSelInfo()}
-function groupSelection(){if(selection.length<2)return;snapshot();
+function groupSelection(){if(selection.length<2)return;snapshotDeep();
   const g={type:'group',children:[...selection],opacity:1};
   for(const l of page().layers)l.objects=l.objects.filter(o=>!selection.includes(o));
   layer().objects.push(g);selection=[g];redraw();renderSelInfo();toast('Nesneler gruplandı')}
@@ -1350,7 +1430,7 @@ function duplicateSelection(){if(!selection.length)return;snapshot();
   const copies=selection.map(o=>{const c=JSON.parse(JSON.stringify(o));hydrate(c);transformObj(c,(x,y)=>({x:x+24,y:y+24}),1);return c});
   layer().objects.push(...copies);selection=copies;redraw()}
 function alignSelection(mode){if(!selection.length)return;const p=page();if(boardMode())return toast('Hizalama sayfa modunda çalışır');
-  snapshot();const b=selBBox();let dx=0,dy=0;
+  snapshotDeep();const b=selBBox();let dx=0,dy=0;
   if(mode==='l')dx=-b.x0+40;if(mode==='r')dx=p.w-40-b.x1;if(mode==='cx')dx=p.w/2-(b.x0+b.x1)/2;
   if(mode==='t')dy=-b.y0+40;if(mode==='b')dy=p.h-40-b.y1;if(mode==='cy')dy=p.h/2-(b.y0+b.y1)/2;
   selection.forEach(o=>transformObj(o,(x,y)=>({x:x+dx,y:y+dy}),1));redraw();renderSelInfo()}
@@ -1402,7 +1482,7 @@ function drawProtractor(){
     if(long)octx.fillText(a,x+Math.cos(t)*(R-30),y-Math.sin(t)*(R-30)+4)}
   octx.beginPath();octx.arc(x,y,3.5,0,7);octx.fill();octx.restore();
 }
-function pushLaser(e){laserKick();const r=stage.getBoundingClientRect();laserTrail.push({x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()})}
+function pushLaser(e){laserKick();const r=stageRect||(stageRect=stage.getBoundingClientRect());laserTrail.push({x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()})}
 let laserRunning=false;
 function laserKick(){if(!laserRunning){laserRunning=true;requestAnimationFrame(laserLoop)}}
 function laserLoop(){
@@ -1423,7 +1503,7 @@ function laserLoop(){
   if(laserTrail.length||laserOn)requestAnimationFrame(laserLoop);else laserRunning=false;
 }
 const spot=$('#spot');
-function moveSpot(e){const r=stage.getBoundingClientRect();
+function moveSpot(e){const r=stageRect||(stageRect=stage.getBoundingClientRect());
   spot.style.background=`radial-gradient(circle ${S.spot}px at ${e.clientX-r.left}px ${e.clientY-r.top}px, transparent 0, transparent ${S.spot-2}px, rgba(6,9,24,.86) ${S.spot+26}px)`}
 function toggleSpot(on){spotOn=on??!spotOn;spot.style.display=spotOn?'block':'none';
   if(spotOn){const r=stage.getBoundingClientRect();spot.style.background=`radial-gradient(circle ${S.spot}px at ${r.width/2}px ${r.height/2}px, transparent 0, transparent ${S.spot-2}px, rgba(6,9,24,.86) ${S.spot+26}px)`}
@@ -1435,7 +1515,7 @@ let wheelAcc=0,wheelLock=0;
 stage.addEventListener('wheel',e=>{
   e.preventDefault();
   if(spotOn&&!e.ctrlKey){S.spot=clamp(S.spot-Math.sign(e.deltaY)*14,60,420);moveSpot(e);return}
-  if(e.ctrlKey){const r=stage.getBoundingClientRect();setZoom(view.s*(e.deltaY<0?1.09:1/1.09),e.clientX-r.left,e.clientY-r.top);return}
+  if(e.ctrlKey){const r=stageRect||(stageRect=stage.getBoundingClientRect());setZoom(view.s*(e.deltaY<0?1.09:1/1.09),e.clientX-r.left,e.clientY-r.top);return}
   if(presenting&&S.wheelPage&&doc.pages.length>1){
     const now=performance.now();if(now<wheelLock)return;
     wheelAcc+=e.deltaY;
@@ -1466,7 +1546,7 @@ textEdit.addEventListener('input',()=>{textEdit.style.height='auto';textEdit.sty
 function commitText(){
   if(textEdit.style.display==='none'||textEdit.style.display==='')return;
   const val=textEdit.value.trim();textEdit.style.display='none';
-  if(editingObj){snapshot();if(val){editingObj.text=textEdit.value;editingObj._bb=null}else{for(const l of page().layers)l.objects=l.objects.filter(o=>o!==editingObj)}editingObj=null}
+  if(editingObj){snapshotDeep();if(val){editingObj.text=textEdit.value;editingObj._bb=null}else{for(const l of page().layers)l.objects=l.objects.filter(o=>o!==editingObj)}editingObj=null}
   else if(val){snapshot();layer().objects.push({type:'text',x:textPos.x,y:textPos.y,text:textEdit.value,size:DEF.text,color:penColor,opacity:penOp})}
   if(val)memStore(val);memHide();
   redraw();
@@ -1870,12 +1950,45 @@ function dupPage(i){const sPg=doc.pages[i];const c=sanitizePage(JSON.parse(JSON.
   c.layers.forEach(l=>l.objects.forEach(hydrate));if(sPg.bgImg)c.bgImg=sPg.bgImg;
   if(boardMode())doc.pages[0].infinite=false;
   doc.pages.splice(i+1,0,c);invalidateLayout();renderPages();gotoPage(i+1)}
+/* Sayfanın küçük resmini önbellekten koyar; yoksa görünür olduğunda çizer. */
+const THOBS=(()=>{try{return new IntersectionObserver(es=>{
+  es.forEach(en=>{if(!en.isIntersecting)return;const c=en.target;THOBS.unobserve(c);
+    const p=c.__pg;if(!p)return;paintThumb(c,p)})},{root:null,rootMargin:'300px'})}catch(_){return null}})();
+function paintThumb(c,p){
+  try{
+    if(p._th&&p._thK===thumbKey(p)){const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+      g.drawImage(p._th,0,0,c.width,c.height);return}
+    renderPageTo(c,p,c.width/p.w);
+    const cache=document.createElement('canvas');cache.width=c.width;cache.height=c.height;
+    cache.getContext('2d').drawImage(c,0,0);
+    p._th=cache;p._thK=thumbKey(p);
+  }catch(_){}
+}
+function thumbKey(p){
+  let n=0;for(const l of p.layers)n+=l.objects.length;
+  return n+'|'+(p._rev||0)+'|'+(p.bg?1:0)+'|'+(p.bgImg&&p.bgImg.complete?1:0)+'|'+p.paper+'|'+p.w+'x'+p.h+'|'+(p.bgRot||0);
+}
+function invalidateThumb(p){if(p){p._th=null;p._thK=''}}
+window.invalidateThumb=invalidateThumb;
+function thumbInto(c,p){
+  c.__pg=p;
+  if(p._th&&p._thK===thumbKey(p)){paintThumb(c,p);return}
+  if(THOBS)THOBS.observe(c);else paintThumb(c,p);
+}
 function renderPages(){if(scratch)return;const el=$('#pgList');if(!document.body.classList.contains('side-open'))return;el.innerHTML='';
   doc.pages.forEach((p,i)=>{
     const d=document.createElement('div');d.className='pg'+(i===cur?' on':'');d.dataset.i=i;
     // Büyük görsel önizleme (GoodNotes tarzı kart)
+    /* KÜÇÜK RESİM ÖNBELLEĞİ + TEMBEL ÇİZİM
+       Eskiden her renderPages() çağrısında HER sayfa için 248 px'lik bir tuval
+       açılıp tüm nesneler yeniden çiziliyordu. Bu fonksiyon sayfa ekle/sil,
+       yer imi, ad değiştir, panel aç — her birinde çağrılıyor; 300 sayfalık bir
+       PDF'te yer imi düğmesine basmak saniyelerce donma demekti.
+       Artık: (a) çizilen küçük resim sayfada saklanır, (b) yalnız GÖRÜNÜR
+       kartlar çizilir (IntersectionObserver ile), (c) sayfa değişince
+       önbellek geçersiz kılınır. */
     const th=document.createElement('canvas');th.width=248;th.height=Math.max(60,Math.round(248*p.h/p.w));
-    renderPageTo(th,p,248/p.w);
+    thumbInto(th,p);
     const num=document.createElement('span');num.className='num';num.textContent=i+1;
     const bk=document.createElement('button');bk.className='bk'+(p.bookmark?' on':'');bk.title='Yer imi';
     bk.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="'+(p.bookmark?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
@@ -3601,10 +3714,11 @@ const LIB=(()=>{
     if(db)return Promise.resolve(db);
     return withTimeout(new Promise((res,rej)=>{
       let rq;
-      try{rq=indexedDB.open(DBN,1)}catch(e){return rej(e)}
+      try{rq=indexedDB.open(DBN,2)}catch(e){return rej(e)}
       rq.onupgradeneeded=()=>{const d=rq.result;
         if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'id'});
-        if(!d.objectStoreNames.contains('data'))d.createObjectStore('data',{keyPath:'id'})};
+        if(!d.objectStoreNames.contains('data'))d.createObjectStore('data',{keyPath:'id'});
+        if(!d.objectStoreNames.contains('bg'))d.createObjectStore('bg',{keyPath:'k'})};
       rq.onsuccess=()=>{
         db=rq.result;
         /* Bağlantı düşerse (tarayıcı depolamayı boşaltırsa, sürüm değişirse)
@@ -3629,6 +3743,40 @@ const LIB=(()=>{
     if(String(e&&e.message||'').indexOf('zaman aşımı')===0)db=null;   // takılı bağlantıyı bırak
     throw e;
   }));
+  /* Sayfa görselleri ayrı depoda: anahtar = kayıt id + sayfa id.
+     Aynı görsel yalnız bir kez yazılır (yazıldığı işaretlenir). */
+  const bgWritten=new Set();
+  async function putPageBgs(id){
+    const yaz=[];
+    for(const p of doc.pages){
+      if(!p.bg||p.bg==='@keep')continue;
+      const k=id+'::'+p.id;
+      if(bgWritten.has(k))continue;
+      yaz.push({k,d:p.bg});
+    }
+    if(!yaz.length)return;
+    await tx('bg','readwrite',st=>{yaz.forEach(r=>st.put(r));return null});
+    yaz.forEach(r=>bgWritten.add(r.k));
+  }
+  async function loadPageBgs(id,pages){
+    let eksik=0;
+    for(const p of pages){
+      if(p.bg!=='@keep')continue;
+      try{
+        const r=await tx('bg','readonly',st=>st.get(id+'::'+p.id));
+        if(r&&r.d){p.bg=r.d;bgWritten.add(id+'::'+p.id)}else{p.bg=null;eksik++}
+      }catch(e){p.bg=null;eksik++}
+    }
+    return eksik;
+  }
+  async function delPageBgs(id){
+    try{
+      const all=await tx('bg','readonly',st=>st.getAllKeys());
+      const mine=(all||[]).filter(k=>String(k).indexOf(id+'::')===0);
+      if(mine.length)await tx('bg','readwrite',st=>{mine.forEach(k=>st.delete(k));return null});
+      mine.forEach(k=>bgWritten.delete(k));
+    }catch(e){}
+  }
   const hasContent=()=>doc.pages.some(p=>p.bg||p.layers.some(l=>l.objects.length))||doc.pages.length>1;
   function serialize(){return JSON.stringify({title:doc.title,cur,
     pages:doc.pages.map(p=>serializePage(p))},jsonSafe)}
@@ -3650,8 +3798,20 @@ const LIB=(()=>{
           body:JSON.stringify({meta,thinJson:thin})});
         if(!r.ok)throw new Error('patch '+r.status);
       }else{
-        const json=serialize();if(json===lastJson)return;lastJson=json;
-        await tx('data','readwrite',s=>s.put({id:sessId,json}));
+        /* İNCE YAMA — IndexedDB dalı (asıl kullanım)
+           Eskiden her otomatik kayıtta TÜM belge, sayfa görselleri dahil
+           serileştiriliyordu. 100 sayfalık bir PDF'te sayfa başına ~200-500 KB
+           base64 var; yani 1.2 saniyede bir ~40 MB'lık JSON.stringify +
+           IndexedDB yazımı. "İnce yama" optimizasyonu yazılmıştı ama yalnız
+           sunucu dalında çalışıyordu — exe'de asla devreye girmiyordu.
+           Artık sayfa görselleri AYRI bir depoda bir kez saklanır; belge
+           kaydında yalnız '@keep' işareti durur. Kayıt boyutu megabaytlardan
+           kilobaytlara iner, kalem gecikmesi kaybolur. */
+        const thin=JSON.stringify({title:doc.title,cur,
+          pages:doc.pages.map(p=>serializePage(p,true))},jsonSafe);
+        if(thin===lastJson)return;lastJson=thin;
+        await putPageBgs(sessId);                    // değişen görselleri ayrı depoya yaz
+        await tx('data','readwrite',s=>s.put({id:sessId,json:thin,thin:1}));
         await tx('meta','readwrite',s=>s.put(meta))}
       fillPane(); // depolama paneli açıksa sayıları tazele (sessiz)
     }catch(e){console.warn('kütüphane kaydı:',e)}
@@ -3702,12 +3862,19 @@ const LIB=(()=>{
     const o=JSON.parse(rec.json);
     doc={title:o.title||'Adsız Tahta',pages:o.pages||[]};
     if(!doc.pages.length)return toast.error('Kayıt boş — içinde sayfa yok.');
+    /* İnce yama kaydı: sayfa görselleri ayrı depodan geri getirilir */
+    if(doc.pages.some(p=>p.bg==='@keep')){
+      const eksik=await loadPageBgs(id,doc.pages);
+      if(eksik)toast.error(eksik+' sayfanın görseli bulunamadı — kayıt eksik olabilir.');
+    }
     if(typeof bgqReset==='function')bgqReset();
     doc.pages.forEach(p=>{sanitizePage(p);      // tembel: görünen sayfa gelince yüklenecek
       p.layers.forEach(l=>l.objects.forEach(hydrate))});
     sessId=id;kind=(meta&&meta.kind)||'board';
-    lastJson=SRV?JSON.stringify({title:doc.title,cur:clamp(o.cur||0,0,doc.pages.length-1),
-      pages:doc.pages.map(p=>serializePage(p,true))},jsonSafe):rec.json;
+    /* Açılıştan hemen sonra gereksiz bir tam kayıt tetiklenmesin: karşılaştırma
+       damgası artık her iki dalda da İNCE YAMA biçimindedir. */
+    lastJson=JSON.stringify({title:doc.title,cur:clamp(o.cur||0,0,doc.pages.length-1),
+      pages:doc.pages.map(p=>serializePage(p,true))},jsonSafe);
     selection=[];curLayerId=doc.pages[0].layers[0].id;
     invalidateLayout();cur=clamp(o.cur||0,0,doc.pages.length-1);
     renderPages();renderLayers();gotoPage(cur);updUndoBtns();
@@ -3745,6 +3912,7 @@ const LIB=(()=>{
     return id;
   }
   async function del(id){
+    await delPageBgs(id);
     if(SRV)await api('/lib/del',{id});
     else{await tx('data','readwrite',s=>s.delete(id));
       await tx('meta','readwrite',s=>s.delete(id))}
@@ -3754,7 +3922,9 @@ const LIB=(()=>{
   async function wipe(){
     if(SRV)await api('/lib/clear',{});
     else{await tx('data','readwrite',s=>s.clear());
-      await tx('meta','readwrite',s=>s.clear())}
+      await tx('meta','readwrite',s=>s.clear());
+      try{await tx('bg','readwrite',s=>s.clear())}catch(e){}
+      bgWritten.clear()}
     sessId=uid();lastJson='';renderLib();fillPane();toast('Kütüphane temizlendi');
   }
   const BADGE={pdf:'PDF',image:'GÖRSEL',board:'TAHTA'};
@@ -3815,6 +3985,18 @@ const LIB=(()=>{
     });
   }
   /* kapanışta son durumu mühürle (sessiz) */
+  /* KAPANIŞTA KAYIT GARANTİSİ
+     Go tarafı pencereyi kapatmadan önce 'notis:flush' olayını gönderip
+     tamamlandı yanıtını bekler. beforeunload/pagehide WebView2'de native
+     kapanışta çalışmayabildiği için asıl güvence budur. */
+  (function(){
+    const rt=window.runtime;
+    if(!rt||!rt.EventsOn)return;
+    rt.EventsOn('notis:flush',async()=>{
+      try{clearTimeout(tmr);await saveNow()}catch(e){console.warn('kapanış kaydı:',e)}
+      try{window.go&&window.go.main&&window.go.main.App.FlushComplete()}catch(_){}
+    });
+  })();
   window.addEventListener('beforeunload',()=>{clearTimeout(tmr);saveNow()});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(tmr);saveNow()}});
   window.addEventListener('pagehide',()=>{clearTimeout(tmr);saveNow()});

@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -242,7 +244,47 @@ func (a *App) ReadFileAsDataURL(path string) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.9.4",
+		"version": "2.9.5",
 		"channel": "pro",
 	}
+}
+
+// --- PENCERE YAŞAM DÖNGÜSÜ ---------------------------------------------
+
+// flushDone, ön yüzün "kaydım bitti" yanıtını taşır.
+var flushDone = make(chan struct{}, 1)
+
+// FlushComplete, ön yüz son kaydı tamamlayınca çağırır (window.go.main.App.FlushComplete).
+func (a *App) FlushComplete() {
+	select {
+	case flushDone <- struct{}{}:
+	default:
+	}
+}
+
+// beforeClose, pencere kapanmadan önce ön yüze son kayıt için haber verir ve
+// tamamlanmasını bekler. Böylece X ile kapatınca son dakikalar kaybolmaz.
+// Yanıt 2.5 saniyede gelmezse yine de kapanır — uygulama asla kilitlenmez.
+func (a *App) beforeClose(ctx context.Context) bool {
+	select {
+	case <-flushDone:
+	default:
+	}
+	runtime.EventsEmit(ctx, "notis:flush")
+	select {
+	case <-flushDone:
+	case <-time.After(2500 * time.Millisecond):
+	}
+	return false // kapanmaya izin ver
+}
+
+// onSecondInstance, uygulama zaten açıkken ikinci kez başlatılırsa var olan
+// pencereyi öne getirir (ve gerekirse simge durumundan çıkarır).
+func (a *App) onSecondInstance(data options.SecondInstanceData) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowUnminimise(a.ctx)
+	runtime.Show(a.ctx)
+	runtime.EventsEmit(a.ctx, "notis:second-instance", data.Args)
 }
