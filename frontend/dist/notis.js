@@ -70,14 +70,26 @@ function toastWrap(){
   TOASTW=document.createElement('div');TOASTW.id='toastWrap';
   document.body.appendChild(TOASTW);return TOASTW;
 }
-function toastInfoOn(){try{return localStorage.getItem('notis_toast_info')!=='0'}catch(_){return true}}
+/* EKRAN BİLDİRİMLERİ — TEK ANAHTAR, VARSAYILAN KAPALI
+   Kullanıcı çalışma ekranına hiçbir şey düşmesini istemiyor. Anahtar kapalıyken
+   BİLGİ de HATA da gösterilmez; ekrana sıfır bildirim düşer.
+   Bastırılan her mesaj yine de kaydedilir ve Ayarlar › Depolama › "Son
+   bildirimler" listesinden görülebilir — böylece hiçbir bilgi kaybolmaz,
+   yalnız çalışma ekranı temiz kalır. */
+function toastOn(){try{return localStorage.getItem('notis_notify')==='1'}catch(_){return false}}
+window.__notisLog=[];
+function logMsg(kind,msg){
+  try{
+    window.__notisLog.push({t:new Date().toISOString(),kind,msg:String(msg).replace(/<[^>]*>/g,'').slice(0,220)});
+    if(window.__notisLog.length>60)window.__notisLog.shift();
+  }catch(_){}
+}
 function toastShow(msg,opt){
   opt=opt||{};
   const err=opt.level==='error';
-  try{
-    if(!err&&!toastInfoOn())return null;
-    if(!err&&(typeof presenting!=='undefined'&&presenting))return null;
-  }catch(_){}
+  logMsg(err?'hata':'bilgi',msg);
+  if(!toastOn())return null;                       // sıfır bildirim modu
+  try{if(!err&&(typeof presenting!=='undefined'&&presenting))return null}catch(_){}
   const w=toastWrap();
   const t=document.createElement('div');
   t.className='ntoast'+(err?' err':'');
@@ -2021,7 +2033,12 @@ function renderFavs(){const el=$('#favRow');el.innerHTML='';
     b.title=`${f.name} · ${TOOLNAMES[f.tool]} ${f.size}px  (${i+1} · sağ tık: sil)`;
     b.innerHTML=`<span>${i+1}</span>`;
     b.addEventListener('click',()=>applyFav(i));
-    b.addEventListener('contextmenu',e=>{e.preventDefault();
+    b.addEventListener('contextmenu',async e=>{e.preventDefault();
+      if(!toastOn()){
+        const ok=await askConfirm({title:'“'+esc(f.name)+'” profili silinsin mi?',
+          body:'Kalem profili kalıcı olarak silinecek.',okText:'Sil',danger:true});
+        if(!ok)return;
+      }
       const gone=favs.splice(i,1)[0];renderFavs();saveOpts();
       toast.action('“'+gone.name+'” profili silindi','Geri al',()=>{favs.splice(i,0,gone);renderFavs();saveOpts()})});
     el.appendChild(b)})}
@@ -2534,11 +2551,22 @@ function pgUndo(){
 }
 window.pgUndo=pgUndo;
 /* Yıkıcı sayfa işlemi sarmalayıcısı: anlık görüntü + geri al bildirimi */
-function pgDestructive(msg,fn){
+async function pgDestructive(msg,fn,soru){
+  /* Bildirimler kapalıyken "Geri al" düğmesi ekranda görünmez; bu yüzden
+     yıkıcı işlem ÖNCE onay ister. Bildirimler açıkken eski akış sürer. */
+  if(!toastOn()){
+    const ok=await askConfirm({title:soru||'Silinsin mi?',
+      body:'Bu işlem geri alınabilir ama ekran bildirimleri kapalı olduğu için '+
+           '“Geri al” düğmesi görünmeyecek. Komut paletinden (<b>Ctrl+K</b>) '+
+           '“Sayfa işlemini geri al” ile yine de dönebilirsin.',
+      okText:'Devam et',danger:true});
+    if(!ok)return false;
+  }
   pgSnapshot();
   fn();
   if(window.LIB)LIB.dirty();
   toast.action(msg,'Geri al',()=>{if(pgUndo())toast('Geri alındı ✔')});
+  return true;
 }
 
 /* ---- İÇE AKTARMA İLERLEME PENCERESİ (iptal edilebilir) ---------------- */
@@ -2927,7 +2955,8 @@ function openSettings(tab){openDlg(setDlg);if(tab){$$('.set-tab').forEach(x=>x.c
   const _cur=$$('.set-tab').find(x=>x.classList.contains('on'));
   if(typeof updPaneHead==='function'&&_cur)updPaneHead(_cur.dataset.s);
   if(typeof renderPenCards==='function'){renderPenCards();syncPenUI();requestAnimationFrame(pkSizeCv)}
-  if(tab==='storage'&&window.LIB)LIB.fillPane()}
+  if(tab==='storage'&&window.LIB)LIB.fillPane();
+  try{if(window.__healLogRefresh)window.__healLogRefresh()}catch(_){}}
 const bindT=(id,key,cb)=>$(id).addEventListener('change',e=>{S[key]=e.target.checked;cb&&cb();saveOpts();redraw()});
 const bindR=(id,key,k=1,cb)=>$(id).addEventListener('input',e=>{S[key]=e.target.value*k;cb&&cb();saveOpts()});
 bindT('#sPressure','pressure');bindT('#sPredict','predict');
@@ -2969,6 +2998,29 @@ $('#sGrain').addEventListener('change',e=>{S.grain=e.target.checked;document.bod
    kullanıcı kalem hissinin 2.9.2 sürümündeki hâlinde kalmasını istedi ve
    bunların hepsi işaretçi/mürekkep yolunda duruyordu. Geriye yalnız ölçü
    birimi seçimi kaldı — bu kalemle ilgisizdir. */
+/* Ayarlar › Opsiyonlar: ekran bildirimlerini tamamen açıp kapatan tek anahtar */
+function buildNotifyUI(){
+  const host=document.getElementById('sp-opts');
+  if(!host||host.dataset.notify)return false;
+  host.dataset.notify='1';
+  const d=document.createElement('div');
+  d.innerHTML='<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
+    '<div class="set-row"><div><div class="t">🔔 Ekran Bildirimleri</div>'+
+    '<div class="d">Kapalıyken çalışma ekranına <b>hiçbir bildirim düşmez</b> — ne bilgi ne uyarı ne hata. '+
+    'Varsayılan kapalıdır. Bastırılan mesajlar yine de kaydedilir; merak edersen '+
+    '<b>Ayarlar › Depolama › Son bildirimler</b> listesinden bakabilirsin.</div></div>'+
+    '<label class="sw-toggle"><input type="checkbox" id="oNotify"><i></i></label></div>';
+  while(d.firstChild)host.appendChild(d.firstChild);
+  const i=document.getElementById('oNotify');
+  i.checked=toastOn();
+  i.addEventListener('change',()=>{
+    try{localStorage.setItem('notis_notify',i.checked?'1':'0')}catch(_){}
+    if(i.checked)toast('Ekran bildirimleri açık 🔔');
+    else{document.querySelectorAll('#toastWrap .ntoast').forEach(x=>x.remove())}
+  });
+  return true;
+}
+function buildNotifySoon(n){if(buildNotifyUI()||n<=0)return;setTimeout(()=>buildNotifySoon(n-1),400)}
 function buildPenHwUI(){
   const host=document.getElementById('sp-draw')||document.getElementById('sp-opts');
   if(!host||host.dataset.penhw)return false;
@@ -3346,6 +3398,7 @@ function PAL_CMDS(){return[
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
+ {t:'Sayfa işlemini geri al (sil / döndür)',sec:'Düzen',fn:()=>{if(pgUndo())toast('Geri alındı ✔');else toast.error('Geri alınacak sayfa işlemi yok')}},
  {t:'Yer imi ekle / kaldır',k:'CTRL+B',sec:'Gezinme',fn:()=>toggleBookmark()},
  {t:'Sonraki yer imi',k:'ALT+↓',sec:'Gezinme',fn:()=>gotoBookmark(1)},
  {t:'Önceki yer imi',k:'ALT+↑',sec:'Gezinme',fn:()=>gotoBookmark(-1)},
@@ -4183,6 +4236,13 @@ const LIB=(()=>{
   /* Yumuşak silme: kayıt bellekte tutulur, geri alma penceresi kapanınca silinir */
   const trash=new Map();
   async function softDelete(id,title){
+    if(!toastOn()){
+      const ok=await askConfirm({title:'“'+esc(title)+'” silinsin mi?',
+        body:'Kayıt silinecek. Ekran bildirimleri kapalı olduğu için “Geri al” '+
+             'düğmesi görünmeyecek — bu yüzden onay isteniyor.',
+        okText:'Sil',danger:true});
+      if(!ok)return;
+    }
     try{
       const rec=SRV?null:await tx('data','readonly',s=>s.get(id));
       const meta=SRV?null:await tx('meta','readonly',s=>s.get(id));
@@ -4567,29 +4627,27 @@ window.addEventListener('keydown',e=>{
     '(SIL Open Font License 1.1). Lisans metinleri uygulama paketindeki '+
     '<code>libs/THIRD_PARTY.md</code> dosyasında korunmuştur. Notis Pro tescilli bir yazılımdır; '+
     'kopyalanamaz ve dağıtılamaz.</div></div></div>'+
-    '<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
-    '<div class="set-row"><div><div class="t">🔔 Bilgi bildirimleri</div>'+
-    '<div class="d">“Kaydedildi”, “Profil silindi” gibi kısa bilgi mesajları. Kapatırsan bunlar görünmez — '+
-    '<b>hata mesajları her koşulda gösterilmeye devam eder</b>, çünkü sessiz hata en kötü hatadır.</div></div>'+
-    '<label class="sw-toggle"><input type="checkbox" id="oToastInfo"><i></i></label></div>'+
     '<div class="set-sec-t" style="margin-top:18px">Onarım</div>'+
     '<div class="set-row"><div><div class="t">🛟 Takılı durumları sıfırla</div>'+
     '<div class="d">Bir kısayol, panel ya da opsiyon aniden cevap vermez olursa uygulamayı kapatmadan buradan toparlayabilirsin. '+
     'Çizimlerine ve kayıtlarına <b>dokunmaz</b>; yalnız yarım kalmış etkileşimleri temizler. Kısayol: <b>Ctrl+Alt+R</b>.</div></div>'+
     '<button class="btn" id="healBtn" type="button">Onar</button></div>'+
-    '<div class="set-row"><div><div class="t">🧾 Son hatalar</div><div class="d" id="healLog">Kayıtlı hata yok.</div></div></div>';
+    '<div class="set-row"><div><div class="t">🧾 Son bildirimler</div><div class="d" id="healLog">Kayıt yok.</div>'+
+    '<div class="d" style="margin-top:6px;opacity:.75">Ekran bildirimleri kapalıyken de her mesaj buraya yazılır.</div></div></div>';
   while(w.firstChild)sp.appendChild(w.firstChild);
   const log=()=>{const el=$('#healLog');if(!el)return;
-    const e=(window.__notisErrors||[]);
-    el.innerHTML=e.length?e.slice(-5).reverse().map(x=>x.t.slice(11,19)+' · '+x.kind+': '+x.msg).join('<br>'):'Kayıtlı hata yok.'};
-  {const ti=$('#oToastInfo');
-   if(ti){ti.checked=toastInfoOn();
-     ti.addEventListener('change',()=>{try{localStorage.setItem('notis_toast_info',ti.checked?'1':'0')}catch(_){}
-       if(ti.checked)toast('Bilgi bildirimleri açık')})}}
+    const e=(window.__notisLog||[]).concat(window.__notisErrors||[])
+      .sort((a,b)=>a.t<b.t?-1:1);
+    el.innerHTML=e.length?e.slice(-8).reverse()
+      .map(x=>'<span style="opacity:.65">'+x.t.slice(11,19)+'</span> '+
+        (x.kind==='hata'||x.kind==='error'||x.kind==='promise'?'⚠ ':'· ')+esc(x.msg)).join('<br>')
+      :'Kayıt yok.'};
   $('#healBtn').addEventListener('click',()=>{const f=notisRecover('manual');
     if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔');log()});
   const st=$$('.set-tab').find(x=>x.dataset.s==='storage');if(st)st.addEventListener('click',log);
+  window.__healLogRefresh=log;
   log();
  }}
 buildPenHwSoon(10);
+buildNotifySoon(10);
 init();
