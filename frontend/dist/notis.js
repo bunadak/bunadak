@@ -111,7 +111,7 @@ toast.action=(m,label,fn,ms)=>toastShow(String(m),{action:label,onAction:fn,ms:m
 window.toast=toast;
 
 const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:true,miniBar:true,ring:true,grain:true,leftHanded:false,
-  palmReject:true,penOnly:false,tilt:false,mousePressure:false,unit:'cm',eraseSplit:false,lasso:false,
+  unit:'cm',eraseSplit:false,lasso:false,
   snapGrid:false,grid:20,guides:true,angleSnap:false,laser:'#FF4D5E',spot:150,
   applyDefaults:true,wheelPage:true,
   /* Opsiyonlar — hepsi kapalı başlar */
@@ -408,10 +408,6 @@ function strokePath(c,pts){if(pts.length<2)return;c.beginPath();c.moveTo(pts[0].
    'noktalı' görünüm yaratıyordu; tek dolguda alfa üniform — tükenmez gibi
    kesintisiz, ama basınca/hıza duyarlı gerçek mürekkep. */
 function fillInkStroke(c,rawPts,widthAt){
-  /* KALEM EĞİMİ — tek nokta: noktada 'tl' (yatırılma) varsa çizgi genişler.
-     Eğim opsiyonu kapalıyken hiçbir noktada tl bulunmaz, çarpan 1 kalır ve
-     kalem motoru birebir orijinal davranır. */
-  {const W0=widthAt;widthAt=(pt,i,n)=>W0(pt,i,n)*(pt&&pt.tl?1+pt.tl*0.85:1)}
   // ardışık çakışık noktaları ele (sıfır yön vektörü kalınlığı söndürür)
   const pts=[rawPts[0]];
   for(let i=1;i<rawPts.length;i++){const q=rawPts[i],l=pts[pts.length-1];
@@ -502,14 +498,14 @@ function proInkSmooth(src){
   // gecikmeyi minimumda tutar, temiz kalem girişinde çizgi kaleme yapışık kalır.
   const a=[src[0]];
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
-    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t,tl:p1.tl,az:p1.az});}
+    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
   a.push(src[n-1]);
   let cur=a;
   for(let pass=0;pass<2;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
-      out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t,tl:A.tl,az:A.az});
-      out.push({x:A.x*0.25+B.x*0.75,y:A.y*0.25+B.y*0.75,p:P(A.p)*0.25+P(B.p)*0.75,t:B.t,tl:B.tl,az:B.az});}
+      out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
+      out.push({x:A.x*0.25+B.x*0.75,y:A.y*0.25+B.y*0.75,p:P(A.p)*0.25+P(B.p)*0.75,t:B.t});}
     out.push(cur[cur.length-1]); cur=out;
   }
   return cur;
@@ -525,29 +521,7 @@ function proInkPts(o){
   const h=src[0],t=src[src.length-1];
   let e=_inkCache.get(o);
   if(e&&e.n===src.length&&e.v===v&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
-  let pts=null;
-  /* ARTIMLI YUMUŞATMA — uzun çizgide gecikmenin asıl sebebi
-     Canlı çizim sırasında nokta dizisi her karede büyüyor; önbellek yalnız
-     nokta SAYISINA baktığı için her karede ıskalıyor ve TÜM çizgi baştan
-     yumuşatılıyordu (1 alçak-geçiren + 2 Chaikin = 4× nokta). 3000 noktalı bir
-     çizgide kare başına ~12.000 nokta yeniden hesaplanıyordu — kalem giderek
-     geriden geliyordu.
-     Yumuşatma YEREL bir işlemdir (etki yarıçapı ~3 nokta). Bu yüzden sona
-     nokta eklendiğinde yalnız SON PENCERE yeniden hesaplanır, gerisi
-     dondurulmuş kalır. Çıktı uzunluğu tam olarak 4×kaynak olduğu için
-     birleştirme noktası kesin hesaplanabilir. Sonuç birebir aynı çizgidir. */
-  const OVER=10;
-  if(e&&e.v===v&&e.hx===h.x&&e.hy===h.y&&src.length>e.n&&e.n>OVER+4&&e.pts&&e.pts.length===4*e.n){
-    const from=e.n-OVER, keep=4*from;
-    const tailPts=proInkSmooth(src.slice(from));
-    if(tailPts.length>4*OVER){
-      const arr=e.pts;arr.length=keep;
-      for(let i=4*OVER;i<tailPts.length;i++)arr.push(tailPts[i]);
-      pts=arr;
-    }
-  }
-  if(!pts)pts=proInkSmooth(src);
-  _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
+  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
 }
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
@@ -918,56 +892,15 @@ function sealOrphanLive(force){
   else{live=null;drawOverlay()}
   fwLeave();azOut();
 }
-/* ============================================================
-   AVUÇ İÇİ REDDİ (PALM REJECTION) + KALEM SİLGİ UCU
-   ------------------------------------------------------------
-   Ayarlar ekranı her kalem için "Palm Rejection: Açık" yazıyordu ama kodda
-   pointerType kontrolü YOKTU. Kalemle yazarken avuç ekrana değince
-   pointers.size 2 oluyor, pinch devreye giriyor, live=null ile çizgi ortadan
-   kesiliyor ve ekran yakınlaşıyordu. Dokunmatik ekranlı cihazda uygulama
-   kullanılamaz hâle geliyordu.
-
-   Kural: bir KALEM görüldüyse (aktif çizim ya da son 1.5 sn içinde), gelen
-   TÜM dokunuşlar yok sayılır. Pinch yalnız İKİ PARMAK birlikteyken çalışır;
-   kalem + parmak karışımında asla.
-
-   Ayrıca kalemin ARKA UCU (buttons bit 32 / button 5) artık silgi: kullanıcı
-   kalemi ters çevirince siler, kalkınca eski aracına döner.
-============================================================ */
-let lastPenT=0, penEraserPrev=null;
-function penActiveNow(){
-  if(S.penOnly)return true;                       // "yalnızca kalemle çiz" seçiliyse dokunuş hiç çizmez
-  if(!S.palmReject)return false;
-  if(live&&livePenType==='pen')return true;       // kalem kâğıtta: avuç kesinlikle yok sayılır
-  return performance.now()-lastPenT<1500;
-}
-let livePenType=null;
-function isPalm(e){
-  return e.pointerType==='touch'&&penActiveNow();
-}
 stage.addEventListener('pointerdown',e=>{
   if(e.target!==cv&&e.target!==ovl&&e.target!==stage)return;
-  if(e.pointerType==='pen')lastPenT=performance.now();
-  if(isPalm(e)){e.preventDefault();return}         // avuç / istemsiz dokunuş: tamamen yok say
-  /* Kalemin arka ucu (silgi ucu) → geçici silgi */
-  if(e.pointerType==='pen'&&((e.buttons&32)||e.button===5)){
-    if(penEraserPrev==null){penEraserPrev=tool;setTool('eraser')}
-  }
   commitText(); // açık metin kutusu varsa ÖNCE kaydet — yoksa blur'dan önce içerik sıfırlanıp yazı kayboluyordu
   hideMiniBar();
   try{stage.setPointerCapture(e.pointerId)}catch(_){} // bazı sentetik/iptal edilmiş işaretçilerde fırlatır — akışı asla kilitleme
   if(e.button===2){sealOrphanLive(true);rightPress(e);return} // çizim ortasında sağ tık: çizgiyi mühürle, asla askıda bırakma
   sealOrphanLive();
-  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,pt:e.pointerType});
-  /* PINCH YALNIZ İKİ PARMAKLA: kalem + avuç kombinasyonu artık yakınlaştırma
-     tetiklemez, çizgi ortasından kesilmez. */
-  if(pointers.size===2){const[a,b]=[...pointers.values()];
-    if(a.pt==='touch'&&b.pt==='touch'){
-      pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:view.x,vy:view.y};
-      live=null;fwLeave();azCancel();drawOverlay();return}
-    /* kalem varken ikinci işaretçiyi sessizce at — çizim bölünmez */
-    for(const[id,inf]of pointers)if(inf.pt==='touch'&&id!==strokePid)pointers.delete(id);
-  }
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size===2){const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:view.x,vy:view.y};live=null;fwLeave();azCancel();drawOverlay();return}
   if(!boardMode()&&!presenting){const g=toDoc(e);switchPage(bandAt(g.y))}
   const pt=localPt(e);
   if(spaceHeld||tool==='pan'||e.button===1){panning={sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y};return}
@@ -976,9 +909,7 @@ stage.addEventListener('pointerdown',e=>{
   if(tool==='select'){startSelect(e,pt);return}
   if(tool==='text'){openTextEditor(pt);return}
   if(tool==='sticker'){stampSticker(pt);return}
-  if(tool==='eraser'){live={erasing:true,marks:new Set()};strokePid=e.pointerId;
-    if(S.eraseSplit)snapshot();      // jest başına TEK geri-al adımı
-    markEraseAt(pt);return}
+  if(tool==='eraser'){live={erasing:true,marks:new Set()};strokePid=e.pointerId;if(S.eraseSplit)snapshot();markEraseAt(pt);return}
   if(tool==='solve'){solveDraft={a:pt,b:pt};return}
   if(tool==='line'){lineDraft={a:pt,b:pt};return}
   if(tool==='compass'){compassDraft={c:pt,r:0};return}
@@ -994,13 +925,10 @@ stage.addEventListener('pointerdown',e=>{
     opacity:(tool==='hl'?Math.min(penOp,.6):penOp)*(typeof pkFlowK==='function'?pkFlowK():1)*(curCP&&curCP.flow!=null?curCP.flow:1),
     pk:(typeof pkPressK==='function'?pkPressK():.8),nib:(typeof pkNibK==='function'?pkNibK():1),
     cp:curCP?{...curCP}:undefined,points:[{x:pt.x,y:pt.y,p:p0}]};
-  strokePid=e.pointerId;livePenType=e.pointerType;
-  document.body.classList.add('drawing');   // çizim boyunca cam efekti (blur) durur
+  strokePid=e.pointerId;
   fwEnter();azIn(e); // opsiyonlar: Odaklı Yazım Modu + Otomatik Odak Zoom
 });
 stage.addEventListener('pointermove',e=>{
-  if(e.pointerType==='pen')lastPenT=performance.now();
-  if(isPalm(e)&&!pointers.has(e.pointerId))return;      // avuç: hareketi de yok say
   if(rightState){if(ringOpen)ringMove(e);return}
   const info=pointers.get(e.pointerId);if(info){info.x=e.clientX;info.y=e.clientY}
   if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);
@@ -1018,7 +946,7 @@ stage.addEventListener('pointermove',e=>{
   if(solveDraft){solveDraft.b=pt;drawOverlay();return}
   if(lineDraft){lineDraft.b=applyAngleSnap(lineDraft.a,pt,e.shiftKey);drawOverlay();return}
   if(compassDraft){compassDraft.r=dist(compassDraft.c,pt);drawOverlay();return}
-  if(live&&live.erasing){if(e.pointerId===strokePid){if(!e.buttons)sealOrphanLive(true);else markEraseSoon(pt)}return}
+  if(live&&live.erasing){if(e.pointerId===strokePid){if(!e.buttons)sealOrphanLive(true);else markEraseAt(pt)}return}
   if(live&&live.points&&tool==='smart'&&!live.cp&&live.points.length>1){
     const a=live.points[live.points.length-2],b=live.points[live.points.length-1];
     const dt=Math.max(1,(b.t??1)-(a.t??0));const vv=dist(a,b)/dt;
@@ -1065,44 +993,16 @@ function inkFeed(evs){
       }
       const p=S.pressure?(ce.pressure||0.5):0.5;
       const lp=live.points.at(-1);
-      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s){
-        const np={x:stabPt.x,y:stabPt.y,p,t:performance.now()};
-        /* KALEM EĞİMİ (opsiyon, varsayılan KAPALI): Surface/Wacom kaleminin
-           yatırılma açısı okunur. tl = 0 (dik) … 1 (tam yatık) — kalem
-           yatırıldıkça çizgi genişler, dikleşince incelir; yön açısı da
-           kaydedilir. Kapalıyken tek bir alan bile yazılmaz, kalem motoru
-           birebir orijinal davranır. */
-        if(S.tilt&&ce.pointerType==='pen'){
-          const tx=ce.tiltX||0,ty=ce.tiltY||0;
-          const alt=(ce.altitudeAngle!=null)?ce.altitudeAngle:null;
-          const tl=alt!=null?clamp(1-alt/(Math.PI/2),0,1)
-                            :clamp(Math.hypot(tx,ty)/90,0,1);
-          if(tl>0.02){np.tl=+tl.toFixed(3);
-            np.az=(ce.azimuthAngle!=null)?+ce.azimuthAngle.toFixed(3)
-                                        :+Math.atan2(ty,tx).toFixed(3)}
-        }
-        live.points.push(np);
-      }
+      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
     }
 }
 /* canlı çizimi kare hızına (rAF) kilitle — pointermove seli overlay'i boğmasın */
 let liveRaf=false,liveEv=null;
 function requestLiveDraw(e){liveEv=e;if(liveRaf)return;liveRaf=true;
   requestAnimationFrame(()=>{liveRaf=false;if(live&&live.type==='stroke')drawLive(liveEv)})}
-stage.addEventListener('pointerup',e=>{
-  if(e.pointerType==='pen')lastPenT=performance.now();
-  const vardi=pointers.has(e.pointerId);
-  pointers.delete(e.pointerId);
-  if(!vardi&&isPalm(e))return;                          // hiç kaydedilmemiş avuç dokunuşu
-  finishPointer(e);
-  /* Kalemin silgi ucu kalktı → önceki araca dön */
-  if(penEraserPrev!=null&&e.pointerType==='pen'&&!(e.buttons&32)){
-    const t=penEraserPrev;penEraserPrev=null;setTool(t);
-  }
-});
+stage.addEventListener('pointerup',e=>{pointers.delete(e.pointerId);finishPointer(e)});
 stage.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);finishPointer(e)});
 function finishPointer(e){
-  document.body.classList.remove('drawing');
   if(rightState){rightRelease(e);return}
   if(pointers.size<2)pinch=null;
   if(panning){panning=false;return}
@@ -1168,7 +1068,7 @@ function commitStroke(){
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
   const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
   for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
-    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,tl:a.tl,az:a.az},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,tl:b.tl,az:b.az})}np.push(o.points.at(-1));o.points=np}
+    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p})}np.push(o.points.at(-1));o.points=np}
   if(o.tool==='hl'&&S.snapHl)o=snapStraighten(o);
   else if(cp){o=cpInk(o,cp);
     /* Render efekt tanımlayıcısı — serileştirilebilir, deterministik (seed'li) */
@@ -1179,13 +1079,6 @@ function commitStroke(){
     if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
   else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
-  /* HIZDAN BASINÇ (opsiyon, varsayılan KAPALI): fare/parmak gerçek basınç
-     vermez (hep 0.5) — bu kalemlerde çizgi ölü düz kalınlıkta olur. Opsiyon
-     açıkken hızdan basınç sentezlenir; kapalıyken hiçbir şey değişmez. */
-  else if(S.mousePressure&&['ball','fountain','pencil'].includes(o.tool)){
-    const flat=o.points.every(p=>Math.abs((p.p??.5)-.5)<.03);
-    if(flat)o=matisInk(o);
-  }
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
@@ -1299,26 +1192,12 @@ function commitCompass(){const d=compassDraft;compassDraft=null;if(!d||d.r<4){dr
 /* Matis silgisi: surukledikce degdiklerin SILINECEK diye isaretlenir (soluklasir),
    parmagini kaldirinca hepsi tek hamlede silinir — tek Ctrl+Z ile tumu geri gelir.
    Resimler ve kilitli katmanlar korunur. */
-/* Silgi hareketini kare hızına kilitle: pointermove seli saniyede 200+ kez
-   tüm nesneleri taramıyor, kare başına tek tarama yapılıyor. */
-let eraseRaf=false,erasePt=null;
-function markEraseSoon(pt){erasePt=pt;if(eraseRaf)return;eraseRaf=true;
-  requestAnimationFrame(()=>{eraseRaf=false;if(live&&live.marks)markEraseAt(erasePt)})}
 function markEraseAt(pt){
   if(!live||!live.marks)return;
-  /* Silgi yarıçapı EKRAN boyutuna sabitlenir: %400 yakınlaştırmada kocaman,
-     %25'te iğne ucu olma sorunu biterdi. Belge birimine çevirirken view.s'e
-     bölünür — kullanıcı her zoom'da aynı fiziksel silgiyi hisseder. */
-  const rad=Math.max(8,penSize*2)/Math.max(.05,view.s);let hitAny=false;
-  /* ÇİZGİ SİLGİSİ (kısmi silme)
-     Nesne silgisi isabet eden çizginin TAMAMINI siliyordu; bir harfin bir
-     kısmını silmek imkânsızdı — not uygulamasında en sık gelen şikâyet.
-     Çizgi silgisinde stroke, silginin değdiği noktalardan BÖLÜNÜR; dışarıda
-     kalan parçalar aynı stille ayrı çizgiler olarak yaşamaya devam eder. */
-  if(S.eraseSplit){
-    if(splitEraseAt(pt,rad))redraw();
-    return;
-  }
+  const rad=Math.max(8,penSize*2);let hitAny=false;
+  /* Kısmi (çizgi) silgi — OPSİYON, varsayılan KAPALI. Kapalıyken bu satırın
+     altındaki her şey 2.9.2 ile birebir aynıdır; yarıçap formülü de aynı. */
+  if(S.eraseSplit){if(splitEraseAt(pt,rad))redraw();return}
   for(const l of page().layers){if(l.locked||!l.visible)continue;
     for(const o of l.objects){
       if(o._mk||!eraserAllowed(o))continue;
@@ -3085,42 +2964,20 @@ $('#sLeft').addEventListener('change',e=>{S.leftHanded=e.target.checked;applyLef
 $('#sCorner').addEventListener('change',e=>{S.cornerUI=e.target.checked;$('#corner').style.display=S.cornerUI?'flex':'none';if(typeof saveOpts==='function')saveOpts()});
 bindT('#sMini','miniBar');bindT('#sRing','ring');
 $('#sGrain').addEventListener('change',e=>{S.grain=e.target.checked;document.body.classList.toggle('nograin',!S.grain);saveOpts()});
-/* KALEM DONANIMI + ÖLÇÜ AYARLARI
-   Avuç içi reddi ve kalemin silgi ucu GİRDİ YÖNLENDİRMESİDİR; mürekkep
-   matematiğine dokunmaz, bu yüzden varsayılan AÇIK. Eğim ve farede basınç
-   çizginin görünümünü değiştirir — bu yüzden ikisi de varsayılan KAPALI,
-   isteyen açar. */
+/* ÖLÇÜ BİRİMİ AYARI
+   Kalem donanımı opsiyonları (avuç reddi, eğim, farede basınç) KALDIRILDI:
+   kullanıcı kalem hissinin 2.9.2 sürümündeki hâlinde kalmasını istedi ve
+   bunların hepsi işaretçi/mürekkep yolunda duruyordu. Geriye yalnız ölçü
+   birimi seçimi kaldı — bu kalemle ilgisizdir. */
 function buildPenHwUI(){
   const host=document.getElementById('sp-draw')||document.getElementById('sp-opts');
   if(!host||host.dataset.penhw)return false;
   host.dataset.penhw='1';
   const el=h=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild};
-  const row=(id,t,d,on,fn)=>{
-    const r=el('<div class="set-row"><div><div class="t">'+t+'</div><div class="d">'+d+
-      '</div></div><label class="sw-toggle"><input type="checkbox" id="'+id+'"><i></i></label></div>');
-    const i=r.querySelector('input');i.checked=!!on;
-    i.addEventListener('change',()=>{fn(i.checked);saveOpts()});return r};
-  host.appendChild(el('<div class="set-sec-t" style="margin-top:18px">Kalem Donanımı</div>'));
-  host.appendChild(row('sPalm','✋ Avuç İçi Reddi',
-    'Kalemle yazarken ekrana değen avuç ve istemsiz dokunuşlar yok sayılır; iki parmak yakınlaştırma '+
-    'yalnız <b>iki parmak birlikteyken</b> çalışır. Kalem + parmak karışımında çizgi artık ortadan kesilmez.',
-    S.palmReject,v=>{S.palmReject=v}));
-  host.appendChild(row('sPenOnly','🖊️ Yalnızca Kalemle Çiz',
-    'Açıkken parmakla çizim yapılamaz — parmak sadece kaydırma/yakınlaştırma için kullanılır. '+
-    'Tablet ve dokunmatik ekranda en temiz yazma deneyimi.',
-    S.penOnly,v=>{S.penOnly=v}));
-  host.appendChild(row('sTilt','📐 Kalem Eğimi (Tilt)',
-    'Surface/Wacom kalemini <b>yatırınca çizgi genişler</b>, dikleştirince incelir — gerçek kaligrafi ve '+
-    'kurşun kalem tarama hissi. Kapalıyken kalem motoru birebir varsayılan davranır.',
-    S.tilt,v=>{S.tilt=v}));
-  host.appendChild(row('sMousePr','🖱️ Farede Basınç Simülasyonu',
-    'Fare ve parmak gerçek basınç vermez; bu kalemlerde çizgi düz kalınlıkta kalır. Açıkken '+
-    '<b>hızdan basınç sentezlenir</b> (hızlı = ince, yavaş = kalın). Kalemle çizerken hiçbir etkisi yoktur.',
-    S.mousePressure,v=>{S.mousePressure=v;redraw()}));
-  /* Ölçü birimi */
+  host.appendChild(el('<div class="set-sec-t" style="margin-top:18px">Ölçü</div>'));
   const seg=el('<div class="set-row"><div><div class="t">📏 Ölçü Birimi</div><div class="d">'+
-    'Cetvel ve pergelin gösterdiği birim. Ölçek artık <b>sayfanın gerçek kâğıt boyutundan</b> hesaplanır '+
-    '(A4 = 21 cm); önceki sürümlerde sabit bir varsayım yüzünden ~%26 sapma vardı.</div></div>'+
+    'Cetvel ve pergelin gösterdiği birim. Ölçek <b>sayfanın gerçek kâğıt boyutundan</b> hesaplanır '+
+    '(A4 = 21 cm).</div></div>'+
     '<div class="pk-seg" id="sUnit" style="flex:0 0 auto">'+
     ['cm','mm','in'].map(u=>'<button type="button" data-v="'+u+'"'+((S.unit||'cm')===u?' class="on"':'')+'>'+u+'</button>').join('')+
     '</div></div>');

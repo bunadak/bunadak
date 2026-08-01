@@ -450,11 +450,4 @@ dialog.ask-dlg::backdrop{background:rgba(6,9,16,.55)}
 .ask-r .ask-yes.danger{background:#E2544A;color:#fff}
 .ask-r .ask-yes:disabled{opacity:.4;cursor:not-allowed}
 
-/* --- ÇİZİM SIRASINDA CAM EFEKTİNİ DURDUR ------------------------------
-   backdrop-filter, altındaki içerik her değiştiğinde yeniden hesaplanır.
-   Tuvalin üstünde duran araç çubukları çizim boyunca sürekli yeniden
-   bulanıklaşıyor, kare süresini yükseltiyordu. Kalem kâğıttayken bu
-   maliyet tamamen kalkar — kullanıcı farkı görmez. */
-body.drawing #topbar, body.drawing #rail, body.drawing #side,
-body.drawing #miniBar, body.drawing #corner, body.drawing .chip,
-body.drawing #gring { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
