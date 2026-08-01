@@ -244,7 +244,7 @@ func (a *App) ReadFileAsDataURL(path string) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.9.5",
+		"version": "2.9.6",
 		"channel": "pro",
 	}
 }

@@ -111,7 +111,7 @@ toast.action=(m,label,fn,ms)=>toastShow(String(m),{action:label,onAction:fn,ms:m
 window.toast=toast;
 
 const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:true,miniBar:true,ring:true,grain:true,leftHanded:false,
-  palmReject:true,penOnly:false,tilt:false,mousePressure:false,unit:'cm',
+  palmReject:true,penOnly:false,tilt:false,mousePressure:false,unit:'cm',eraseSplit:false,lasso:false,
   snapGrid:false,grid:20,guides:true,angleSnap:false,laser:'#FF4D5E',spot:150,
   applyDefaults:true,wheelPage:true,
   /* Opsiyonlar — hepsi kapalı başlar */
@@ -810,6 +810,7 @@ function redraw(){ctx.imageSmoothingQuality='high';
       if(i!==cur){cur=i;selection=[];fixLayer();markPages();renderLayers();updUndoBtns();updCornerPg()}}
   }
   if(selection.length){const off=curOff();ctx.save();ctx.translate(off.x,off.y);drawSelection();ctx.restore()}
+  syncTextEditPos();
 }
 /* TEMBEL SAYFA GÖRSELİ YÜKLEYİCİ + BELLEK TAHLİYESİ
    200 sayfalık PDF açılırken artık TÜM görseller çözülmez (4+ GB bellek!) —
@@ -975,7 +976,9 @@ stage.addEventListener('pointerdown',e=>{
   if(tool==='select'){startSelect(e,pt);return}
   if(tool==='text'){openTextEditor(pt);return}
   if(tool==='sticker'){stampSticker(pt);return}
-  if(tool==='eraser'){live={erasing:true,marks:new Set()};strokePid=e.pointerId;markEraseAt(pt);return}
+  if(tool==='eraser'){live={erasing:true,marks:new Set()};strokePid=e.pointerId;
+    if(S.eraseSplit)snapshot();      // jest başına TEK geri-al adımı
+    markEraseAt(pt);return}
   if(tool==='solve'){solveDraft={a:pt,b:pt};return}
   if(tool==='line'){lineDraft={a:pt,b:pt};return}
   if(tool==='compass'){compassDraft={c:pt,r:0};return}
@@ -1307,6 +1310,15 @@ function markEraseAt(pt){
      %25'te iğne ucu olma sorunu biterdi. Belge birimine çevirirken view.s'e
      bölünür — kullanıcı her zoom'da aynı fiziksel silgiyi hisseder. */
   const rad=Math.max(8,penSize*2)/Math.max(.05,view.s);let hitAny=false;
+  /* ÇİZGİ SİLGİSİ (kısmi silme)
+     Nesne silgisi isabet eden çizginin TAMAMINI siliyordu; bir harfin bir
+     kısmını silmek imkânsızdı — not uygulamasında en sık gelen şikâyet.
+     Çizgi silgisinde stroke, silginin değdiği noktalardan BÖLÜNÜR; dışarıda
+     kalan parçalar aynı stille ayrı çizgiler olarak yaşamaya devam eder. */
+  if(S.eraseSplit){
+    if(splitEraseAt(pt,rad))redraw();
+    return;
+  }
   for(const l of page().layers){if(l.locked||!l.visible)continue;
     for(const o of l.objects){
       if(o._mk||!eraserAllowed(o))continue;
@@ -1314,8 +1326,49 @@ function markEraseAt(pt){
     }}
   if(hitAny)redraw();
 }
+/* Silginin değdiği noktaları çizgiden çıkarır, kalan parçaları ayrı çizgiler
+   yapar. Geri alma jest başına tektir (pointerdown'da anlık görüntü alınır). */
+function splitEraseAt(pt,rad){
+  const r2=rad*rad;let degisti=false;
+  for(const l of page().layers){
+    if(l.locked||!l.visible)continue;
+    const out=[];let layerChanged=false;
+    for(const o of l.objects){
+      if(o.type!=='stroke'||!o.points||o.straight||!eraserAllowed(o)){out.push(o);continue}
+      const b=bboxOf(o);
+      if(pt.x<b.x0-rad||pt.x>b.x1+rad||pt.y<b.y0-rad||pt.y>b.y1+rad){out.push(o);continue}
+      const P=o.points;
+      let vurdu=false;
+      const keep=new Array(P.length);
+      for(let i=0;i<P.length;i++){
+        const dx=P[i].x-pt.x,dy=P[i].y-pt.y;
+        const uzak=(dx*dx+dy*dy)>r2;
+        keep[i]=uzak;if(!uzak)vurdu=true;
+      }
+      if(!vurdu){out.push(o);continue}
+      layerChanged=true;degisti=true;
+      /* kalan kesintisiz parçaları topla */
+      let run=[];
+      const flush=()=>{
+        if(run.length>=2){
+          const c=Object.assign({},o);
+          c.points=run;c._bb=null;delete c._mk;
+          if(typeof _inkCache!=='undefined')_inkCache.delete(c);
+          out.push(c);
+        }
+        run=[];
+      };
+      for(let i=0;i<P.length;i++){if(keep[i])run.push(P[i]);else flush()}
+      flush();
+    }
+    if(layerChanged)l.objects=out;
+  }
+  return degisti;
+}
 function commitErase(){
+  const splitMode=S.eraseSplit;
   const marks=live&&live.marks?live.marks:null;live=null;
+  if(splitMode){redraw();if(window.LIB)LIB.dirty();return}   // bölme anında uygulandı
   if(!marks||!marks.size){redraw();return}
   marks.forEach(o=>{delete o._mk});      // undo gorüntusu temiz kalsin
   snapshot();                            // jest basina tek geri-al adimi
@@ -1365,7 +1418,10 @@ function startSelect(e,pt){
     if(e.shiftKey){selection.includes(hit)?selection=selection.filter(o=>o!==hit):selection.push(hit)}
     else if(!selection.includes(hit))selection=[hit];
     drag={type:'move',last:pt,moved:false};snapshotDeep();
-  }else{selection=[];drag={type:'marquee',a:pt,b:pt}}
+  }else{selection=[];
+    /* Kement modu (Ayarlar/araç satırı) veya Alt basılıysa serbest çizim seçimi */
+    if(S.lasso)drag={type:'lasso',path:[pt]};
+    else drag={type:'marquee',a:pt,b:pt,alt:!!e.altKey}}
   redraw();renderSelInfo();
 }
 /* Nesne sürüklerken kare kilidi: her pointermove'da redraw + drawOverlay +
@@ -1409,16 +1465,132 @@ function dragMove(pt,e){
   if(drag.type==='rotate'){
     const a=Math.atan2(pt.y-drag.cy,pt.x-drag.cx),da=a-drag.start;drag.start=a;
     selection.forEach(o=>rotateObj(o,drag.cx,drag.cy,da));redraw();return}
-  if(drag.type==='marquee'){drag.b=pt;drawOverlay();return}
+  if(drag.type==='marquee'){drag.b=pt;drag.alt=!!(e&&e.altKey);drawOverlay();return}
+  if(drag.type==='lasso'){const l=drag.path[drag.path.length-1];
+    if(!l||dist(l,pt)>2/view.s)drag.path.push(pt);drawOverlay();return}
+}
+/* Bir nesnenin ÖRNEK noktaları — kesişim ve kement testleri için */
+function objSample(o){
+  const out=[];
+  const push=(x,y)=>out.push({x,y});
+  if(o.type==='stroke'&&o.points){
+    const st=Math.max(1,Math.floor(o.points.length/40));
+    for(let i=0;i<o.points.length;i+=st)push(o.points[i].x,o.points[i].y);
+    const l=o.points[o.points.length-1];push(l.x,l.y);
+  }else if(o.type==='group'&&o.children){o.children.forEach(c=>objSample(c).forEach(p=>out.push(p)))}
+  else{const b=bboxOf(o);
+    push(b.x0,b.y0);push(b.x1,b.y0);push(b.x1,b.y1);push(b.x0,b.y1);
+    push((b.x0+b.x1)/2,(b.y0+b.y1)/2);}
+  return out;
+}
+/* Poligon içi nokta testi (ray casting) — kement seçimi için */
+function inPoly(pt,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[i],b=poly[j];
+    if(((a.y>pt.y)!==(b.y>pt.y))&&(pt.x<(b.x-a.x)*(pt.y-a.y)/((b.y-a.y)||1e-9)+a.x))inside=!inside;
+  }
+  return inside;
 }
 function endDrag(){
   if(drag.type==='marquee'){const a=drag.a,b=drag.b;const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
-    if(x1-x0>4||y1-y0>4){selection=[];for(const l of page().layers){if(!l.visible||l.locked)continue;
-      for(const o of l.objects){const ob=bboxOf(o);if(ob.x0>=x0&&ob.x1<=x1&&ob.y0>=y0&&ob.y1<=y1)selection.push(o)}}}
+    if(x1-x0>4||y1-y0>4){selection=[];
+      /* VARSAYILAN: KESİŞİM (dokunan seçilir) — Illustrator/Figma davranışı.
+         Eskiden nesnenin TAMAMI çerçevenin içinde olmak zorundaydı; uzun bir
+         çizgiyi kısmen çevreleyen kullanıcı hiçbir şey seçemiyor ve "seçim
+         çalışmıyor" diyordu. Alt basılıysa eski "tam kapsama" moduna geçer. */
+      const tam=!!drag.alt;
+      for(const l of page().layers){if(!l.visible||l.locked)continue;
+        for(const o of l.objects){const ob=bboxOf(o);
+          if(tam){if(ob.x0>=x0&&ob.x1<=x1&&ob.y0>=y0&&ob.y1<=y1)selection.push(o)}
+          else if(!(ob.x1<x0||ob.x0>x1||ob.y1<y0||ob.y0>y1))selection.push(o)}}}
+  }
+  /* KEMENT — el yazısında satır arasından tek kelime seçmek dikdörtgenle
+     mümkün değildi; komşu satırlar da kapsanıyordu. */
+  if(drag.type==='lasso'&&drag.path&&drag.path.length>3){
+    selection=[];
+    for(const l of page().layers){if(!l.visible||l.locked)continue;
+      for(const o of l.objects){
+        const sm=objSample(o);
+        let ic=0;for(const q of sm)if(inPoly(q,drag.path))ic++;
+        if(ic&&ic>=Math.max(1,Math.floor(sm.length*0.45)))selection.push(o);
+      }}
   }
   if(drag.type==='move'&&!drag.moved){const p=page();if(p._undo.length){p._undo.pop();updUndoBtns()}}
   drag=null;redraw();drawOverlay();renderSelInfo();
 }
+/* ============================================================
+   Z-SIRASI · GRUP ÇÖZME · SEÇİME STİL UYGULAMA
+   Üçü de eksikti: yanlışlıkla üste gelen bir fosforlu altındaki yazıyı
+   kalıcı örtüyordu, şekil kütüphanesinden gelen her şey sonsuza kadar grup
+   kalıyordu, yanlış renkle yazan kullanıcı silip baştan yazmak zorundaydı.
+============================================================ */
+function zOrder(mode){
+  if(!selection.length)return toast.error('Önce bir nesne seç');
+  snapshot();
+  const p=page();
+  for(const l of p.layers){
+    const sel=l.objects.filter(o=>selection.includes(o));
+    if(!sel.length)continue;
+    const rest=l.objects.filter(o=>!selection.includes(o));
+    if(mode==='front')l.objects=rest.concat(sel);
+    else if(mode==='back')l.objects=sel.concat(rest);
+    else{
+      /* bir öne / bir arkaya: her nesneyi komşusuyla takas et */
+      const arr=l.objects.slice();
+      const idx=sel.map(o=>arr.indexOf(o)).sort((a,b)=>mode==='up'?b-a:a-b);
+      for(const i of idx){
+        const j=mode==='up'?i+1:i-1;
+        if(j<0||j>=arr.length||selection.includes(arr[j]))continue;
+        const t=arr[i];arr[i]=arr[j];arr[j]=t;
+      }
+      l.objects=arr;
+    }
+  }
+  redraw();renderSelInfo();
+  toast({front:'En öne getirildi',back:'En arkaya gönderildi',up:'Bir öne alındı',down:'Bir arkaya alındı'}[mode]);
+}
+function ungroupSelection(){
+  const gr=selection.filter(o=>o.type==='group');
+  if(!gr.length)return toast.error('Seçimde çözülecek grup yok');
+  snapshot();
+  const p=page();let n=0;
+  for(const l of p.layers){
+    const out=[];
+    for(const o of l.objects){
+      if(gr.includes(o)&&o.children&&o.children.length){
+        /* Grup opaklığı çocuklara dağıtılır — görünüm değişmez */
+        const go=o.opacity??1;
+        o.children.forEach(c=>{c.opacity=(c.opacity??1)*go;c._bb=null;out.push(c)});
+        n++;
+      }else out.push(o);
+    }
+    l.objects=out;
+  }
+  selection=selection.filter(o=>!gr.includes(o));
+  gr.forEach(g=>{if(g.children)g.children.forEach(c=>selection.push(c))});
+  redraw();renderSelInfo();
+  toast(n+' grup çözüldü — parçalar ayrı ayrı düzenlenebilir');
+}
+/* Üst çubuktaki renk / kalınlık / opaklık kontrolleri SEÇİME uygulanır */
+function styleSelection(patch){
+  if(!selection.length)return false;
+  snapshotDeep();
+  const walk=o=>{
+    if(o.type==='group'&&o.children){o.children.forEach(walk);return}
+    if(patch.color!=null&&o.tool!=='hl')o.color=patch.color;
+    if(patch.opacity!=null)o.opacity=patch.opacity;
+    if(patch.size!=null){
+      if(o.type==='text'){o.size=patch.size*2.6;o._bb=null}
+      else if(o.size!=null)o.size=patch.size;
+    }
+    o._bb=null;if(typeof _inkCache!=='undefined')_inkCache.delete(o);
+  };
+  selection.forEach(walk);
+  redraw();renderSelInfo();
+  return true;
+}
+window.styleSelection=styleSelection;
 function deleteSelection(){if(!selection.length)return;snapshot();
   for(const l of page().layers)l.objects=l.objects.filter(o=>!selection.includes(o));
   selection=[];redraw();renderSelInfo()}
@@ -1445,7 +1617,14 @@ function drawOverlay(){
   const off=curOff();
   octx.setTransform(DPR*view.s,0,0,DPR*view.s,Math.round(DPR*(view.x+off.x*view.s)),Math.round(DPR*(view.y+off.y*view.s)));
   if(drag&&drag.type==='marquee'){octx.strokeStyle='#4FE3C1';octx.setLineDash([5/view.s,4/view.s]);octx.lineWidth=1/view.s;
-    octx.strokeRect(drag.a.x,drag.a.y,drag.b.x-drag.a.x,drag.b.y-drag.a.y);octx.setLineDash([])}
+    octx.strokeRect(drag.a.x,drag.a.y,drag.b.x-drag.a.x,drag.b.y-drag.a.y);octx.setLineDash([]);
+    if(drag.alt)hudLabel((drag.a.x+drag.b.x)/2,Math.min(drag.a.y,drag.b.y)-14/view.s,'Tam kapsama (Alt)')}
+  if(drag&&drag.type==='lasso'&&drag.path&&drag.path.length>1){
+    octx.save();octx.strokeStyle='#4FE3C1';octx.lineWidth=1.4/view.s;octx.setLineDash([6/view.s,4/view.s]);
+    octx.beginPath();octx.moveTo(drag.path[0].x,drag.path[0].y);
+    for(let i=1;i<drag.path.length;i++)octx.lineTo(drag.path[i].x,drag.path[i].y);
+    octx.closePath();octx.stroke();
+    octx.setLineDash([]);octx.fillStyle='rgba(79,227,193,.08)';octx.fill();octx.restore()}
   if(drag&&drag.guides)for(const g of drag.guides){octx.strokeStyle='#FF5DAB';octx.lineWidth=1/view.s;octx.beginPath();
     if(g.v!==undefined){octx.moveTo(g.v,-1e4);octx.lineTo(g.v,1e4)}else{octx.moveTo(-1e4,g.h);octx.lineTo(1e4,g.h)}octx.stroke()}
   if(solveDraft){const{a,b}=solveDraft;const x0=Math.min(a.x,b.x),y0=Math.min(a.y,b.y),w=Math.abs(b.x-a.x),h=Math.abs(b.y-a.y);
@@ -1539,9 +1718,27 @@ function openTextEditor(pt,obj){
   textEdit.style.top=((pt.y+off.y)*view.s+view.y-4)+'px';
   textEdit.style.font=textFontCSS(size,view.s);
   textEdit.style.color=obj?obj.color:penColor;
-  textEdit.style.width='260px';textEdit.style.height=(size*view.s*1.6)+'px';
+  /* Genişlik içeriğe göre büyür (en çok 60ch) — uzun satır kutunun dışına
+     taşıp görünmez olmuyor; sağ kenardan sürüklenerek de ayarlanabilir. */
+  textEdit.style.width='';textEdit.style.minWidth=(180*Math.min(2,Math.max(.5,view.s)))+'px';
+  textEdit.style.maxWidth='60ch';textEdit.style.resize='horizontal';
+  textEdit.style.height=(size*view.s*1.6)+'px';
+  syncTextEditPos();
   setTimeout(()=>textEdit.focus(),0);
 }
+/* METİN KUTUSU TUVALLE BİRLİKTE HAREKET EDER
+   Kutu ekran koordinatına sabitlenmişti: yazarken tekerlekle kaydırınca ya da
+   yakınlaştırınca tuval kayıyor, kutu ekranda duruyor ve yazı bambaşka bir
+   yere düşüyordu. Artık her yeniden çizimde konumu tazelenir. */
+function syncTextEditPos(){
+  if(!textEdit||textEdit.style.display!=='block'||!textPos)return;
+  const off=curOff();
+  textEdit.style.left=((textPos.x+off.x)*view.s+view.x)+'px';
+  textEdit.style.top=((textPos.y+off.y)*view.s+view.y-4)+'px';
+  const size=editingObj?editingObj.size:DEF.text;
+  textEdit.style.font=textFontCSS(size,view.s);
+}
+window.syncTextEditPos=syncTextEditPos;
 textEdit.addEventListener('input',()=>{textEdit.style.height='auto';textEdit.style.height=textEdit.scrollHeight+'px'});
 function commitText(){
   if(textEdit.style.display==='none'||textEdit.style.display==='')return;
@@ -1865,7 +2062,11 @@ function renderOpts(){
   if(tool==='hl')tgl('Düzleştir','snapHl');
   if(['ball','fountain','pencil'].includes(tool))tgl('Şekil düzelt','shapeFix');
   if(tool==='line')tgl('15° yapış','angleSnap');
-  if(tool==='eraser'){tgl('Çizgi','stroke',1);tgl('Vurgu','hl',1);tgl('Metin','text',1);tgl('Görsel','image',1)}
+  if(tool==='eraser'){
+    /* Silgi modu: Nesne (isabet edeni tamamen sil) ↔ Kısmi (çizgiyi böl) */
+    tgl('✂ Kısmi silme','eraseSplit');
+    tgl('Çizgi','stroke',1);tgl('Vurgu','hl',1);tgl('Metin','text',1);tgl('Görsel','image',1)}
+  if(tool==='select')tgl('◌ Kement','lasso');
   if(tool==='text'){
     const sel=document.createElement('select');sel.className='num';sel.style.width='76px';sel.title='Yazı boyutu';
     [14,16,18,20,24,28,32,40,48,64].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v+' pt';if(v===DEF.text)o.selected=true;sel.appendChild(o)});
@@ -1879,9 +2080,9 @@ function renderOpts(){
 ============================================================ */
 function buildSwatches(){const el=$('#swatches');el.innerHTML='';
   SWATCH.forEach(c=>{const b=document.createElement('button');b.className='sw'+(c===penColor?' on':'');b.style.background=c;
-    b.addEventListener('click',()=>{penColor=c;buildSwatches()});el.appendChild(b)})}
-$('#sizeRng').addEventListener('input',e=>{penSize=+e.target.value;$('#sizeOut').textContent=penSize});
-$('#opRng').addEventListener('input',e=>{penOp=e.target.value/100;$('#opOut').textContent=e.target.value});
+    b.addEventListener('click',()=>{penColor=c;buildSwatches();styleSelection({color:c})});el.appendChild(b)})}
+$('#sizeRng').addEventListener('input',e=>{penSize=+e.target.value;$('#sizeOut').textContent=penSize;styleSelection({size:penSize})});
+$('#opRng').addEventListener('input',e=>{penOp=e.target.value/100;$('#opOut').textContent=e.target.value;styleSelection({opacity:penOp})});
 const wheelPop=$('#wheelPop'),wcv=$('#wheelCv'),wctx=wcv.getContext('2d');
 let hue=222;
 function drawWheel(){const W=180,cx=90,cy=90,R=86,r=64;
@@ -2850,10 +3051,13 @@ window.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey){
     if(k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
     if(k==='y'){e.preventDefault();redo();return}
-    if(k==='g'){e.preventDefault();groupSelection();return}
+    if(k==='g'){e.preventDefault();e.shiftKey?ungroupSelection():groupSelection();return}
     if(k==='d'){e.preventDefault();duplicateSelection();return}
     if(k==='a'){e.preventDefault();selection=page().layers.flatMap(l=>l.locked||!l.visible?[]:l.objects);redraw();renderSelInfo();return}
     if(k==='k'){e.preventDefault();openPalette();return}
+    if(k===']'){e.preventDefault();zOrder(e.shiftKey?'front':'up');return}
+    if(k==='['){e.preventDefault();zOrder(e.shiftKey?'back':'down');return}
+    if(k==='g'&&e.shiftKey){e.preventDefault();ungroupSelection();return}
     return;
   }
   const act=Object.keys(KEYMAP).find(a=>KEYMAP[a]===k);
@@ -2901,7 +3105,7 @@ const miniBar=$('#miniBar');let miniTimer=null;
 function buildMiniBar(){
   miniBar.innerHTML='';
   SWATCH.slice(0,5).forEach(c=>{const b=document.createElement('button');b.className='msw'+(c.toLowerCase()===penColor.toLowerCase()?' on':'');b.style.background=c;b.title=c;
-    b.addEventListener('click',()=>{penColor=c;buildSwatches();buildMiniBar();armMini()});miniBar.appendChild(b)});
+    b.addEventListener('click',()=>{penColor=c;buildSwatches();buildMiniBar();styleSelection({color:c});armMini()});miniBar.appendChild(b)});
   const sep=()=>{const s=document.createElement('span');s.className='msep';miniBar.appendChild(s)};
   sep();
   const rng=document.createElement('input');rng.type='range';rng.min=1;rng.max=40;rng.step=.5;rng.value=penSize;rng.title='Kalınlık';
@@ -3097,6 +3301,11 @@ function PAL_CMDS(){return[
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
+ {t:'En öne getir',k:'CTRL+SHIFT+]',sec:'Düzen',fn:()=>zOrder('front')},
+ {t:'En arkaya gönder',k:'CTRL+SHIFT+[',sec:'Düzen',fn:()=>zOrder('back')},
+ {t:'Bir öne al',k:'CTRL+]',sec:'Düzen',fn:()=>zOrder('up')},
+ {t:'Bir arkaya al',k:'CTRL+[',sec:'Düzen',fn:()=>zOrder('down')},
+ {t:'Grubu çöz',k:'CTRL+SHIFT+G',sec:'Düzen',fn:()=>ungroupSelection()},
  {t:'Kurtarma — takılı durumları sıfırla',k:'CTRL+ALT+R',sec:'Eylem',fn:()=>{const f=notisRecover('manual');if(!f.length)toast('Her şey yolunda — sıfırlanacak takılı durum yok ✔')}},
  {t:'Sığdır',k:'0',sec:'Eylem',fn:fit},
  {t:'Paneli aç/kapat — Sayfalar · Katmanlar',sec:'Eylem',fn:()=>$('#sideBtn').click()},
