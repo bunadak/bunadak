@@ -111,6 +111,7 @@ toast.action=(m,label,fn,ms)=>toastShow(String(m),{action:label,onAction:fn,ms:m
 window.toast=toast;
 
 const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:true,miniBar:true,ring:true,grain:true,leftHanded:false,
+  palmReject:true,penOnly:false,tilt:false,mousePressure:false,unit:'cm',
   snapGrid:false,grid:20,guides:true,angleSnap:false,laser:'#FF4D5E',spot:150,
   applyDefaults:true,wheelPage:true,
   /* Opsiyonlar — hepsi kapalı başlar */
@@ -120,9 +121,9 @@ const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktar
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
-const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',panelCycle:'F9',blackPen:'k',darkMode:'d',solve:'q'};
+const KEYDEF={select:'v',smart:'a',ball:'b',fountain:'f',pencil:'p',hl:'h',eraser:'e',text:'t',line:'l',compass:'c',prot:'i',shapes:'g',fit:'0',randColor:'r',boardSwap:'w',panelCycle:'F9',blackPen:'k',darkMode:'d',solve:'q'};
 let KEYMAP={...KEYDEF};
-const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',darkMode:'Karanlık mod (tüm uygulama) aç/kapat',solve:'Çözüm modu (soru taşı)'};
+const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',prot:'İletki (açıölçer)',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',darkMode:'Karanlık mod (tüm uygulama) aç/kapat',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
 let doc={title:'Adsız Tahta',pages:[]};
@@ -194,6 +195,59 @@ function lsSet(k,v){
   return false;
 }
 window.notisLsSet=lsSet;
+/* ÖLÇÜ BİRİMİ — SAYFA BOYUTUNDAN TÜRETİLİR
+   Cetvel ve pergel "cm" değerini sabit 37.8 (96 DPI varsayımı) ile hesaplıyordu.
+   Oysa sayfa 1000 birim genişliğinde ve A4 oranında: A4 = 21 cm ise 1 cm =
+   47.62 birim. Yani "5.0 cm" yazan çizgi gerçekte 4.0 cm'di — %26 hata.
+   Geometri dersinde ölçü veren bir araçta bu kabul edilemez.
+   Artık ölçek sayfanın GERÇEK kâğıt genişliğinden türetilir; sayfa özelliklerine
+   kâğıt boyutu girilmemişse orana bakılarak A4/A5/Letter tahmin edilir. */
+const PAPER_CM={a4:[21.0,29.7],a5:[14.8,21.0],a3:[29.7,42.0],letter:[21.59,27.94],
+                legal:[21.59,35.56],b5:[17.6,25.0]};
+function pageWidthCm(p){
+  p=p||page();if(!p)return 21.0;
+  if(p.paperCm>0)return p.paperCm;                       // kullanıcı elle girdiyse
+  const r=p.h/p.w;                                        // en-boy oranı
+  /* DİKKAT: A4, A3 ve A5'in en-boy oranı neredeyse AYNIDIR (√2). Yalnız orana
+     bakan bir seçici bunları ayırt edemez — ilk sürümde A4 sayfayı A3 sanıp
+     ölçüyü %41 şişiriyordu. Bu yüzden varsayılan A4'tür ve başka bir boyuta
+     ancak oran BELİRGİN biçimde daha iyi eşleşiyorsa geçilir (Letter, Legal).
+     Kesin ölçü isteyen sayfa özelliklerinden gerçek genişliği girer. */
+  const ORDER=['a4','letter','legal','b5'];
+  let best='a4',bd=Math.abs(PAPER_CM.a4[1]/PAPER_CM.a4[0]-r);
+  for(const k of ORDER){const[w0,h0]=PAPER_CM[k];const d=Math.abs(h0/w0-r);
+    if(d<bd-0.008){bd=d;best=k}}
+  /* Yatay sayfa: oran ters çevrilerek denenir */
+  if(r<1){
+    let bl='a4',bld=Math.abs(PAPER_CM.a4[0]/PAPER_CM.a4[1]-r);
+    for(const k of ORDER){const[w0,h0]=PAPER_CM[k];const d=Math.abs(w0/h0-r);
+      if(d<bld-0.008){bld=d;bl=k}}
+    return bld<0.09?PAPER_CM[bl][1]:29.7;                 // yatayda genişlik = uzun kenar
+  }
+  return bd<0.09?PAPER_CM[best][0]:21.0;
+}
+/* Sayfa arka planını çizer — sayfa döndürülmüşse (bgRot) görsel de döner.
+   Eskiden yalnız sayfa boyutu takas ediliyor, arka plan eziliyordu. */
+function drawPageBg(c,pg,w,h){
+  const im=pg&&pg.bgImg;if(!im||!im.complete)return false;
+  const r=((pg.bgRot||0)%360+360)%360;
+  if(!r){c.drawImage(im,0,0,w,h);return true}
+  c.save();
+  if(r===90){c.translate(w,0);c.rotate(Math.PI/2);c.drawImage(im,0,0,h,w)}
+  else if(r===180){c.translate(w,h);c.rotate(Math.PI);c.drawImage(im,0,0,w,h)}
+  else{c.translate(0,h);c.rotate(-Math.PI/2);c.drawImage(im,0,0,h,w)}
+  c.restore();return true;
+}
+window.drawPageBg=drawPageBg;
+function pxPerCm(p){p=p||page();return (p&&p.w?p.w:1000)/pageWidthCm(p)}
+function fmtLen(u){                                       // belge birimi → seçili ölçü birimi
+  const cm=u/pxPerCm();
+  const un=(typeof S!=='undefined'&&S.unit)||'cm';
+  if(un==='mm')return (cm*10).toFixed(0)+' mm';
+  if(un==='in')return (cm/2.54).toFixed(2)+' in';
+  return cm.toFixed(1)+' cm';
+}
+window.fmtLen=fmtLen;window.pxPerCm=pxPerCm;
 function page(){return scratch?scratch.page:doc.pages[cur]}
 function layer(){const p=page();return p.layers.find(l=>l.id===curLayerId)||p.layers[p.layers.length-1]}
 function boardMode(){return !!scratch||(doc.pages.length===1&&doc.pages[0].infinite)}
@@ -309,6 +363,10 @@ function strokePath(c,pts){if(pts.length<2)return;c.beginPath();c.moveTo(pts[0].
    'noktalı' görünüm yaratıyordu; tek dolguda alfa üniform — tükenmez gibi
    kesintisiz, ama basınca/hıza duyarlı gerçek mürekkep. */
 function fillInkStroke(c,rawPts,widthAt){
+  /* KALEM EĞİMİ — tek nokta: noktada 'tl' (yatırılma) varsa çizgi genişler.
+     Eğim opsiyonu kapalıyken hiçbir noktada tl bulunmaz, çarpan 1 kalır ve
+     kalem motoru birebir orijinal davranır. */
+  {const W0=widthAt;widthAt=(pt,i,n)=>W0(pt,i,n)*(pt&&pt.tl?1+pt.tl*0.85:1)}
   // ardışık çakışık noktaları ele (sıfır yön vektörü kalınlığı söndürür)
   const pts=[rawPts[0]];
   for(let i=1;i<rawPts.length;i++){const q=rawPts[i],l=pts[pts.length-1];
@@ -399,14 +457,14 @@ function proInkSmooth(src){
   // gecikmeyi minimumda tutar, temiz kalem girişinde çizgi kaleme yapışık kalır.
   const a=[src[0]];
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
-    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
+    a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t,tl:p1.tl,az:p1.az});}
   a.push(src[n-1]);
   let cur=a;
   for(let pass=0;pass<2;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
-      out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
-      out.push({x:A.x*0.25+B.x*0.75,y:A.y*0.25+B.y*0.75,p:P(A.p)*0.25+P(B.p)*0.75,t:B.t});}
+      out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t,tl:A.tl,az:A.az});
+      out.push({x:A.x*0.25+B.x*0.75,y:A.y*0.25+B.y*0.75,p:P(A.p)*0.25+P(B.p)*0.75,t:B.t,tl:B.tl,az:B.az});}
     out.push(cur[cur.length-1]); cur=out;
   }
   return cur;
@@ -655,7 +713,7 @@ function redraw(){ctx.imageSmoothingQuality='high';
       if(!seam){ctx.shadowColor='rgba(4,8,25,.5)';ctx.shadowBlur=26/view.s;ctx.shadowOffsetY=6/view.s}
       ctx.fillStyle='#FBF8F0';ctx.fillRect(0,0,pg.w,pg.h);ctx.restore();
       ctx.save();ctx.beginPath();ctx.rect(0,0,pg.w,pg.h);ctx.clip();
-      if(pg.bgImg&&pg.bgImg.complete)ctx.drawImage(pg.bgImg,0,0,pg.w,pg.h);
+      if(pg.bgImg&&pg.bgImg.complete)drawPageBg(ctx,pg,pg.w,pg.h);
       else if(pg.bg){ // görsel yolda: zarif yüklenme göstergesi (boş sayfa sanılmasın)
         ctx.save();ctx.fillStyle='rgba(17,24,39,.10)';
         ctx.font=(13/Math.max(.4,view.s))+'px Manrope,sans-serif';ctx.textAlign='center';
@@ -792,15 +850,56 @@ function sealOrphanLive(force){
   else{live=null;drawOverlay()}
   fwLeave();azOut();
 }
+/* ============================================================
+   AVUÇ İÇİ REDDİ (PALM REJECTION) + KALEM SİLGİ UCU
+   ------------------------------------------------------------
+   Ayarlar ekranı her kalem için "Palm Rejection: Açık" yazıyordu ama kodda
+   pointerType kontrolü YOKTU. Kalemle yazarken avuç ekrana değince
+   pointers.size 2 oluyor, pinch devreye giriyor, live=null ile çizgi ortadan
+   kesiliyor ve ekran yakınlaşıyordu. Dokunmatik ekranlı cihazda uygulama
+   kullanılamaz hâle geliyordu.
+
+   Kural: bir KALEM görüldüyse (aktif çizim ya da son 1.5 sn içinde), gelen
+   TÜM dokunuşlar yok sayılır. Pinch yalnız İKİ PARMAK birlikteyken çalışır;
+   kalem + parmak karışımında asla.
+
+   Ayrıca kalemin ARKA UCU (buttons bit 32 / button 5) artık silgi: kullanıcı
+   kalemi ters çevirince siler, kalkınca eski aracına döner.
+============================================================ */
+let lastPenT=0, penEraserPrev=null;
+function penActiveNow(){
+  if(S.penOnly)return true;                       // "yalnızca kalemle çiz" seçiliyse dokunuş hiç çizmez
+  if(!S.palmReject)return false;
+  if(live&&livePenType==='pen')return true;       // kalem kâğıtta: avuç kesinlikle yok sayılır
+  return performance.now()-lastPenT<1500;
+}
+let livePenType=null;
+function isPalm(e){
+  return e.pointerType==='touch'&&penActiveNow();
+}
 stage.addEventListener('pointerdown',e=>{
   if(e.target!==cv&&e.target!==ovl&&e.target!==stage)return;
+  if(e.pointerType==='pen')lastPenT=performance.now();
+  if(isPalm(e)){e.preventDefault();return}         // avuç / istemsiz dokunuş: tamamen yok say
+  /* Kalemin arka ucu (silgi ucu) → geçici silgi */
+  if(e.pointerType==='pen'&&((e.buttons&32)||e.button===5)){
+    if(penEraserPrev==null){penEraserPrev=tool;setTool('eraser')}
+  }
   commitText(); // açık metin kutusu varsa ÖNCE kaydet — yoksa blur'dan önce içerik sıfırlanıp yazı kayboluyordu
   hideMiniBar();
   try{stage.setPointerCapture(e.pointerId)}catch(_){} // bazı sentetik/iptal edilmiş işaretçilerde fırlatır — akışı asla kilitleme
   if(e.button===2){sealOrphanLive(true);rightPress(e);return} // çizim ortasında sağ tık: çizgiyi mühürle, asla askıda bırakma
   sealOrphanLive();
-  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pointers.size===2){const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:view.x,vy:view.y};live=null;fwLeave();azCancel();drawOverlay();return}
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,pt:e.pointerType});
+  /* PINCH YALNIZ İKİ PARMAKLA: kalem + avuç kombinasyonu artık yakınlaştırma
+     tetiklemez, çizgi ortasından kesilmez. */
+  if(pointers.size===2){const[a,b]=[...pointers.values()];
+    if(a.pt==='touch'&&b.pt==='touch'){
+      pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:view.x,vy:view.y};
+      live=null;fwLeave();azCancel();drawOverlay();return}
+    /* kalem varken ikinci işaretçiyi sessizce at — çizim bölünmez */
+    for(const[id,inf]of pointers)if(inf.pt==='touch'&&id!==strokePid)pointers.delete(id);
+  }
   if(!boardMode()&&!presenting){const g=toDoc(e);switchPage(bandAt(g.y))}
   const pt=localPt(e);
   if(spaceHeld||tool==='pan'||e.button===1){panning={sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y};return}
@@ -813,6 +912,11 @@ stage.addEventListener('pointerdown',e=>{
   if(tool==='solve'){solveDraft={a:pt,b:pt};return}
   if(tool==='line'){lineDraft={a:pt,b:pt};return}
   if(tool==='compass'){compassDraft={c:pt,r:0};return}
+  if(tool==='prot'){
+    if(!protractor){protractor={x:pt.x,y:pt.y};drawOverlay();return}
+    if(hitProt(pt)){drag={type:'prot',off:{x:pt.x-protractor.x,y:pt.y-protractor.y}};return}
+    protractor={x:pt.x,y:pt.y};drawOverlay();return;
+  }
   if(layer().locked){toast.error('Bu katman kilitli 🔒 — çizmek için katman panelinden kilidi aç.');return}
   const p0=S.pressure?(e.pressure||0.5):0.5;
   stabPt={x:pt.x,y:pt.y};
@@ -820,10 +924,12 @@ stage.addEventListener('pointerdown',e=>{
     opacity:(tool==='hl'?Math.min(penOp,.6):penOp)*(typeof pkFlowK==='function'?pkFlowK():1)*(curCP&&curCP.flow!=null?curCP.flow:1),
     pk:(typeof pkPressK==='function'?pkPressK():.8),nib:(typeof pkNibK==='function'?pkNibK():1),
     cp:curCP?{...curCP}:undefined,points:[{x:pt.x,y:pt.y,p:p0}]};
-  strokePid=e.pointerId;
+  strokePid=e.pointerId;livePenType=e.pointerType;
   fwEnter();azIn(e); // opsiyonlar: Odaklı Yazım Modu + Otomatik Odak Zoom
 });
 stage.addEventListener('pointermove',e=>{
+  if(e.pointerType==='pen')lastPenT=performance.now();
+  if(isPalm(e)&&!pointers.has(e.pointerId))return;      // avuç: hareketi de yok say
   if(rightState){if(ringOpen)ringMove(e);return}
   const info=pointers.get(e.pointerId);if(info){info.x=e.clientX;info.y=e.clientY}
   if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);
@@ -888,14 +994,41 @@ function inkFeed(evs){
       }
       const p=S.pressure?(ce.pressure||0.5):0.5;
       const lp=live.points.at(-1);
-      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s)live.points.push({x:stabPt.x,y:stabPt.y,p,t:performance.now()});
+      if(dist(lp,stabPt)>(live.cp?0.45:0.35)/view.s){
+        const np={x:stabPt.x,y:stabPt.y,p,t:performance.now()};
+        /* KALEM EĞİMİ (opsiyon, varsayılan KAPALI): Surface/Wacom kaleminin
+           yatırılma açısı okunur. tl = 0 (dik) … 1 (tam yatık) — kalem
+           yatırıldıkça çizgi genişler, dikleşince incelir; yön açısı da
+           kaydedilir. Kapalıyken tek bir alan bile yazılmaz, kalem motoru
+           birebir orijinal davranır. */
+        if(S.tilt&&ce.pointerType==='pen'){
+          const tx=ce.tiltX||0,ty=ce.tiltY||0;
+          const alt=(ce.altitudeAngle!=null)?ce.altitudeAngle:null;
+          const tl=alt!=null?clamp(1-alt/(Math.PI/2),0,1)
+                            :clamp(Math.hypot(tx,ty)/90,0,1);
+          if(tl>0.02){np.tl=+tl.toFixed(3);
+            np.az=(ce.azimuthAngle!=null)?+ce.azimuthAngle.toFixed(3)
+                                        :+Math.atan2(ty,tx).toFixed(3)}
+        }
+        live.points.push(np);
+      }
     }
 }
 /* canlı çizimi kare hızına (rAF) kilitle — pointermove seli overlay'i boğmasın */
 let liveRaf=false,liveEv=null;
 function requestLiveDraw(e){liveEv=e;if(liveRaf)return;liveRaf=true;
   requestAnimationFrame(()=>{liveRaf=false;if(live&&live.type==='stroke')drawLive(liveEv)})}
-stage.addEventListener('pointerup',e=>{pointers.delete(e.pointerId);finishPointer(e)});
+stage.addEventListener('pointerup',e=>{
+  if(e.pointerType==='pen')lastPenT=performance.now();
+  const vardi=pointers.has(e.pointerId);
+  pointers.delete(e.pointerId);
+  if(!vardi&&isPalm(e))return;                          // hiç kaydedilmemiş avuç dokunuşu
+  finishPointer(e);
+  /* Kalemin silgi ucu kalktı → önceki araca dön */
+  if(penEraserPrev!=null&&e.pointerType==='pen'&&!(e.buttons&32)){
+    const t=penEraserPrev;penEraserPrev=null;setTool(t);
+  }
+});
 stage.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);finishPointer(e)});
 function finishPointer(e){
   if(rightState){rightRelease(e);return}
@@ -963,7 +1096,7 @@ function commitStroke(){
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
   const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
   for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
-    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p})}np.push(o.points.at(-1));o.points=np}
+    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,tl:a.tl,az:a.az},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,tl:b.tl,az:b.az})}np.push(o.points.at(-1));o.points=np}
   if(o.tool==='hl'&&S.snapHl)o=snapStraighten(o);
   else if(cp){o=cpInk(o,cp);
     /* Render efekt tanımlayıcısı — serileştirilebilir, deterministik (seed'li) */
@@ -974,6 +1107,13 @@ function commitStroke(){
     if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
   else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
+  /* HIZDAN BASINÇ (opsiyon, varsayılan KAPALI): fare/parmak gerçek basınç
+     vermez (hep 0.5) — bu kalemlerde çizgi ölü düz kalınlıkta olur. Opsiyon
+     açıkken hızdan basınç sentezlenir; kapalıyken hiçbir şey değişmez. */
+  else if(S.mousePressure&&['ball','fountain','pencil'].includes(o.tool)){
+    const flat=o.points.every(p=>Math.abs((p.p??.5)-.5)<.03);
+    if(flat)o=matisInk(o);
+  }
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
@@ -1089,7 +1229,10 @@ function commitCompass(){const d=compassDraft;compassDraft=null;if(!d||d.r<4){dr
    Resimler ve kilitli katmanlar korunur. */
 function markEraseAt(pt){
   if(!live||!live.marks)return;
-  const rad=Math.max(8,penSize*2);let hitAny=false;
+  /* Silgi yarıçapı EKRAN boyutuna sabitlenir: %400 yakınlaştırmada kocaman,
+     %25'te iğne ucu olma sorunu biterdi. Belge birimine çevirirken view.s'e
+     bölünür — kullanıcı her zoom'da aynı fiziksel silgiyi hisseder. */
+  const rad=Math.max(8,penSize*2)/Math.max(.05,view.s);let hitAny=false;
   for(const l of page().layers){if(l.locked||!l.visible)continue;
     for(const o of l.objects){
       if(o._mk||!eraserAllowed(o))continue;
@@ -1233,12 +1376,15 @@ function drawOverlay(){
   if(lineDraft){const{a,b}=lineDraft;octx.strokeStyle=penColor;octx.lineWidth=penSize;octx.lineCap='round';
     octx.beginPath();octx.moveTo(a.x,a.y);octx.lineTo(b.x,b.y);octx.stroke();
     const L=dist(a,b),ang=(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI+360)%360;
-    hudLabel((a.x+b.x)/2,(a.y+b.y)/2-18/view.s,`${(L/37.8).toFixed(1)} cm · ${ang.toFixed(1)}°`)}
+    hudLabel((a.x+b.x)/2,(a.y+b.y)/2-18/view.s,`${fmtLen(L)} · ${ang.toFixed(1)}°`)}
+  /* İLETKİ — drawProtractor() kodda hazırdı ama hiçbir yerden çağrılmıyordu.
+     Artık araç seçilince tuvale yerleşir, sürüklenerek taşınır. */
+  if(protractor)drawProtractor();
   if(compassDraft&&compassDraft.r>2){const d=compassDraft;octx.strokeStyle=penColor;octx.lineWidth=penSize;
     octx.beginPath();octx.arc(d.c.x,d.c.y,d.r,0,7);octx.stroke();
     octx.setLineDash([4/view.s,4/view.s]);octx.lineWidth=1/view.s;octx.beginPath();octx.moveTo(d.c.x,d.c.y);
     octx.lineTo(d.c.x+d.r,d.c.y);octx.stroke();octx.setLineDash([]);
-    hudLabel(d.c.x,d.c.y-d.r-16/view.s,`r = ${(d.r/37.8).toFixed(1)} cm`)}
+    hudLabel(d.c.x,d.c.y-d.r-16/view.s,`r = ${fmtLen(d.r)}`)}
 }
 function hudLabel(x,y,txt){octx.save();octx.font=`700 ${12/view.s}px Manrope`;const w=octx.measureText(txt).width+14/view.s;
   octx.fillStyle='rgba(20,26,58,.92)';roundRect(octx,x-w/2,y-10/view.s,w,20/view.s,6/view.s);octx.fill();
@@ -1468,7 +1614,7 @@ function capturePageRegion(pg,x0,y0,w,h){
   const k=clamp(1000/Math.max(w,1),2,4),c=document.createElement('canvas');c.width=Math.max(2,Math.round(w*k));c.height=Math.max(2,Math.round(h*k));
   const g=c.getContext('2d');g.imageSmoothingQuality='high';g.scale(k,k);g.translate(-x0,-y0);
   g.fillStyle='#FBF8F0';g.fillRect(x0,y0,w,h);
-  if(pg.bgImg&&pg.bgImg.complete)g.drawImage(pg.bgImg,0,0,pg.w,pg.h);
+  if(pg.bgImg&&pg.bgImg.complete)drawPageBg(g,pg,pg.w,pg.h);
   paperPattern(g,pg.paper,x0,y0,x0+w,y0+h);
   for(const l of pg.layers){if(!l.visible)continue;g.save();g.globalAlpha=l.opacity;for(const o of l.objects)drawObj(g,o);g.restore()}
   return c.toDataURL('image/png');
@@ -1581,7 +1727,7 @@ wipe:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="curren
 const TOOLS=[
  {id:'select',n:'Seçim',k:'select'},{id:'pan',n:'Kaydır (El)',k:''},'—',
  {id:'smart',n:'Akıllı Kalem',k:'smart'},{id:'ball',n:'Tükenmez Kalem',k:'ball'},{id:'fountain',n:'Dolma Kalem',k:'fountain'},{id:'pencil',n:'Kurşun Kalem',k:'pencil'},{id:'hl',n:'Fosforlu Kalem',k:'hl'},{id:'eraser',n:'Akıllı Silgi',k:'eraser'},{id:'wipe',n:'Tahtayı Temizle',k:''},'—',
- {id:'text',n:'Metin',k:'text'},{id:'line',n:'Akıllı Cetvel',k:'line'},{id:'compass',n:'Dijital Pergel',k:'compass'},{id:'shapes',n:'Şekiller & Figürler',k:'shapes'},'—',
+ {id:'text',n:'Metin',k:'text'},{id:'line',n:'Akıllı Cetvel',k:'line'},{id:'compass',n:'Dijital Pergel',k:'compass'},{id:'prot',n:'İletki (Açıölçer)',k:'prot'},{id:'shapes',n:'Şekiller & Figürler',k:'shapes'},'—',
  {id:'laser',n:'Lazer İşaretçi',k:''},{id:'spot',n:'Spot Işığı',k:''},'—',
  {id:'solve',n:'Çözüm Modu',k:'solve'}
 ];
@@ -1608,7 +1754,9 @@ function markRail(){$$('.rtool').forEach(b=>{b.classList.toggle('on',b.dataset.t
   if(b.dataset.t==='spot')b.classList.toggle('on2',spotOn);
   if(b.dataset.t==='solve')b.classList.toggle('on2',!!scratch||tool==='solve')})}
 const TOOLNAMES={select:'Seçim',smart:'Akıllı Kalem',ball:'Tükenmez',fountain:'Dolma Kalem',pencil:'Kurşun Kalem',hl:'Fosforlu',eraser:'Akıllı Silgi',text:'Metin',line:'Akıllı Cetvel',compass:'Pergel',laser:'Lazer',spot:'Spot',pan:'Kaydır',sticker:'Çıkartma',solve:'Soru Taşı'};
-function setTool(t){const _PENS=['smart','ball','fountain','pencil','hl'];if(_PENS.includes(tool)&&tool!==t)prevPen=tool;curCP=null;tool=t;if(t!=='select'){selection=[];renderSelInfo();redraw()}
+function setTool(t){const _PENS=['smart','ball','fountain','pencil','hl'];if(_PENS.includes(tool)&&tool!==t)prevPen=tool;curCP=null;
+  if(tool==='prot'&&t!=='prot'){protractor=null;try{drawOverlay()}catch(_){}}   // iletkiden çıkınca tuvalden kalkar
+  tool=t;if(t!=='select'){selection=[];renderSelInfo();redraw()}
   if(S.applyDefaults&&DEF[t]!==undefined){penSize=DEF[t];$('#sizeRng').value=penSize;$('#sizeOut').textContent=penSize}
   if(S.applyDefaults&&typeof PCFG!=='undefined'&&PCFG[t]){penOp=PCFG[t].op??penOp;
     $('#opRng').value=Math.round(penOp*100);$('#opOut').textContent=Math.round(penOp*100)}
@@ -1715,7 +1863,7 @@ $$('.stab').forEach(t=>t.addEventListener('click',()=>{
 }));
 function renderPageTo(c,p,scale){INK.z=1;const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
   g.setTransform(scale,0,0,scale,0,0);g.fillStyle='#FBF8F0';g.fillRect(0,0,p.w,p.h);
-  if(p.bgImg&&p.bgImg.complete)g.drawImage(p.bgImg,0,0,p.w,p.h);
+  if(p.bgImg&&p.bgImg.complete)drawPageBg(g,p,p.w,p.h);
   paperPattern(g,p.paper,0,0,p.w,p.h);
   for(const l of p.layers){if(!l.visible)continue;g.save();g.globalAlpha=l.opacity;for(const o of l.objects)drawObj(g,o);g.restore()}}
 function dupPage(i){const sPg=doc.pages[i];const c=sanitizePage(JSON.parse(JSON.stringify(serializePage(sPg),jsonSafe)));c.id=uid();c.name+=' (kopya)';
@@ -1778,7 +1926,32 @@ $('#pgPaper').addEventListener('change',e=>{doc.pages[pageDlgIdx].paper=e.target
 $('#pgInf').addEventListener('change',e=>{doc.pages[pageDlgIdx].infinite=e.target.checked;invalidateLayout();fit();renderPages();updCornerPg()});
 $('#pgBk').addEventListener('change',e=>{doc.pages[pageDlgIdx].bookmark=e.target.checked;renderPages()});
 $('#pgBg').addEventListener('click',()=>{imgTarget='bg';$('#fileInp').accept='image/*';$('#fileInp').click();pageDlg.close()});
-$('#pgRot').addEventListener('click',()=>{const p=doc.pages[pageDlgIdx];[p.w,p.h]=[p.h,p.w];invalidateLayout();fit();renderPages()});
+$('#pgRot').addEventListener('click',()=>{
+  /* Eskiden yalnız w/h takas ediliyordu: nesneler ve arka plan yerinde kalıyor,
+     içerik sayfanın dışına taşıyordu. Artık sayfa ve İÇERİĞİ birlikte 90° döner. */
+  const p=doc.pages[pageDlgIdx];if(!p)return;
+  pgSnapshot();
+  const W=p.w,H=p.h;
+  const rot=(x,y)=>({x:H-y,y:x});                 // +90°: (x,y) → (H-y, x)
+  const walk=o=>{
+    if(o.type==='stroke'&&o.points){o.points=o.points.map(q=>{const r=rot(q.x,q.y);
+      return Object.assign({},q,{x:r.x,y:r.y})});o._bb=null;if(typeof _inkCache!=='undefined')_inkCache.delete(o)}
+    else if(o.type==='group'&&o.children)o.children.forEach(walk);
+    else if(o.x!=null&&o.y!=null){
+      const w=o.w||0,h=o.h||0;
+      const r=rot(o.x,o.y+h);                      // sol-üst köşe döndükten sonra
+      o.x=r.x;o.y=r.y;
+      if(o.w!=null&&o.h!=null){const t=o.w;o.w=o.h;o.h=t}
+      o.rot=((o.rot||0)+90)%360;o._bb=null;
+    }
+  };
+  p.layers.forEach(l=>l.objects.forEach(walk));
+  p.bgRot=(((p.bgRot||0)+90)%360);
+  [p.w,p.h]=[H,W];
+  p._edge=null;p._edgeN=null;
+  invalidateLayout();fit();renderPages();if(window.LIB)LIB.dirty();
+  toast.action('Sayfa 90° döndürüldü','Geri al',()=>{if(pgUndo())toast('Geri alındı ✔')});
+});
 $('#pgDel').addEventListener('click',()=>{if(doc.pages.length===1)return toast.error('Son sayfa silinemez — belgede en az bir sayfa kalmalı.');
   const nm=doc.pages[pageDlgIdx]&&doc.pages[pageDlgIdx].name||('Sayfa '+(pageDlgIdx+1));
   pageDlg.close();
@@ -2192,13 +2365,21 @@ $('#expGo').addEventListener('click',async()=>{
     /* jsPDF de gömülüdür — çevrimdışı dışa aktarma çalışsın */
     try{if(!window.jspdf){try{await loadScript(location.origin+'/jspdf/2.5.1/jspdf.umd.min.js')}
       catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')}}
+      /* GERÇEK KÂĞIT BOYUTU — yazdırınca ölçü tutsun.
+         Eskiden unit:'px', format:[1000,1414] veriliyordu; jsPDF px'i 96 DPI
+         kabul ettiği için çıktı 264×373 mm oluyordu (A4 değil). Yazdıran
+         kullanıcının içeriği küçülüyor/kırpılıyordu. Artık her sayfa kendi
+         gerçek kâğıt ölçüsüyle (mm) yazılır. */
       const{jsPDF}=window.jspdf;let pdf=null;
       for(const p of doc.pages){const k=1.5,c=document.createElement('canvas');c.width=p.w*k;c.height=p.h*k;renderPageTo(c,p,k);
+        const wCm=pageWidthCm(p), hCm=wCm*p.h/p.w;
+        const wMm=+(wCm*10).toFixed(2), hMm=+(hCm*10).toFixed(2);
         const or=p.w>p.h?'l':'p';
-        if(!pdf)pdf=new jsPDF({orientation:or,unit:'px',format:[p.w,p.h]});else pdf.addPage([p.w,p.h],or);
-        pdf.addImage(c.toDataURL('image/jpeg',.9),'JPEG',0,0,p.w,p.h)}
-      pdf.save(title+'.pdf');toast('PDF indirildi')}
-    catch(err){toast('PDF dışa aktarılamadı: '+err.message)}
+        if(!pdf)pdf=new jsPDF({orientation:or,unit:'mm',format:[wMm,hMm]});
+        else pdf.addPage([wMm,hMm],or);
+        pdf.addImage(c.toDataURL('image/jpeg',.9),'JPEG',0,0,wMm,hMm)}
+      pdf.save(title+'.pdf');toast('PDF indirildi — gerçek kâğıt ölçüsünde ✓')}
+    catch(err){toast.error('PDF dışa aktarılamadı: '+err.message)}
   }
 });
 function dl(url,name){const a=document.createElement('a');a.href=url;a.download=name;a.click()}
@@ -2406,6 +2587,52 @@ $('#sLeft').addEventListener('change',e=>{S.leftHanded=e.target.checked;applyLef
 $('#sCorner').addEventListener('change',e=>{S.cornerUI=e.target.checked;$('#corner').style.display=S.cornerUI?'flex':'none';if(typeof saveOpts==='function')saveOpts()});
 bindT('#sMini','miniBar');bindT('#sRing','ring');
 $('#sGrain').addEventListener('change',e=>{S.grain=e.target.checked;document.body.classList.toggle('nograin',!S.grain);saveOpts()});
+/* KALEM DONANIMI + ÖLÇÜ AYARLARI
+   Avuç içi reddi ve kalemin silgi ucu GİRDİ YÖNLENDİRMESİDİR; mürekkep
+   matematiğine dokunmaz, bu yüzden varsayılan AÇIK. Eğim ve farede basınç
+   çizginin görünümünü değiştirir — bu yüzden ikisi de varsayılan KAPALI,
+   isteyen açar. */
+function buildPenHwUI(){
+  const host=document.getElementById('sp-draw')||document.getElementById('sp-opts');
+  if(!host||host.dataset.penhw)return false;
+  host.dataset.penhw='1';
+  const el=h=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild};
+  const row=(id,t,d,on,fn)=>{
+    const r=el('<div class="set-row"><div><div class="t">'+t+'</div><div class="d">'+d+
+      '</div></div><label class="sw-toggle"><input type="checkbox" id="'+id+'"><i></i></label></div>');
+    const i=r.querySelector('input');i.checked=!!on;
+    i.addEventListener('change',()=>{fn(i.checked);saveOpts()});return r};
+  host.appendChild(el('<div class="set-sec-t" style="margin-top:18px">Kalem Donanımı</div>'));
+  host.appendChild(row('sPalm','✋ Avuç İçi Reddi',
+    'Kalemle yazarken ekrana değen avuç ve istemsiz dokunuşlar yok sayılır; iki parmak yakınlaştırma '+
+    'yalnız <b>iki parmak birlikteyken</b> çalışır. Kalem + parmak karışımında çizgi artık ortadan kesilmez.',
+    S.palmReject,v=>{S.palmReject=v}));
+  host.appendChild(row('sPenOnly','🖊️ Yalnızca Kalemle Çiz',
+    'Açıkken parmakla çizim yapılamaz — parmak sadece kaydırma/yakınlaştırma için kullanılır. '+
+    'Tablet ve dokunmatik ekranda en temiz yazma deneyimi.',
+    S.penOnly,v=>{S.penOnly=v}));
+  host.appendChild(row('sTilt','📐 Kalem Eğimi (Tilt)',
+    'Surface/Wacom kalemini <b>yatırınca çizgi genişler</b>, dikleştirince incelir — gerçek kaligrafi ve '+
+    'kurşun kalem tarama hissi. Kapalıyken kalem motoru birebir varsayılan davranır.',
+    S.tilt,v=>{S.tilt=v}));
+  host.appendChild(row('sMousePr','🖱️ Farede Basınç Simülasyonu',
+    'Fare ve parmak gerçek basınç vermez; bu kalemlerde çizgi düz kalınlıkta kalır. Açıkken '+
+    '<b>hızdan basınç sentezlenir</b> (hızlı = ince, yavaş = kalın). Kalemle çizerken hiçbir etkisi yoktur.',
+    S.mousePressure,v=>{S.mousePressure=v;redraw()}));
+  /* Ölçü birimi */
+  const seg=el('<div class="set-row"><div><div class="t">📏 Ölçü Birimi</div><div class="d">'+
+    'Cetvel ve pergelin gösterdiği birim. Ölçek artık <b>sayfanın gerçek kâğıt boyutundan</b> hesaplanır '+
+    '(A4 = 21 cm); önceki sürümlerde sabit bir varsayım yüzünden ~%26 sapma vardı.</div></div>'+
+    '<div class="pk-seg" id="sUnit" style="flex:0 0 auto">'+
+    ['cm','mm','in'].map(u=>'<button type="button" data-v="'+u+'"'+((S.unit||'cm')===u?' class="on"':'')+'>'+u+'</button>').join('')+
+    '</div></div>');
+  seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');S.unit=b.dataset.v;saveOpts();drawOverlay()}));
+  host.appendChild(seg);
+  return true;
+}
+function buildPenHwSoon(n){if(buildPenHwUI()||n<=0)return;setTimeout(()=>buildPenHwSoon(n-1),400)}
 function syncSettingsUI(){$('#sShape').checked=S.shapeFix;$('#sSnapHl').checked=S.snapHl;$('#sAngle').checked=S.angleSnap;$('#sSnapGrid').checked=S.snapGrid}
 /* kalem varsayılanları */
 const DEFIDS={text:'#dText'}; // kalem kalınlıkları Kalem Stüdyosu kartlarından yönetilir
@@ -2519,7 +2746,7 @@ window.addEventListener('keydown',e=>{
   const act=Object.keys(KEYMAP).find(a=>KEYMAP[a]===k);
   if(act){
     e.preventDefault();
-    const tm={select:1,smart:1,ball:1,fountain:1,pencil:1,hl:1,eraser:1,text:1,line:1,compass:1};
+    const tm={select:1,smart:1,ball:1,fountain:1,pencil:1,hl:1,eraser:1,text:1,line:1,compass:1,prot:1};
     if(tm[act]){setTool(act);return}
     if(act==='shapes'){toggleShapePop();return}
     if(act==='fit'){fitSmart();return}
@@ -3505,7 +3732,7 @@ const LIB=(()=>{
     try{if(!th){const p=pages[0];const w=220,h=Math.max(80,Math.min(300,Math.round(w*p.h/p.w)));
       const c=document.createElement('canvas');c.width=w;c.height=h;
       const g=c.getContext('2d');g.fillStyle='#FBF8F0';g.fillRect(0,0,w,h);
-      if(p.bgImg&&p.bgImg.complete)g.drawImage(p.bgImg,0,0,w,h);
+      if(p.bgImg&&p.bgImg.complete)drawPageBg(g,p,w,h);
       else if(p.bg){const im=new Image();
         await new Promise(r=>{im.onload=r;im.onerror=r;im.src=p.bg});
         g.drawImage(im,0,0,w,h)}
@@ -3847,4 +4074,5 @@ window.addEventListener('keydown',e=>{
   const st=$$('.set-tab').find(x=>x.dataset.s==='storage');if(st)st.addEventListener('click',log);
   log();
  }}
+buildPenHwSoon(10);
 init();
