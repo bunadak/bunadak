@@ -244,7 +244,7 @@ func (a *App) ReadFileAsDataURL(path string) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "2.9.6",
+		"version": "3.0.0",
 		"channel": "pro",
 	}
 }
@@ -287,4 +287,24 @@ func (a *App) onSecondInstance(data options.SecondInstanceData) {
 	runtime.WindowUnminimise(a.ctx)
 	runtime.Show(a.ctx)
 	runtime.EventsEmit(a.ctx, "notis:second-instance", data.Args)
+}
+
+// --- YAZDIRMA & DOSYA KÖPRÜSÜ ------------------------------------------
+
+// PrintDocument, ön yüzün ürettiği PDF'i geçici dosyaya yazıp Windows'un
+// yazdırma zincirine devreder. Dönen değer yazdırılan geçici dosyanın yoludur.
+func (a *App) PrintDocument(name string, dataURL string) (string, error) {
+	return printData(name, dataURL)
+}
+
+// RevealFile, verilen dosyanın bulunduğu klasörü Gezgin'de açar
+// ("Dışa aktarıldı → Klasörü aç" düğmesi için).
+func (a *App) RevealFile(path string) error {
+	return revealPath(path)
+}
+
+// StoragePath, kayıtların gerçekte nerede durduğunu döndürür — Ayarlar
+// ekranındaki bilgi metni artık uydurma bir yol yerine bunu gösterir.
+func (a *App) StoragePath() string {
+	return a.dir
 }

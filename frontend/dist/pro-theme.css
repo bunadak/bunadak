@@ -4,7 +4,7 @@
  * Bu dosya orijinal Notis arayüzünün ÜZERİNE biner. Hiçbir özelliği, düzeni ya
  * da mantığı değiştirmez — yalnızca renk, cam efekti (blur), gölge, köşe
  * yumuşaklığı, buton/kaydırıcı etkileşimleri ve geçiş animasyonlarını premium
- * seviyeye taşır. Tüm temalarla (ink/light/netflix/disney/prime/rakuten/youtube)
+ * seviyeye taşır. Tüm temalarla (ink/light/crimson/midnight/ice/burgundy/paper)
  * uyumludur; markanın amber "N" kimliğini korur.
  * ========================================================================== */
 
@@ -21,7 +21,7 @@
   --acc-glow: 0 6px 20px -4px color-mix(in srgb, var(--acc) 55%, transparent);
 }
 /* light temalarda saç-çizgileri koyu tarafa çevir */
-[data-theme="light"], [data-theme="youtube"] {
+[data-theme="light"], [data-theme="paper"] {
   --hair: rgba(20, 28, 60, .08);
   --hair-strong: rgba(20, 28, 60, .16);
   --ring: 0 0 0 1px rgba(20, 28, 60, .05);
@@ -217,16 +217,16 @@ body.pro-oled {
 }
 body.pro-oled #cv, body.pro-oled #ovl { image-rendering: high-quality; }
 /* koyu temalarda zemin gerçek OLED siyahına iner, paneller zeminden kopar */
-:root:not([data-theme="light"]):not([data-theme="youtube"]) body.pro-oled {
+:root:not([data-theme="light"]):not([data-theme="paper"]) body.pro-oled {
   --bg: #000000;
   --shadow: 0 14px 44px rgba(0,0,0,.72);
 }
-:root:not([data-theme="light"]):not([data-theme="youtube"]) body.pro-oled #stage {
+:root:not([data-theme="light"]):not([data-theme="paper"]) body.pro-oled #stage {
   background: #000000;
 }
 /* aydınlık temalarda: daha berrak beyaz + belirgin derinlik */
 :root[data-theme="light"] body.pro-oled,
-:root[data-theme="youtube"] body.pro-oled {
+:root[data-theme="paper"] body.pro-oled {
   --shadow: 0 12px 36px rgba(20,28,60,.20);
 }
 /* metin ve göstergeler bir tık daha keskin */
@@ -248,7 +248,7 @@ body.pro-vignette #stage::before {
   background: radial-gradient(120% 90% at 50% 46%, transparent 58%, rgba(0,0,0,.05) 76%, rgba(0,0,0,.17) 100%);
 }
 :root[data-theme="light"] body.pro-vignette #stage::before,
-:root[data-theme="youtube"] body.pro-vignette #stage::before {
+:root[data-theme="paper"] body.pro-vignette #stage::before {
   background: radial-gradient(120% 90% at 50% 46%, transparent 60%, rgba(25,32,60,.04) 78%, rgba(25,32,60,.12) 100%);
 }
 

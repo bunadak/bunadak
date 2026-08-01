@@ -8,27 +8,27 @@
   --tx:#1B2140; --mut:#5D6690; --acc:#E8930C; --acc-ink:#FFF7E8;
   --acc2:#0FA98E; --dgr:#E23B54; --shadow:0 10px 26px rgba(30,40,90,.14);
 }
-[data-theme="netflix"]{
+[data-theme="crimson"]{
   --bg:#0B0B0B; --p1:#141414; --p2:#1F1F1F; --p3:#2B2B2B; --line:#353535;
   --tx:#FFFFFF; --mut:#9C9C9C; --acc:#E50914; --acc-ink:#FFFFFF;
   --acc2:#46D369; --dgr:#E50914; --shadow:0 10px 30px rgba(0,0,0,.6);
 }
-[data-theme="disney"]{
+[data-theme="midnight"]{
   --bg:#04081A; --p1:#0F1B33; --p2:#152441; --p3:#1E3157; --line:#28426F;
   --tx:#F0F4FF; --mut:#8FA3C8; --acc:#0072D2; --acc-ink:#FFFFFF;
   --acc2:#63E2FF; --dgr:#FF5D73; --shadow:0 10px 30px rgba(2,6,24,.6);
 }
-[data-theme="prime"]{
+[data-theme="ice"]{
   --bg:#0F171E; --p1:#161F2A; --p2:#1E2A38; --p3:#2A3B4E; --line:#35485E;
   --tx:#EAF3FA; --mut:#8AA0B4; --acc:#00A8E1; --acc-ink:#04222E;
   --acc2:#FF9900; --dgr:#FF5D73; --shadow:0 10px 30px rgba(3,9,15,.6);
 }
-[data-theme="rakuten"]{
+[data-theme="burgundy"]{
   --bg:#120D0E; --p1:#1C1416; --p2:#271B1E; --p3:#342327; --line:#463036;
   --tx:#FBEFF1; --mut:#B08E95; --acc:#BF0000; --acc-ink:#FFFFFF;
   --acc2:#FF7A85; --dgr:#FF4757; --shadow:0 10px 30px rgba(10,4,5,.6);
 }
-[data-theme="youtube"]{
+[data-theme="paper"]{
   --bg:#F1F1F1; --p1:#FFFFFF; --p2:#F5F5F5; --p3:#E7E7E7; --line:#DCDCDC;
   --tx:#0F0F0F; --mut:#606060; --acc:#FF0000; --acc-ink:#FFFFFF;
   --acc2:#065FD4; --dgr:#CC0000; --shadow:0 10px 26px rgba(0,0,0,.14);
@@ -269,7 +269,7 @@ body:not(.nograin)::after{content:"";position:fixed;inset:0;z-index:2000;pointer
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
 body:not(.nograin) #stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;
   background:radial-gradient(120% 92% at 50% 42%, transparent 62%, rgba(3,6,18,.15) 100%)}
-[data-theme="light"] body:not(.nograin) #stage::after,[data-theme="youtube"] body:not(.nograin) #stage::after{
+[data-theme="light"] body:not(.nograin) #stage::after,[data-theme="paper"] body:not(.nograin) #stage::after{
   background:radial-gradient(120% 92% at 50% 42%, transparent 68%, rgba(20,30,70,.07) 100%)}
 .tbtn,.rtool,.cbtn,.scbtn,.pbtn,.mini,.chip,.shp,.sym,.thm,.stab,.set-tab{transition:background .18s var(--ease),color .18s var(--ease),transform .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease)}
 /* Kalite odaklı mikro animasyonlar: yaylı vurgu, yumuşak iniş */

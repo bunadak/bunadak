@@ -1520,6 +1520,36 @@ function endDrag(){
   drag=null;redraw();drawOverlay();renderSelInfo();
 }
 /* ============================================================
+   YER İMLERİ VE SAYFAYA GİTME (madde 51, 93)
+   Sayfa kartında yıldız yakılabiliyordu ama yer imi LİSTESİ, atlama ya da
+   filtreleme yoktu: 300 sayfalık bir belgede 20 yer imi koyan kullanıcı
+   hiçbirine ulaşamıyordu. Gezinmenin tek yolu tekerlekle kaydırmaktı.
+============================================================ */
+function toggleBookmark(i){
+  const p=doc.pages[i==null?cur:i];if(!p)return;
+  p.bookmark=!p.bookmark;renderPages();if(window.LIB)LIB.dirty();
+  toast(p.bookmark?'⭐ Yer imi eklendi — Alt+↑/↓ ile yer imleri arasında gez'
+                  :'Yer imi kaldırıldı');
+}
+function gotoBookmark(dir){
+  const n=doc.pages.length;
+  const marks=[];for(let i=0;i<n;i++)if(doc.pages[i].bookmark)marks.push(i);
+  if(!marks.length)return toast.error('Hiç yer imi yok — Ctrl+B ile ekle');
+  let t=null;
+  if(dir>0)t=marks.find(i=>i>cur);
+  else{for(const i of marks)if(i<cur)t=i}
+  if(t==null)t=dir>0?marks[0]:marks[marks.length-1];
+  gotoPage(t);toast('Yer imi: sayfa '+(t+1)+' / '+n);
+}
+async function gotoPageAsk(){
+  const n=doc.pages.length;
+  const v=await askText('Sayfaya git','1 – '+n+' arasında bir sayfa numarası yaz.',String(cur+1));
+  if(v==null)return;
+  const i=Math.round(parseFloat(String(v).replace(',','.')))-1;
+  if(!isFinite(i)||i<0||i>=n)return toast.error('Geçersiz sayfa numarası (1 – '+n+')');
+  gotoPage(i);
+}
+/* ============================================================
    Z-SIRASI · GRUP ÇÖZME · SEÇİME STİL UYGULAMA
    Üçü de eksikti: yanlışlıkla üste gelen bir fosforlu altındaki yazıyı
    kalıcı örtüyordu, şekil kütüphanesinden gelen her şey sonsuza kadar grup
@@ -2176,8 +2206,15 @@ function thumbInto(c,p){
   if(p._th&&p._thK===thumbKey(p)){paintThumb(c,p);return}
   if(THOBS)THOBS.observe(c);else paintThumb(c,p);
 }
+let pgFilter='',pgBmOnly=false;
 function renderPages(){if(scratch)return;const el=$('#pgList');if(!document.body.classList.contains('side-open'))return;el.innerHTML='';
+  const q=pgFilter.trim().toLocaleLowerCase('tr');
+  let gorunen=0;
   doc.pages.forEach((p,i)=>{
+    /* Filtre: yer imi ve ad/numara araması — 300 sayfalık belgede aradığını bul */
+    if(pgBmOnly&&!p.bookmark)return;
+    if(q&&!((p.name||'').toLocaleLowerCase('tr').includes(q)||String(i+1)===q))return;
+    gorunen++;
     const d=document.createElement('div');d.className='pg'+(i===cur?' on':'');d.dataset.i=i;
     // Büyük görsel önizleme (GoodNotes tarzı kart)
     /* KÜÇÜK RESİM ÖNBELLEĞİ + TEMBEL ÇİZİM
@@ -2212,7 +2249,18 @@ function renderPages(){if(scratch)return;const el=$('#pgList');if(!document.body
     d.addEventListener('dblclick',()=>openPageDlg(i));
     el.appendChild(d);
   });
+  if(!gorunen){
+    const e0=document.createElement('div');e0.className='empty';
+    e0.style.cssText='padding:22px;text-align:center;color:var(--mut);font-size:12.5px';
+    e0.textContent=pgBmOnly?'Bu belgede yer imi yok — Ctrl+B ile ekle.':'Eşleşen sayfa yok.';
+    el.appendChild(e0);
+  }
 }
+/* Sayfa paneli araçları: arama · yalnız yer imleri · sayfaya git */
+{const q=$('#pgSearch'),bf=$('#pgBmFilter'),gt=$('#pgGoto');
+ if(q)q.addEventListener('input',()=>{pgFilter=q.value;renderPages()});
+ if(bf)bf.addEventListener('click',()=>{pgBmOnly=!pgBmOnly;bf.classList.toggle('on',pgBmOnly);renderPages()});
+ if(gt)gt.addEventListener('click',()=>gotoPageAsk());}
 function markPages(){$$('#pgList .pg').forEach(d=>d.classList.toggle('on',+d.dataset.i===cur))}
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function paperName(p){return{plain:'Düz',lined:'Çizgili',dotted:'Noktalı',grid:'Kareli',graph:'Milimetrik',iso:'İzometrik',coord:'Koordinat'}[p]||p}
@@ -2314,9 +2362,30 @@ $('#stkInp').addEventListener('change',e=>{const files=[...e.target.files];let n
 ============================================================ */
 let imgTarget='object';
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(Error('yüklenemedi'));document.head.appendChild(s)})}
-$('#importBtn').addEventListener('click',()=>{imgTarget='object';$('#fileInp').accept='.pdf,image/*';$('#fileInp').click()});
+$('#importBtn').addEventListener('click',()=>{imgTarget='object';$('#fileInp').accept='.pdf,.notis,image/*';$('#fileInp').click()});
+/* .notis GERİ AÇMA (madde 20)
+   "Düzenlenebilir proje dosyası" dışa aktarılıyor ama geri açılamıyordu —
+   tek yönlü bir formattı. Artık doğrulanıp kütüphaneye eklenir ve açılır. */
+async function importNotis(f){
+  try{
+    const txt=await f.text();
+    let o;try{o=JSON.parse(txt)}catch(_){throw new Error('dosya okunamadı (geçerli JSON değil)')}
+    const pages=o&&o.pages;
+    if(!Array.isArray(pages)||!pages.length)throw new Error('içinde sayfa yok');
+    for(const p of pages){
+      if(!p||!Array.isArray(p.layers)||!p.w||!p.h)throw new Error('sayfa yapısı bozuk');
+    }
+    pages.forEach(p=>{sanitizePage(p);p.id=p.id||uid();
+      p.layers.forEach(l=>{l.id=l.id||uid();(l.objects||[]).forEach(hydrate)})});
+    const title=(o.title||f.name.replace(/\.notis$/i,''))||'Proje';
+    const id=await LIB.saveExternal(title,pages,'board');
+    await LIB.openWork(id);
+    toast('“'+title+'” açıldı — '+pages.length+' sayfa 📂');
+  }catch(err){toast.error('.notis dosyası açılamadı: '+(err&&err.message||err))}
+}
 $('#fileInp').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(/\.notis$/i.test(f.name)){await importNotis(f);return}
   if(f.type==='application/pdf'){await importPDF(f);return}
   const r=new FileReader();
   r.onload=()=>{const im=new Image();im.onload=()=>{
@@ -2369,6 +2438,7 @@ stage.addEventListener('dragover',e=>{e.preventDefault()});
 stage.addEventListener('drop',e=>{e.preventDefault();
   const fs=e.dataTransfer&&e.dataTransfer.files;if(!fs||!fs.length)return;
   for(const f of fs){
+    if(/\.notis$/i.test(f.name)){importNotis(f);return}
     if(f.type==='application/pdf'){importPDF(f);return}
     if(f.type.startsWith('image/')){importImageFile(f);return}
   }
@@ -2672,8 +2742,29 @@ $('#expGo').addEventListener('click',async()=>{
         dl(c.toDataURL('image/png'),title+'.png');
       }
     }}
-  else if(fmt==='notis'){const data=JSON.stringify({title:doc.title,pages:doc.pages.map(p=>serializePage(p))},jsonSafe);
+  else if(fmt==='notis'){const data=JSON.stringify({v:1,app:'notis',title:doc.title,
+      pages:doc.pages.map(p=>serializePage(p))},jsonSafe);
     dl('data:application/json;charset=utf-8,'+encodeURIComponent(data),title+'.notis')}
+  else if(fmt==='svg'){
+    try{
+      const p=scratch?scratch.page:doc.pages[cur];
+      const svg=pageToSVG(p);
+      await dl('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),title+'.svg');
+    }catch(err){toast.error('SVG oluşturulamadı: '+(err&&err.message||err))}
+  }
+  else if(fmt==='print'){
+    /* YAZDIRMA (madde 75): sayfalar gerçek kâğıt ölçüsünde PDF'e basılır ve
+       Windows'un kendi yazdırma zincirine devredilir. */
+    const A=goApp();
+    if(!A||!A.PrintDocument)return toast.error('Yazdırma yalnız masaüstü sürümünde kullanılabilir.');
+    toast('Yazdırma hazırlanıyor…');
+    try{
+      const data=await buildPDFDataURL(title);
+      if(!data)return;
+      await A.PrintDocument(title+'.pdf',data);
+      toast('Yazdırma penceresine gönderildi 🖨');
+    }catch(err){toast.error('Yazdırılamadı: '+(err&&err.message||err))}
+  }
   else{
     toast('PDF hazırlanıyor…');
     /* jsPDF de gömülüdür — çevrimdışı dışa aktarma çalışsın */
@@ -2684,19 +2775,106 @@ $('#expGo').addEventListener('click',async()=>{
          kabul ettiği için çıktı 264×373 mm oluyordu (A4 değil). Yazdıran
          kullanıcının içeriği küçülüyor/kırpılıyordu. Artık her sayfa kendi
          gerçek kâğıt ölçüsüyle (mm) yazılır. */
-      const{jsPDF}=window.jspdf;let pdf=null;
-      for(const p of doc.pages){const k=1.5,c=document.createElement('canvas');c.width=p.w*k;c.height=p.h*k;renderPageTo(c,p,k);
-        const wCm=pageWidthCm(p), hCm=wCm*p.h/p.w;
-        const wMm=+(wCm*10).toFixed(2), hMm=+(hCm*10).toFixed(2);
-        const or=p.w>p.h?'l':'p';
-        if(!pdf)pdf=new jsPDF({orientation:or,unit:'mm',format:[wMm,hMm]});
-        else pdf.addPage([wMm,hMm],or);
-        pdf.addImage(c.toDataURL('image/jpeg',.9),'JPEG',0,0,wMm,hMm)}
-      pdf.save(title+'.pdf');toast('PDF indirildi — gerçek kâğıt ölçüsünde ✓')}
+      const data=await buildPDF();
+      await dl(data,title+'.pdf');
+      toast('PDF hazır — gerçek kâğıt ölçüsünde ✓')}
     catch(err){toast.error('PDF dışa aktarılamadı: '+err.message)}
   }
 });
-function dl(url,name){const a=document.createElement('a');a.href=url;a.download=name;a.click()}
+/* DIŞA AKTARMA — GERÇEK "FARKLI KAYDET" PENCERESİ
+   Eskiden <a download> + dev boyutlu data: URL kullanılıyordu. WebView2'de
+   data: URL'e gezinme ve büyük indirmeler güvenilir değil; başarısız olursa
+   hiçbir hata görünmüyordu (toast da boştu) — kullanıcı "PNG kaydetmiyor"
+   diyordu. Go tarafındaki App.ExportFile zaten yazılmış ama hiç bağlanmamıştı.
+   Artık native pencere kullanılır, dönen yol kullanıcıya gösterilir ve
+   "Klasörü aç" düğmesi sunulur. Go yoksa (tarayıcı) eski yola düşülür. */
+function goApp(){try{return window.go&&window.go.main&&window.go.main.App}catch(_){return null}}
+async function dl(url,name){
+  const A=goApp();
+  if(A&&A.ExportFile){
+    try{
+      const path=await A.ExportFile(name,url);
+      if(!path)return null;                                  // kullanıcı vazgeçti
+      toastShow('“'+name+'” kaydedildi',{action:'Klasörü aç',
+        onAction:()=>{try{A.RevealFile&&A.RevealFile(path)}catch(_){}},ms:9000});
+      return path;
+    }catch(e){
+      toast.error('Dosya kaydedilemedi: '+(e&&e.message||e));
+      return null;
+    }
+  }
+  try{const a=document.createElement('a');a.href=url;a.download=name;a.click();return name}
+  catch(e){toast.error('Dosya indirilemedi: '+(e&&e.message||e));return null}
+}
+/* SVG DIŞA AKTARMA (madde 89)
+   Uygulamanın tüm övünç kaynağı vektörel mürekkep ama dışa aktarma seçenekleri
+   yalnız PNG / PDF (raster) ve kendi formatıydı; Illustrator/Figma'ya taşımak
+   imkânsızdı. fillInkStroke'un ürettiği değişken kalınlıklı poligon doğrudan
+   <path> olarak yazılabiliyor — dönüşüm neredeyse birebir. */
+/* PDF üretimi — dışa aktarma ve yazdırma aynı yolu kullanır */
+async function buildPDF(){
+  const{jsPDF}=window.jspdf;let pdf=null;
+  for(const p of doc.pages){
+    const k=1.5,c=document.createElement('canvas');c.width=p.w*k;c.height=p.h*k;renderPageTo(c,p,k);
+    const wCm=pageWidthCm(p), hCm=wCm*p.h/p.w;
+    const wMm=+(wCm*10).toFixed(2), hMm=+(hCm*10).toFixed(2);
+    const or=p.w>p.h?'l':'p';
+    if(!pdf)pdf=new jsPDF({orientation:or,unit:'mm',format:[wMm,hMm]});
+    else pdf.addPage([wMm,hMm],or);
+    pdf.addImage(c.toDataURL('image/jpeg',.9),'JPEG',0,0,wMm,hMm);
+    await new Promise(r=>requestAnimationFrame(r));      // arayüz akıcı kalsın
+  }
+  return pdf.output('datauristring');
+}
+async function buildPDFDataURL(){
+  if(!window.jspdf){
+    try{await loadScript(location.origin+'/jspdf/2.5.1/jspdf.umd.min.js')}
+    catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')}
+  }
+  return buildPDF();
+}
+function svgEsc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function pageToSVG(p){
+  const parts=[];
+  parts.push('<?xml version="1.0" encoding="UTF-8"?>');
+  parts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+p.w+'" height="'+p.h+
+    '" viewBox="0 0 '+p.w+' '+p.h+'">');
+  parts.push('<rect width="'+p.w+'" height="'+p.h+'" fill="#FBF8F0"/>');
+  if(p.bg)parts.push('<image href="'+svgEsc(p.bg)+'" x="0" y="0" width="'+p.w+'" height="'+p.h+'"/>');
+  const num=v=>(Math.round(v*100)/100);
+  const emit=o=>{
+    const op=(o.opacity==null?1:o.opacity);
+    if(o.type==='group'&&o.children){parts.push('<g opacity="'+num(op)+'">');o.children.forEach(emit);parts.push('</g>');return}
+    if(o.type==='text'){
+      parts.push('<text x="'+num(o.x)+'" y="'+num(o.y+o.size*0.82)+'" font-size="'+num(o.size)+
+        '" fill="'+(o.color||'#111827')+'" opacity="'+num(op)+
+        '" font-family="Manrope, Segoe UI, sans-serif">'+svgEsc(o.text||'')+'</text>');return}
+    if(o.type==='image'&&o.src){
+      parts.push('<image href="'+svgEsc(o.src)+'" x="'+num(o.x)+'" y="'+num(o.y)+
+        '" width="'+num(o.w)+'" height="'+num(o.h)+'" opacity="'+num(op)+
+        (o.rot?'" transform="rotate('+num(o.rot)+' '+num(o.x+o.w/2)+' '+num(o.y+o.h/2)+')':'')+'"/>');return}
+    if(o.type!=='stroke'||!o.points||o.points.length<2)return;
+    const pts=(o.straight?o.points:proInkPts(o))||o.points;
+    let d='M '+num(pts[0].x)+' '+num(pts[0].y);
+    for(let i=1;i<pts.length-1;i++){
+      const mx=(pts[i].x+pts[i+1].x)/2,my=(pts[i].y+pts[i+1].y)/2;
+      d+=' Q '+num(pts[i].x)+' '+num(pts[i].y)+' '+num(mx)+' '+num(my);
+    }
+    d+=' L '+num(pts[pts.length-1].x)+' '+num(pts[pts.length-1].y);
+    const blend=o.tool==='hl'?' style="mix-blend-mode:multiply"':'';
+    parts.push('<path d="'+d+'" fill="none" stroke="'+(o.color||'#111827')+'" stroke-width="'+
+      num(o.size||2)+'" stroke-linecap="round" stroke-linejoin="round" opacity="'+num(op)+'"'+blend+'/>');
+  };
+  for(const l of p.layers){
+    if(!l.visible)continue;
+    parts.push('<g opacity="'+num(l.opacity==null?1:l.opacity)+'">');
+    l.objects.forEach(emit);
+    parts.push('</g>');
+  }
+  parts.push('</svg>');
+  return parts.join('\n');
+}
+window.pageToSVG=pageToSVG;
 
 /* ============================================================
    SUNUM · ODAK · ÇÖZÜM
@@ -2881,10 +3059,16 @@ bindR('#sSmooth','smooth',.01);bindR('#sStab','stab',.01);
 bindR('#sGrid','grid',1,()=>{$('#sGridOut').textContent=S.grid+' px';redraw()});
 bindR('#sSpot','spot',1,()=>$('#sSpotOut').textContent=S.spot+' px · sunumda fare tekeriyle de ayarlanır');
 $('#sLaser').addEventListener('input',e=>S.laser=e.target.value);
+/* Tema kimlikleri NÖTRDÜR. Önceki sürümlerde iç kimlikler ve README, tanınmış
+   marka adlarını taşıyordu; ticari dağıtımda bu doğrudan marka hakkı ihlali
+   iddiasına açık bir yüzeydi. Görünen etiketler zaten kendi adlarımızdı.
+   Eski kimlikler ayarlarda saklı olabileceği için açılışta eşlenir. */
 const THEMES=[['ink','Notis','#161C38','#FFB454'],['light','Aydınlık','#F2F4FB','#E8930C'],
- ['netflix','Kızıl Gece','#141414','#E50914'],['disney','Gece Mavisi','#0F1B33','#0072D2'],
- ['prime','Buz Mavisi','#161F2A','#00A8E1'],['rakuten','Bordo','#1C1416','#BF0000'],
- ['youtube','Saf Beyaz','#FFFFFF','#FF0000']];
+ ['crimson','Kızıl Gece','#141414','#D22C2C'],['midnight','Gece Mavisi','#0F1B33','#1F6FD0'],
+ ['ice','Buz Mavisi','#161F2A','#1E9BD0'],['burgundy','Bordo','#1C1416','#A81F2E'],
+ ['paper','Saf Beyaz','#FFFFFF','#D93B3B']];
+const THEME_MIGRATE={netflix:'crimson',disney:'midnight',prime:'ice',rakuten:'burgundy',youtube:'paper'};
+function normTheme(t){return THEME_MIGRATE[t]||t}
 function renderThemes(){const el=$('#themeGrid');if(!el)return;el.innerHTML='';
   const curT=document.documentElement.dataset.theme||'ink';
   THEMES.forEach(([id,n,pc,ac])=>{const b=document.createElement('button');b.className='thm'+(curT===id?' on':'');
@@ -3055,6 +3239,8 @@ window.addEventListener('keydown',e=>{
     if(k==='d'){e.preventDefault();duplicateSelection();return}
     if(k==='a'){e.preventDefault();selection=page().layers.flatMap(l=>l.locked||!l.visible?[]:l.objects);redraw();renderSelInfo();return}
     if(k==='k'){e.preventDefault();openPalette();return}
+    if(k==='b'){e.preventDefault();toggleBookmark();return}
+    if(k==='g'&&!e.shiftKey&&e.altKey){e.preventDefault();gotoPageAsk();return}
     if(k===']'){e.preventDefault();zOrder(e.shiftKey?'front':'up');return}
     if(k==='['){e.preventDefault();zOrder(e.shiftKey?'back':'down');return}
     if(k==='g'&&e.shiftKey){e.preventDefault();ungroupSelection();return}
@@ -3081,6 +3267,8 @@ window.addEventListener('keydown',e=>{
   /* Backspace yazı yazdığını sanan kullanıcının nesnelerini siliyordu —
      artık yalnız seçim aracı aktifken ve bir seçim varken siler. */
   if(k==='Delete'||(k==='Backspace'&&tool==='select'&&selection.length))deleteSelection();
+  if(e.altKey&&k==='ArrowDown'){e.preventDefault();gotoBookmark(1);return}
+  if(e.altKey&&k==='ArrowUp'){e.preventDefault();gotoBookmark(-1);return}
   if(k==='PageUp'||(presenting&&k==='ArrowLeft'))gotoPage(cur-1);
   if(k==='PageDown'||(presenting&&k==='ArrowRight'))gotoPage(cur+1);
   if(k==='F11'){e.preventDefault();document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
@@ -3301,6 +3489,10 @@ function PAL_CMDS(){return[
  {t:'Çalışma alanına sığdır',k:(KEYMAP.fit||'').toUpperCase(),sec:'Eylem',fn:()=>fitSmart()},
  {t:'Çözüm modu — soruyu taşı',k:(KEYMAP.solve||'').toUpperCase(),sec:'Eylem',fn:solveClick},
  {t:'Tahtayı temizle',sec:'Eylem',fn:wipeBoard},
+ {t:'Yer imi ekle / kaldır',k:'CTRL+B',sec:'Gezinme',fn:()=>toggleBookmark()},
+ {t:'Sonraki yer imi',k:'ALT+↓',sec:'Gezinme',fn:()=>gotoBookmark(1)},
+ {t:'Önceki yer imi',k:'ALT+↑',sec:'Gezinme',fn:()=>gotoBookmark(-1)},
+ {t:'Sayfaya git…',k:'CTRL+ALT+G',sec:'Gezinme',fn:()=>gotoPageAsk()},
  {t:'En öne getir',k:'CTRL+SHIFT+]',sec:'Düzen',fn:()=>zOrder('front')},
  {t:'En arkaya gönder',k:'CTRL+SHIFT+[',sec:'Düzen',fn:()=>zOrder('back')},
  {t:'Bir öne al',k:'CTRL+]',sec:'Düzen',fn:()=>zOrder('up')},
@@ -3617,7 +3809,7 @@ function loadOpts(){try{const o=JSON.parse(localStorage.getItem('notis_opts')||'
   if(o.ERT)Object.assign(eraserTypes,o.ERT);                                          // silgi kapsamı
   if(Array.isArray(o.STICK))importedStickers=o.STICK.slice(0,40);                     // çıkartmalar
   if(o.LEFT!==undefined)S.leftHanded=!!o.LEFT;                                        // solak düzeni
-  if(o.theme)document.documentElement.dataset.theme=o.theme;                          // tema
+  if(o.theme)document.documentElement.dataset.theme=normTheme(o.theme);               // tema (eski marka kimlikleri eşlenir)
   if(o.esD===2)S.edgeScroll=!!o.edgeScroll;   // yalnız yeni sürümde kaydedilen tercihi uygula (eski v19'un istem dışı 'açık' kaydı yok sayılır)
   if(o.DEF&&o.DEFV===DEFV)Object.assign(DEF,o.DEF);
   if(o.CP&&o.CPV===CPV)o.CP.forEach((c,i)=>{if(CPENS[i])Object.assign(CPENS[i],c)})}catch{}}
@@ -4120,7 +4312,48 @@ const LIB=(()=>{
     renderLib();fillPane();
     return id;
   }
-  async function del(id){
+  async function rename(id,title){
+    try{
+      const meta=SRV?null:await tx('meta','readonly',s=>s.get(id));
+      if(meta){meta.title=title;await tx('meta','readwrite',s=>s.put(meta))}
+      const rec=SRV?null:await tx('data','readonly',s=>s.get(id));
+      if(rec&&rec.json){const o=JSON.parse(rec.json);o.title=title;
+        await tx('data','readwrite',s=>s.put({id,json:JSON.stringify(o),thin:rec.thin}))}
+      if(id===sessId)doc.title=title;
+      renderLib();toast('“'+title+'” olarak yeniden adlandırıldı');
+    }catch(e){toast.error('Yeniden adlandırılamadı: '+(e&&e.message||e))}
+  }
+  /* Yumuşak silme: kayıt bellekte tutulur, geri alma penceresi kapanınca silinir */
+  const trash=new Map();
+  async function softDelete(id,title){
+    try{
+      const rec=SRV?null:await tx('data','readonly',s=>s.get(id));
+      const meta=SRV?null:await tx('meta','readonly',s=>s.get(id));
+      const bgs=[];
+      if(!SRV){
+        const keys=await tx('bg','readonly',st=>st.getAllKeys());
+        for(const k of (keys||[]))if(String(k).indexOf(id+'::')===0){
+          const r=await tx('bg','readonly',st=>st.get(k));if(r)bgs.push(r)}
+      }
+      trash.set(id,{rec,meta,bgs});
+      await del(id,true);
+      renderLib();
+      const t=toastShow('“'+esc(title)+'” silindi',{action:'Geri al',ms:10000,
+        onAction:async()=>{await restoreTrash(id)}});
+      setTimeout(()=>{trash.delete(id)},11000);
+    }catch(e){toast.error('Silinemedi: '+(e&&e.message||e))}
+  }
+  async function restoreTrash(id){
+    const t=trash.get(id);if(!t)return toast.error('Geri alma süresi doldu');
+    trash.delete(id);
+    try{
+      if(t.rec)await tx('data','readwrite',s=>s.put(t.rec));
+      if(t.meta)await tx('meta','readwrite',s=>s.put(t.meta));
+      if(t.bgs&&t.bgs.length)await tx('bg','readwrite',st=>{t.bgs.forEach(r=>st.put(r));return null});
+      renderLib();toast('Kayıt geri getirildi ✔');
+    }catch(e){toast.error('Geri alınamadı: '+(e&&e.message||e))}
+  }
+  async function del(id,quiet){
     await delPageBgs(id);
     if(SRV)await api('/lib/del',{id});
     else{await tx('data','readwrite',s=>s.delete(id));
@@ -4139,21 +4372,38 @@ const LIB=(()=>{
   const BADGE={pdf:'PDF',image:'GÖRSEL',board:'TAHTA'};
   const fmtDate=t=>{const d=new Date(t),M=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
     return d.getDate()+' '+M[d.getMonth()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+  /* ARAMA · SIRALAMA · YENİDEN ADLANDIRMA (madde 81)
+     Kayıtlar yalnız tarihe göre düz bir liste hâlinde basılıyordu; 200 kayıt
+     biriktiğinde aradığını bulmak imkânsızdı, yeniden adlandırma bile yoktu. */
+  let libQ='',libSort='date';
   async function renderLib(){
     const el=$('#libList');if(!el)return;
-    const items=await all();
+    let items=await all();
+    const q=libQ.trim().toLocaleLowerCase('tr');
+    if(q)items=items.filter(m=>(m.title||'').toLocaleLowerCase('tr').includes(q)||(BADGE[m.kind]||'').toLocaleLowerCase('tr').includes(q));
+    if(libSort==='name')items=items.slice().sort((a,b)=>(a.title||'').localeCompare(b.title||'','tr'));
+    else if(libSort==='pages')items=items.slice().sort((a,b)=>(b.pages||0)-(a.pages||0));
     $('#libCount').textContent=items.length?items.length+' kayıt':'';
     el.innerHTML='';
-    if(!items.length){el.innerHTML='<div class="lib-empty">Henüz kayıt yok.<br>Bir PDF veya görsel yükle — çalışmaların buraya sessizce kaydedilir.</div>';return}
+    if(!items.length){el.innerHTML='<div class="lib-empty">'+(q?'“'+esc(libQ)+'” ile eşleşen kayıt yok.':'Henüz kayıt yok.<br>Bir PDF veya görsel yükle — çalışmaların buraya sessizce kaydedilir.')+'</div>';return}
     for(const m of items){
       const card=document.createElement('div');card.className='lib-card';
       card.innerHTML=(m.thumb?'<img src="'+m.thumb+'" alt="">':'<div style="height:104px;background:#FBF8F0"></div>')+
         '<span class="lc-badge">'+(BADGE[m.kind]||'TAHTA')+'</span>'+
-        '<button class="lc-del" title="Temelli sil"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'+
+        '<button class="lc-ren" title="Yeniden adlandır">✎</button>'+
+        '<button class="lc-del" title="Sil (geri alınabilir)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'+
         '<div class="lc-meta"><div class="lc-t">'+esc(m.title||'Adsız')+(m.id===sessId?' · <span style="color:var(--acc)">şu an açık</span>':'')+'</div>'+
         '<div class="lc-d">'+fmtDate(m.updatedAt)+' · '+m.pages+' sayfa'+(m.res?' · <b style="color:'+(m.res>=2000?'var(--acc)':'#EF4444')+'">'+m.res+'p</b>':'')+'</div></div>';
-      card.querySelector('.lc-del').addEventListener('click',e=>{e.stopPropagation();
-        del(m.id);toast('“'+(m.title||'Adsız')+'” temelli silindi')});
+      card.querySelector('.lc-ren').addEventListener('click',async e=>{e.stopPropagation();
+        const v=await askText('Kaydı yeniden adlandır','',m.title||'Adsız');
+        if(v==null||!String(v).trim())return;
+        await rename(m.id,String(v).trim());});
+      /* SİLME ARTIK GERİ ALINABİLİR (madde 82)
+         del() kaydı doğrudan siliyordu ve çöp kutusu yoktu. Artık kayıt önce
+         bir kenara alınır; 10 saniyelik "Geri al" penceresi geçmeden gerçekten
+         silinmez. */
+      card.querySelector('.lc-del').addEventListener('click',async e=>{e.stopPropagation();
+        await softDelete(m.id,m.title||'Adsız')});
       card.addEventListener('click',()=>openWork(m.id));
       el.appendChild(card);
     }
@@ -4209,12 +4459,24 @@ const LIB=(()=>{
   window.addEventListener('beforeunload',()=>{clearTimeout(tmr);saveNow()});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){clearTimeout(tmr);saveNow()}});
   window.addEventListener('pagehide',()=>{clearTimeout(tmr);saveNow()});
-  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,all,
+  return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,all,rename,
+    setQuery:(q)=>{libQ=q;renderLib()},setSort:(s2)=>{libSort=s2;renderLib()},
     currentId:()=>sessId};
 })();
 window.LIB=LIB;   // kancalar window.LIB üzerinden erişir — const window'a çıkmaz
 /* Depolama paneli bağları */
 $('#libRefresh').addEventListener('click',()=>LIB.renderLib());
+{const q=$('#libSearch'),so=$('#libSort');
+ if(q)q.addEventListener('input',()=>LIB.setQuery(q.value));
+ if(so)so.addEventListener('change',()=>LIB.setSort(so.value));}
+/* Ayarlar › Depolama: kayıtların GERÇEK konumu (uydurma yol yerine) */
+(function(){
+  const el=()=>document.getElementById('stPath');
+  const set=t=>{const e=el();if(e)e.textContent=t};
+  const A=(window.go&&window.go.main&&window.go.main.App);
+  if(A&&A.StoragePath)A.StoragePath().then(p=>set(p?('Konum: '+p):'Konum: uygulama veritabanı')).catch(()=>set('Konum: uygulama veritabanı'));
+  else set('Konum: tarayıcı veritabanı (IndexedDB)');
+})();
 $('#stOpenLib').addEventListener('click',()=>{setDlg.close();
   if(!document.body.classList.contains('side-open'))$('#sideBtn').click();
   const t=$$('.stab').find(x=>x.dataset.p==='library');if(t)t.click()});
@@ -4441,7 +4703,14 @@ window.addEventListener('keydown',e=>{
 {const sp=$('#sp-storage');
  if(sp&&!sp.dataset.heal){sp.dataset.heal='1';
   const w=document.createElement('div');
-  w.innerHTML='<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
+  w.innerHTML='<div class="set-sec-t" style="margin-top:18px">Lisanslar ve Atıflar</div>'+
+    '<div class="set-row"><div><div class="t">📄 Açık kaynak bileşenler</div>'+
+    '<div class="d" id="thirdParty">Bu ürün, kendi lisansları altında dağıtılan açık kaynak bileşenler kullanır: '+
+    '<b>pdf.js</b> (Apache-2.0, Mozilla) · <b>jsPDF</b> (MIT) · <b>Manrope</b>, <b>Sora</b> ve el yazısı fontu '+
+    '(SIL Open Font License 1.1). Lisans metinleri uygulama paketindeki '+
+    '<code>libs/THIRD_PARTY.md</code> dosyasında korunmuştur. Notis Pro tescilli bir yazılımdır; '+
+    'kopyalanamaz ve dağıtılamaz.</div></div></div>'+
+    '<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
     '<div class="set-row"><div><div class="t">🔔 Bilgi bildirimleri</div>'+
     '<div class="d">“Kaydedildi”, “Profil silindi” gibi kısa bilgi mesajları. Kapatırsan bunlar görünmez — '+
     '<b>hata mesajları her koşulda gösterilmeye devam eder</b>, çünkü sessiz hata en kötü hatadır.</div></div>'+

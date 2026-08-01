@@ -21,7 +21,7 @@ tek bir `Notis.exe` üretir.
 | **Renk** | Basit seçici | HSV **renk tekerleği**, hex girişi, hızlı swatch'ler, favoriler & paletler |
 | **Sayfalar** | Çoklu sayfa | 5 kağıt şablonu (boş/çizgili/kareli/noktalı/izometrik), çoğalt/sil, canlı küçük resimler |
 | **Katmanlar** | — | Sınırsız katman, görünürlük, sıralama |
-| **Temalar** | Netflix/Disney/… | Aynı temalar + Karanlık/Aydınlık/Mürekkep, canlı vurgu renkleri |
+| **Temalar** | 7 hazır tema | Kızıl Gece · Gece Mavisi · Buz Mavisi · Bordo · Saf Beyaz + Notis/Aydınlık, canlı vurgu renkleri |
 | **Sunum** | Lazer/spot | Sunum çubuğu, lazer işaretçi, spot ışık, sayfa gezinme |
 | **Dışa aktarma** | PDF | Çok sayfalı **PDF** + **PNG**, 1×/2×/3× çözünürlük |
 | **Kayıt** | — | Otomatik yerel kayıt, kütüphane, `.notis` yedeği |
