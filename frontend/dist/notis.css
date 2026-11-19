@@ -578,3 +578,36 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
   #splash .sp-mark,#splash .sp-word,#splash .sp-word .w-shine,#splash .sp-beams i,#splash .sp-tag,#splash::before{
     animation:none!important;opacity:1;transform:none;clip-path:none}
   #splash .sp-word .w-shine{display:none}}
+/* ---------- KALEM STÜDYOSU v2 — gerçek parametreler ---------- */
+.pk-seg.pk5 button{font-size:9.5px;padding:6px 1px}
+.pk-q{display:inline-grid;place-items:center;width:14px;height:14px;margin-left:5px;border-radius:50%;
+  background:var(--p3);color:var(--mut);font-size:9px;font-weight:900;cursor:help;vertical-align:1px}
+.pk-angrow{display:flex;align-items:center;gap:8px}
+.pk-angrow input[type=range]{flex:1;accent-color:#F59E0B;height:4px;min-width:0}
+.pk-angrow input[type=range]:disabled{opacity:.35}
+.pk-angoff{font-size:10px;font-weight:800;padding:5px 8px;border-radius:8px;white-space:nowrap;
+  background:var(--p2);border:1px solid var(--line);color:var(--mut);transition:.15s}
+.pk-angoff:hover{color:var(--tx)}
+.pk-angoff.on{background:var(--p3);color:var(--tx)}
+/* uç açısı kadranı: eğik çizgi, seçilen açıyı gösterir */
+.pk-angdial{position:relative;width:22px;height:22px;border-radius:50%;flex:0 0 22px;
+  background:var(--p2);border:1px solid var(--line);transition:transform .18s var(--ease)}
+.pk-angdial::after{content:'';position:absolute;left:3px;right:3px;top:50%;height:3px;margin-top:-1.5px;
+  border-radius:2px;background:var(--acc)}
+.pk-angdial.off::after{background:var(--line)}
+/* fabrikayla karşılaştır anahtarı */
+.pk-ghostbtn{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;color:var(--mut);
+  background:var(--p2);border:1px solid var(--line);border-radius:9px;padding:5px 9px;transition:.15s;margin-left:auto}
+.pk-ghostbtn:hover{color:var(--tx)}
+.pk-ghostbtn i{width:14px;height:3px;border-radius:2px;background:var(--line);display:block;transition:.15s}
+.pk-ghostbtn.on{color:var(--tx);border-color:var(--hair-strong,var(--line))}
+.pk-ghostbtn.on i{background:#8A94AC}
+/* fark paneli */
+.pk-diff{margin-top:9px;border-top:1px solid var(--line);padding-top:9px;display:flex;flex-direction:column;gap:5px;
+  max-height:132px;overflow-y:auto;scrollbar-width:thin}
+.pkd-none{font-size:10.5px;font-weight:700;color:var(--mut);line-height:1.5}
+.pkd-h{font-size:9.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:2px}
+.pkd-r{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:11px}
+.pkd-r span{font-weight:700;color:var(--mut);white-space:nowrap}
+.pkd-r b{font-weight:700;color:var(--mut);font-size:10.5px;white-space:nowrap}
+.pkd-r b i{font-style:normal;font-weight:900;color:var(--acc)}
