@@ -138,6 +138,7 @@ let KEYMAP={...KEYDEF};
 const KEYLABELS={select:'Seçim aracı',smart:'Akıllı kalem',ball:'Tükenmez kalem',fountain:'Dolma kalem',pencil:'Kurşun kalem',hl:'Fosforlu kalem',eraser:'Silgi',text:'Metin',line:'Akıllı cetvel',compass:'Pergel',prot:'İletki (açıölçer)',shapes:'Şekiller paneli',fit:'Sığdır — çalışma alanına oturt (PDF/slayt/tahta)',randColor:'Rastgele renge geç',boardSwap:'Boş tahta ↔ son çalışmaya dön',panelCycle:'Panel gizle döngüsü (sol → sol+üst → hepsi görünür)',blackPen:'Siyah kaleme geç',darkMode:'Karanlık mod (tüm uygulama) aç/kapat',solve:'Çözüm modu (soru taşı)'};
 
 const SWATCH=['#243B6B','#111827','#C0392B','#E8590C','#0B7285','#2B8A3E','#845EF7','#FFE066'];
+const SWNAME=['Lacivert','Siyah','Kırmızı','Turuncu','Petrol','Yeşil','Mor','Sarı'];
 let doc={title:'Adsız Tahta',pages:[]};
 let cur=0, curLayerId=null, tool='smart';
 let penColor=SWATCH[1], penSize=2.2, penOp=1; // varsayılan renk: siyah (fosforlu kendi sarısını kullanır)
@@ -1904,11 +1905,11 @@ $('#scWipe').addEventListener('click',()=>{if(!scratch)return;
 ============================================================ */
 const I={
 select:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 3l7 17 2.5-7L21 10.5 4 3z"/></svg>',
-smart:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="M19 13l.9 2.1L22 16l-2.1.9L19 19l-.9-2.1L16 16l2.1-.9z" fill="currentColor" stroke="none"/></svg>',
-ball:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
-fountain:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6 7 7-9.4 9.4a1 1 0 0 1-.7.3H4.5a.5.5 0 0 1-.5-.5v-6.4a1 1 0 0 1 .3-.7L14 6z"/><path d="m13 7 4 4"/><path d="M14 6l3.5-3.5a2.1 2.1 0 0 1 3 3L17 9"/></svg>',
-pencil:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 21h8"/><path d="m15 5 4 4L7.5 20.5 2 22l1.5-5.5L15 5z"/></svg>',
-hl:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4l8 8z"/></svg>',
+smart:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.3 20.7 L7.83 18.44 L18.44 7.83 A1.6 1.6 0 0 1 16.17 5.56 L5.56 16.17 Z"/><path d="M5.56 16.17 L7.83 18.44" opacity="0.5"/><path d="M17.02 -0.63 L17.8 0.54 L18.97 1.32 L17.8 2.1 L17.02 3.27 L16.24 2.1 L15.07 1.32 L16.24 0.54 Z" fill="currentColor" stroke="none"/><path d="M13.63 1.68 L14.05 2.31 L14.68 2.73 L14.05 3.15 L13.63 3.78 L13.21 3.15 L12.58 2.73 L13.21 2.31 Z" fill="currentColor" stroke="none"/></svg>',
+ball:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2.91 20.31 L3.69 21.09 L7.26 19.57 L20.49 6.34 A2 2 0 0 1 17.66 3.51 L4.43 16.74 Z"/><path d="M20.49 6.2 L21.3 7.3 L17.91 10.69"/><path d="M6.84 14.34 L9.66 17.16" opacity="0.5"/><circle cx="3.58" cy="20.42" r="0.85" fill="currentColor" stroke="none"/></svg>',
+fountain:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.3 20.7 L7.54 20.13 L9.81 17.02 L6.98 14.19 L3.87 16.46 Z"/><path d="M9.61 16.83 L20.5 5.93 A1.72 1.72 0 0 1 18.07 3.5 L7.17 14.39"/><path d="M3.87 20.13 L6.55 17.45"/><circle cx="7.05" cy="16.95" r="0.68"/></svg>',
+pencil:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.3 20.7 L8.64 18.12 L21.94 4.82 L19.18 2.06 L5.88 15.36 Z"/><path d="M5.88 15.36 L8.64 18.12"/><path d="M16.85 4.4 L19.6 7.15"/><path d="M3.3 20.7 L4.22 18.37 L5.63 19.78 Z" fill="currentColor" stroke="none"/></svg>',
+hl:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M1.25 18.65 L7.19 20.91 L22.61 5.49 L18.51 1.39 Z"/><path d="M5.21 14.69 L10.23 17.87" opacity="0.95"/><path d="M15.68 4.22 L19.78 8.32" opacity="0.5"/></svg>',
 eraser:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H7z"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>',
 text:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7V5h16v2M12 5v14m-3 0h6"/></svg>',
 line:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21 21 3"/><path d="M6 21H3v-3M21 6V3h-3"/></svg>',
@@ -3242,52 +3243,119 @@ miniBar.addEventListener('pointerleave',armMini);
    Kısa sağ tık (fare) → mini araç çubuğu · Stylus yan tuşu → önceki kalem
 ============================================================ */
 const gring=$('#gring');let ringOpen=false,ringHot=-1,rightState=null;
+/* Halka simgeleri — araç rayıyla aynı çizgi dili (1.9 kalınlık, yuvarlak uç) */
+const _RI=(d,sw)=>'<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(sw||1.95)+'" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const RIC={
+ undo:_RI('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',2.15),
+ color:_RI('<path d="M12 3a9 9 0 1 0 0 18c.9 0 1.6-.75 1.6-1.65 0-.42-.17-.8-.43-1.08a1.6 1.6 0 0 1 1.17-2.7h1.9A4.76 4.76 0 0 0 21 10.8C21 6.49 16.97 3 12 3z"/><circle cx="7.6" cy="11.4" r="1.15" fill="currentColor" stroke="none"/><circle cx="11.2" cy="7.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.8" cy="9.2" r="1.15" fill="currentColor" stroke="none"/>'),
+ tools:_RI('<rect x="3.4" y="3.4" width="7.4" height="7.4" rx="1.8"/><circle cx="17.1" cy="7.1" r="3.7"/><rect x="3.4" y="13.2" width="7.4" height="7.4" rx="1.8"/><path d="M17.1 13.2l3.9 7.4h-7.8z"/>'),
+ page:_RI('<rect x="4" y="3" width="16" height="18" rx="2.2"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
+ more:_RI('<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>'),
+ back:_RI('<path d="M15 18l-6-6 6-6"/>',2.3),
+ pro:_RI('<path d="M12 3.6l2.3 4.9 5.2.72-3.8 3.8.92 5.38L12 15.9l-4.62 2.5.92-5.38-3.8-3.8 5.2-.72z"/>'),
+ laser:_RI('<circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.6" opacity=".55"/>'),
+ wipe:_RI('<path d="m19 4-7.5 7.5"/><path d="M11 10l-7.2 7.2a2.4 2.4 0 0 0 0 3.4 2.4 2.4 0 0 0 3.4 0L14.4 13.4"/><path d="m8.5 15.5 3 3"/>'),
+ fit:_RI('<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9"/><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/><path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>'),
+ pgAdd:_RI('<rect x="4" y="3" width="16" height="18" rx="2.2"/><path d="M12 8.5v7M8.5 12h7"/>'),
+ pgPrev:_RI('<path d="M14 7l-5 5 5 5"/><path d="M19 4v16" opacity=".5"/>'),
+ pgNext:_RI('<path d="M10 7l5 5-5 5"/><path d="M5 4v16" opacity=".5"/>'),
+ bookmark:_RI('<path d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-4.2L5.5 21V4.5a1 1 0 0 1 1-1z"/>'),
+};
+/* ============================================================
+   BİRİNCİ HALKA — SAĞ TUŞA BASINCA ÇIKAN BEŞ SEÇENEK
+   Üçü doğrudan çalışır (Silgi · Geri Al), ikisi alt çark açar.
+   Eski sekiz maddenin TAMAMI alt çarklarda yaşamaya devam eder:
+     Akıllı/Kalem/Fosforlu → Kalemler · Metin/Şekiller/Seçim → Araçlar
+   Üstüne Renk çarkı eklendi (eskiden halkada hiç yoktu).
+============================================================ */
 const RING=[
- {n:'Akıllı',ic:'smart',fn:()=>setTool('smart')},
- {n:'Kalem',ic:'ball',fn:()=>morphRingToPens()},
- {n:'Fosforlu',ic:'hl',fn:()=>setTool('hl')},
- {n:'Silgi',ic:'eraser',fn:()=>setTool('eraser')},
- {n:'Metin',ic:'text',fn:()=>setTool('text')},
- {n:'Şekiller',ic:'shapes',fn:()=>morphRingToShapes()},
- {n:'Geri Al',svg:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',fn:undo},
- {n:'Seçim',ic:'select',fn:()=>setTool('select')},
+ {n:'Kalemler', ic:'ball',      c:'#F59E0B', hint:'Beş kalem + Pro seti', fn:()=>ringSub('pens')},
+ {n:'Renk',     svg:RIC.color,  c:'#EC4899', hint:'Paletten renk seç',    fn:()=>ringSub('colors')},
+ {n:'Silgi',    ic:'eraser',    c:'#38BDF8', hint:'Silgiye geç',          fn:()=>setTool('eraser')},
+ {n:'Geri Al',  svg:RIC.undo,   c:'#A78BFA', hint:'Son adımı geri al',    fn:()=>undo()},
+ {n:'Araçlar',  svg:RIC.tools,  c:'#34D399', hint:'Seçim · metin · cetvel', fn:()=>ringSub('tools')},
 ];
-/* Sekil carki: matematik figurlerinin en cok kullanilan 11'i + Tumu.
-   Arac carki ile AYNI halka, AYNI kayarak-secme mantigi. */
+/* Şekil çarkı — matematik figürlerinin en çok kullanılan 11'i + Tümü */
 const RING_SHAPES=(()=>{
   const pick=['Kare','Daire','Üçgen','Elips','Koordinat','Sayı Doğrusu','Parabol','Açı','Çember + r','Küp','Silindir'];
-  const items=pick.map(nm=>{const f=SHAPES.find(x=>x[0]===nm);return f?{n:f[0],shp:f[1],
+  const items=pick.map(nm=>{const f=SHAPES.find(x=>x[0]===nm);return f?{n:f[0],shp:f[1],c:'#34D399',
     fn:()=>insertShape(f[1])}:null}).filter(Boolean);
-  items.push({n:'Tümü…',svg:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="19" cy="5" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="19" r="1.6"/><circle cx="12" cy="19" r="1.6"/><circle cx="19" cy="19" r="1.6"/></svg>',
-    fn:()=>toggleShapePop()});
+  items.push({n:'Tümü…',svg:RIC.more,c:'#64748B',fn:()=>toggleShapePop()});
   return items;
 })();
-let ringItems=RING, ringMode='tools';
-/* Kalem çarkı: yalnızca sonradan eklenen özel kalemler burada yaşar (CPENS).
-   Şekil çarkı ile AYNI halka, AYNI kayarak-seçme mantığı. */
-/* Kalem çarkı: 10 profesyonel kalem — CPENS ile birebir eşleşir */
-const _PI=(d)=>'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
-const RING_PENS=[
- {n:'Akıllı ⭐',svg:_PI('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><circle cx="19" cy="18" r="2.4" fill="currentColor" stroke="none"/>'),fn:()=>applyCPen(0)},
- {n:'Tükenmez',svg:_PI('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'),fn:()=>applyCPen(1)},
- {n:'Dolma',svg:_PI('<path d="m14 6 7 7-9.4 9.4a1 1 0 0 1-.7.3H4.5a.5.5 0 0 1-.5-.5v-6.4a1 1 0 0 1 .3-.7L14 6z"/><path d="M14 6l3.5-3.5a2.1 2.1 0 0 1 3 3L17 9"/>'),fn:()=>applyCPen(2)},
- {n:'Kurşun',svg:_PI('<path d="M13 4l7 7L8 23H1v-7L13 4z"/><path d="M13 4l3-3 7 7-3 3"/>'),fn:()=>applyCPen(3)},
- {n:'Fosforlu',svg:_PI('<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),fn:()=>applyCPen(4)},
- {n:'Keçeli',svg:_PI('<path d="M12 2v6M8 8h8l1 8H7l1-8z"/><path d="M9 16v5h6v-5"/>'),fn:()=>applyCPen(5)},
- {n:'Teknik',svg:_PI('<path d="M12 2L2 22h20L12 2z"/><path d="M12 9v7"/>'),fn:()=>applyCPen(6)},
- {n:'Kaligrafi',svg:_PI('<path d="M4 20c4-1 6-3 7-6l5-9 4 4-9 5c-3 1-5 3-6 7z"/><path d="M14 7l3 3"/>'),fn:()=>applyCPen(7)},
- {n:'Fırça',svg:_PI('<path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>'),fn:()=>applyCPen(8)},
- {n:'Air Brush',svg:_PI('<circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="7" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r=".8" fill="currentColor" stroke="none"/>'),fn:()=>applyCPen(9)},
+let ringItems=RING, ringMode='root', ringR0=78, ringTitle='Hızlı Erişim';
+/* Kalem çarkı — 10 profesyonel kalem, CPENS ile birebir eşleşir */
+const _PI=(d)=>'<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const RING_CPENS=[
+ {n:'Akıllı ⭐',c:'#F59E0B',svg:_PI('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><circle cx="19" cy="18" r="2.4" fill="currentColor" stroke="none"/>'),fn:()=>applyCPen(0)},
+ {n:'Tükenmez',c:'#3B82F6',svg:_PI('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'),fn:()=>applyCPen(1)},
+ {n:'Dolma',c:'#8B5CF6',svg:_PI('<path d="m14 6 7 7-9.4 9.4a1 1 0 0 1-.7.3H4.5a.5.5 0 0 1-.5-.5v-6.4a1 1 0 0 1 .3-.7L14 6z"/><path d="M14 6l3.5-3.5a2.1 2.1 0 0 1 3 3L17 9"/>'),fn:()=>applyCPen(2)},
+ {n:'Kurşun',c:'#64748B',svg:_PI('<path d="M13 4l7 7L8 23H1v-7L13 4z"/><path d="M13 4l3-3 7 7-3 3"/>'),fn:()=>applyCPen(3)},
+ {n:'Fosforlu',c:'#14B8A6',svg:_PI('<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),fn:()=>applyCPen(4)},
+ {n:'Keçeli',c:'#EC4899',svg:_PI('<path d="M12 2v6M8 8h8l1 8H7l1-8z"/><path d="M9 16v5h6v-5"/>'),fn:()=>applyCPen(5)},
+ {n:'Teknik',c:'#0EA5E9',svg:_PI('<path d="M12 2L2 22h20L12 2z"/><path d="M12 9v7"/>'),fn:()=>applyCPen(6)},
+ {n:'Kaligrafi',c:'#F97316',svg:_PI('<path d="M4 20c4-1 6-3 7-6l5-9 4 4-9 5c-3 1-5 3-6 7z"/><path d="M14 7l3 3"/>'),fn:()=>applyCPen(7)},
+ {n:'Fırça',c:'#A855F7',svg:_PI('<path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>'),fn:()=>applyCPen(8)},
+ {n:'Air Brush',c:'#22D3EE',svg:_PI('<circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="7" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r=".8" fill="currentColor" stroke="none"/>'),fn:()=>applyCPen(9)},
 ];
-function morphRingToPens(){
-  ringMode='pens';fillRing(RING_PENS);
+/* --- alt çarkların içerikleri --- */
+const RING_SUB={
+  pens:()=>[
+    {n:'Akıllı',  ic:'smart',   c:'#F59E0B',fn:()=>setTool('smart')},
+    {n:'Tükenmez',ic:'ball',    c:'#3B82F6',fn:()=>setTool('ball')},
+    {n:'Dolma',   ic:'fountain',c:'#8B5CF6',fn:()=>setTool('fountain')},
+    {n:'Kurşun',  ic:'pencil',  c:'#64748B',fn:()=>setTool('pencil')},
+    {n:'Fosforlu',ic:'hl',      c:'#14B8A6',fn:()=>setTool('hl')},
+    {n:'Pro Set', svg:RIC.pro,  c:'#EAB308',fn:()=>ringSub('cpens')},
+  ],
+  cpens:()=>RING_CPENS,
+  colors:()=>SWATCH.map((c,i)=>({n:'',dot:c,c:c,hint:SWNAME[i]||c,
+    on:()=>c.toLowerCase()===String(penColor).toLowerCase(),
+    fn:()=>{penColor=c;buildSwatches();styleSelection({color:c})}})),
+  tools:()=>[
+    {n:'Seçim',   ic:'select', c:'#34D399',fn:()=>setTool('select')},
+    {n:'Metin',   ic:'text',   c:'#3B82F6',fn:()=>setTool('text')},
+    {n:'Cetvel',  ic:'line',   c:'#8B5CF6',fn:()=>setTool('line')},
+    {n:'Pergel',  ic:'compass',c:'#EC4899',fn:()=>setTool('compass')},
+    {n:'İletki',  ic:'prot',   c:'#F97316',fn:()=>setTool('prot')},
+    {n:'Şekiller',ic:'shapes', c:'#22D3EE',fn:()=>ringSub('shapes')},
+    {n:'Lazer',   svg:RIC.laser,c:'#EF4444',fn:()=>setTool('laser')},
+    {n:'Sayfa',   svg:RIC.page, c:'#64748B',fn:()=>ringSub('page')},
+  ],
+  shapes:()=>RING_SHAPES,
+  page:()=>[
+    {n:'Yeni Sayfa',svg:RIC.pgAdd,  c:'#34D399',fn:()=>$('#pgAdd').click()},
+    {n:'Önceki',    svg:RIC.pgPrev, c:'#3B82F6',fn:()=>gotoPage(cur-1)},
+    {n:'Sonraki',   svg:RIC.pgNext, c:'#3B82F6',fn:()=>gotoPage(cur+1)},
+    {n:'Sığdır',    svg:RIC.fit,    c:'#8B5CF6',fn:()=>fitSmart()},
+    {n:'Yer İmi',   svg:RIC.bookmark,c:'#F59E0B',fn:()=>toggleBookmark()},
+    {n:'Temizle',   svg:RIC.wipe,   c:'#EF4444',fn:()=>wipeBoard()},
+  ],
+};
+const RING_META={
+  root:['Hızlı Erişim',null], pens:['Kalemler','root'], cpens:['Pro Kalem Seti','pens'],
+  colors:['Renk','root'], tools:['Araçlar','root'], shapes:['Şekiller','tools'], page:['Sayfa','tools'],
+};
+/* alt çarkı aç — göbeğe dönünce bir üst seviyeye çıkar */
+function ringSub(kind){
+  const items=(RING_SUB[kind]||(()=>RING))();
+  ringMode=kind;
+  fillRing(items,(RING_META[kind]||['',null])[0]);
   ringOpen=true;ringHot=-1;gring.classList.add('on');markRingHot();
 }
-function fillRing(items){
-  gring.querySelectorAll('.gwheel,.gseg').forEach(x=>x.remove());
-  ringItems=items;
+function ringBack(){
+  const par=(RING_META[ringMode]||[])[1];
+  if(!par)return closeRing(false);
+  if(par==='root'){ringMode='root';fillRing(RING,'Hızlı Erişim');ringOpen=true;ringHot=-1;gring.classList.add('on');markRingHot();return}
+  ringSub(par);
+}
+function fillRing(items,title){
+  gring.querySelectorAll('.gwheel').forEach(x=>x.remove());
+  ringItems=items;ringTitle=title||'';
   const N=items.length;
-  const R=N>9?192:(N<5?150:170), R0=Math.round(R*.34);   // dış yarıçap / göbek
+  const R=N<=6?190:(N>9?198:184);
+  const R0=Math.round(R*(N<=6?.405:.345));
+  ringR0=R0;
   const wrap=document.createElement('div');wrap.className='gwheel';
   wrap.style.width=wrap.style.height=(R*2)+'px';
   wrap.style.margin=(-R)+'px 0 0 '+(-R)+'px';
@@ -3296,77 +3364,91 @@ function fillRing(items){
   svg.setAttribute('viewBox','0 0 '+(R*2)+' '+(R*2));
   svg.setAttribute('width',R*2);svg.setAttribute('height',R*2);
   svg.setAttribute('class','gpie');
-  const seg=Math.PI*2/N,gap=0.017,P=(r,a)=>[R+Math.cos(a)*r,R+Math.sin(a)*r];
+  const seg=Math.PI*2/N,gap=N<=6?.022:.016,P=(r,a)=>[R+Math.cos(a)*r,R+Math.sin(a)*r];
   items.forEach((it,i)=>{
     const mid=-Math.PI/2+i*seg,a0=mid-seg/2+gap,a1=mid+seg/2-gap;
-    const[x0,y0]=P(R-2,a0),[x1,y1]=P(R-2,a1),[x2,y2]=P(R0+5,a1),[x3,y3]=P(R0+5,a0);
+    const[x0,y0]=P(R-3,a0),[x1,y1]=P(R-3,a1),[x2,y2]=P(R0+6,a1),[x3,y3]=P(R0+6,a0);
     const path=document.createElementNS(NS,'path');
-    path.setAttribute('d','M'+x0+' '+y0+' A'+(R-2)+' '+(R-2)+' 0 0 1 '+x1+' '+y1+' L'+x2+' '+y2+' A'+(R0+5)+' '+(R0+5)+' 0 0 0 '+x3+' '+y3+' Z');
+    path.setAttribute('d','M'+x0+' '+y0+' A'+(R-3)+' '+(R-3)+' 0 0 1 '+x1+' '+y1+' L'+x2+' '+y2+' A'+(R0+6)+' '+(R0+6)+' 0 0 0 '+x3+' '+y3+' Z');
     path.setAttribute('class','gwedge');path.dataset.i=i;
+    if(it.c)path.style.setProperty('--wc',it.c);
     path.addEventListener('click',ev=>{ev.stopPropagation();ringHot=i;closeRing(true)});
     svg.appendChild(path)});
   const hub=document.createElementNS(NS,'circle');
-  hub.setAttribute('cx',R);hub.setAttribute('cy',R);hub.setAttribute('r',R0-5);hub.setAttribute('class','ghub');svg.appendChild(hub);
-  const hub2=document.createElementNS(NS,'circle');
-  hub2.setAttribute('cx',R);hub2.setAttribute('cy',R);hub2.setAttribute('r',R0-12);hub2.setAttribute('class','ghub2');svg.appendChild(hub2);
+  hub.setAttribute('cx',R);hub.setAttribute('cy',R);hub.setAttribute('r',R0-4);hub.setAttribute('class','ghub');svg.appendChild(hub);
   wrap.appendChild(svg);
-  const DOTC=['#3B82F6','#F59E0B','#8B5CF6','#EF4444','#EC4899','#16A34A','#0EA5E9','#F97316','#14B8A6','#A855F7','#64748B','#DC2626'];
+  /* göbek yazısı — üzerine gelinen seçeneğin adı burada büyük görünür */
+  const ctr=document.createElement('div');ctr.className='ghubtx';
+  ctr.style.left=R+'px';ctr.style.top=R+'px';ctr.style.width=(R0*1.68)+'px';
+  ctr.innerHTML='<b></b><small></small>';
+  ctr.addEventListener('click',ev=>{ev.stopPropagation();ringBack()});
+  wrap.appendChild(ctr);
   items.forEach((it,i)=>{
-    const mid=-Math.PI/2+i*seg,rr=(R0+R)/2+7;
-    const d=document.createElement('div');d.className='gseg';d.dataset.i=i;
+    const mid=-Math.PI/2+i*seg,rr=(R0+R)/2+(N<=6?4:6);
+    const d=document.createElement('div');d.className='gseg'+(it.dot?' dot':'')+(it.on&&it.on()?' sel':'');d.dataset.i=i;
     d.style.left=(R+Math.cos(mid)*rr)+'px';d.style.top=(R+Math.sin(mid)*rr)+'px';
-    const ic=it.shp?`<svg width="22" height="22" viewBox="0 0 100 100"><path d="${polysToPath(it.shp)}" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`:(it.svg||I[it.ic]||'');
-    d.innerHTML=ic+'<span>'+it.n+'</span><i style="background:'+DOTC[i%DOTC.length]+'"></i>';
+    if(it.c)d.style.setProperty('--wc',it.c);
+    const ic=it.dot?('<i class="gdot" style="background:'+it.dot+'"></i>')
+      :(it.shp?`<svg width="24" height="24" viewBox="0 0 100 100"><path d="${polysToPath(it.shp)}" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+      :(it.svg||I[it.ic]||''));
+    d.innerHTML=ic+(it.n?'<span>'+it.n+'</span>':'');
     wrap.appendChild(d)});
   gring.appendChild(wrap);
 }
-function buildRing(){fillRing(RING);ringMode='tools'}
-function morphRingToShapes(){
-  ringMode='shapes';fillRing(RING_SHAPES);
-  ringOpen=true;ringHot=-1;gring.classList.add('on');markRingHot();
-}
+function buildRing(){fillRing(RING,'Hızlı Erişim');ringMode='root'}
+/* geriye dönük adlar — eski çağrılar çalışmaya devam etsin */
+function morphRingToShapes(){ringSub('shapes')}
+function morphRingToPens(){ringSub('pens')}
 function openRing(x,y){buildRing();ringOpen=true;ringHot=-1;
-  gring.style.left=clamp(x,205,innerWidth-205)+'px';
-  gring.style.top=clamp(y,215,innerHeight-215)+'px';
+  gring.style.left=clamp(x,200,innerWidth-200)+'px';
+  gring.style.top=clamp(y,206,innerHeight-206)+'px';
   gring.classList.add('on');markRingHot()}
 function closeRing(run){
   const h=ringHot,items=ringItems;ringHot=-1;
   const fn=run&&h>=0?items[h].fn:null;
-  gring.classList.remove('on');ringOpen=false;ringMode='tools';
+  gring.classList.remove('on');ringOpen=false;ringMode='root';
   if(fn)fn();
-  if(ringOpen){/* morphRingToShapes yeniden acti: acik kalsin */}
 }
 function ringMove(e){if(!ringOpen)return;
   const gx=parseFloat(gring.style.left),gy=parseFloat(gring.style.top);
   const dx=e.clientX-gx,dy=e.clientY-gy,d=Math.hypot(dx,dy);
-  if(d<44)ringHot=-1;
+  if(d<ringR0)ringHot=-1;
   else{let a=Math.atan2(dy,dx)+Math.PI/2;if(a<0)a+=Math.PI*2;
     ringHot=Math.round(a/(Math.PI*2)*ringItems.length)%ringItems.length}
   markRingHot()}
 function markRingHot(){
   $$('#gring .gseg').forEach(b=>b.classList.toggle('hot',+b.dataset.i===ringHot));
-  $$('#gring .gwedge').forEach(w=>w.classList.toggle('hot',+w.dataset.i===ringHot))}
+  $$('#gring .gwedge').forEach(w=>w.classList.toggle('hot',+w.dataset.i===ringHot));
+  const tx=gring.querySelector('.ghubtx');if(!tx)return;
+  const it=ringHot>=0?ringItems[ringHot]:null;
+  const par=(RING_META[ringMode]||[])[1];
+  tx.querySelector('b').textContent=it?(it.n||it.hint||it.dot||''):ringTitle;
+  tx.querySelector('small').textContent=it?(it.n?(it.hint||''):(it.dot||'')):(par?'\u25C0 geri':'bırakınca seçilir');
+  tx.classList.toggle('acc',!!it);
+  if(it&&it.c)tx.style.setProperty('--wc',it.c);else tx.style.removeProperty('--wc');
+}
 function rightPress(e){
   hideMiniBar();
   rightState={x:e.clientX,y:e.clientY,pen:e.pointerType==='pen',timer:null};
-  if(S.ring)rightState.timer=setTimeout(()=>{if(rightState)openRing(rightState.x,rightState.y)},200);
+  if(S.ring)rightState.timer=setTimeout(()=>{if(rightState)openRing(rightState.x,rightState.y)},180);
 }
 function rightRelease(e){
   const st=rightState;rightState=null;if(!st)return;
   clearTimeout(st.timer);
   if(ringOpen){closeRing(true);return}
-  if(st.pen){swapPen();return}                 // stylus yan tuşu: önceki kaleme dön (PDF #10)
+  if(st.pen){swapPen();return}                 // stylus yan tuşu: önceki kaleme dön
   showMiniBar(e.clientX,e.clientY);            // fare kısa sağ tık: mini araç çubuğu
 }
+const RING_STAY=k=>k!=='root';                 // alt çarklar bırakınca kapanmaz
 stage.addEventListener('contextmenu',e=>e.preventDefault());
-window.addEventListener('pointermove',e=>{if(ringOpen&&(ringMode==='shapes'||ringMode==='pens'))ringMove(e)},{capture:true});
+window.addEventListener('pointermove',e=>{if(ringOpen&&RING_STAY(ringMode))ringMove(e)},{capture:true});
 window.addEventListener('pointerdown',e=>{
-  if(ringOpen&&(ringMode==='shapes'||ringMode==='pens')){
+  if(ringOpen&&RING_STAY(ringMode)){
     e.preventDefault();e.stopPropagation();
     if(e.button===0)closeRing(true);else closeRing(false);
   }
 },{capture:true});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&ringOpen&&(ringMode==='shapes'||ringMode==='pens'))closeRing(false)});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&ringOpen){closeRing(false)}});
 
 /* ============================================================
    AKILLI KALEM GEÇİŞİ (PDF #10) — X tuşu / stylus yan tuşu
