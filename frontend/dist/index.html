@@ -286,17 +286,23 @@
       </div>
 
       <div class="set-pane" id="sp-draw">
-        <div class="set-row"><div><div class="t">Basınç hassasiyeti</div><div class="d">Stylus basıncına göre çizgi kalınlığı değişir</div></div><label class="sw-toggle"><input type="checkbox" id="sPressure" checked><i></i></label></div>
-        <div class="set-row"><div><div class="t">Çizgi yumuşatma</div><div class="d">Kalem hareketlerini pürüzsüzleştirir</div></div><input type="range" id="sSmooth" min="0" max="100" value="45"></div>
-        <div class="set-row"><div><div class="t">Titreme azaltma (Sabitleyici)</div></div><input type="range" id="sStab" min="0" max="90" value="35"></div>
+        <!-- Basınç hassasiyeti, çizgi yumuşatma ve titreme azaltma BURADAN
+             KALDIRILDI. Sebebi gerçek bir hataydı: kalem değiştirdiğin her
+             seferde (pkApply / pkOnTool) bu üç değer kalemin kendi ayarıyla
+             sessizce EZİLİYORDU. Yani buradan kapattığını bir sonraki kalem
+             geçişinde geri açılmış buluyordun. Üçü de artık Kalem Stüdyosu'nda,
+             her kalem için ayrı ayrı yaşıyor. -->
+        <div class="set-hint">Basınç, yumuşatma ve titreme azaltma artık
+          <b>her kalem için ayrı</b> — <a href="#" class="goto-pens">Kalemler</a> sekmesinden ayarla.
+          Önceden buradaki değerler kalem değiştirince sessizce eziliyordu.</div>
         <div class="set-row"><div><div class="t">Gecikme tahmini</div><div class="d">Hareketi önceden kestirerek gecikmeyi azaltır</div></div><label class="sw-toggle"><input type="checkbox" id="sPredict" checked><i></i></label></div>
         <div class="set-row"><div><div class="t">Şekilleri otomatik düzelt</div><div class="d">Tükenmez / dolma / kurşun kalemde geçerli · Akıllı kalem saf mürekkeptir</div></div><label class="sw-toggle"><input type="checkbox" id="sShape"><i></i></label></div>
-        <div class="set-row"><div><div class="t">Fosforlu kalemi düzleştir</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapHl" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Fosforlu kalemi düzleştir</div><div class="d">Fosforlu çizgi iki uç arasında düz bir banda oturur</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapHl" checked><i></i></label></div>
       </div>
 
       <div class="set-pane" id="sp-align">
         <div class="set-row"><div><div class="t">Izgaraya yapış (Snap)</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapGrid"><i></i></label></div>
-        <div class="set-row"><div><div class="t">Izgara aralığı</div><div class="d" id="sGridOut">20 px</div></div><input type="range" id="sGrid" min="8" max="80" step="4" value="20"></div>
+        <div class="set-row"><div><div class="t">Yapışma aralığı</div><div class="d"><span id="sGridOut">20 px</span> · nesneler bu adımlara oturur. Kâğıdın görünen kareleri Sayfa Özellikleri'nden seçilir.</div></div><input type="range" id="sGrid" min="8" max="80" step="4" value="20"></div>
         <div class="set-row"><div><div class="t">Akıllı kılavuz çizgileri</div><div class="d">Sayfa merkezine hizalanınca kılavuz göster</div></div><label class="sw-toggle"><input type="checkbox" id="sGuides" checked><i></i></label></div>
         <div class="set-row"><div><div class="t">Cetvelde açı yapışması</div><div class="d">15°'lik adımlara kilitlenir</div></div><label class="sw-toggle"><input type="checkbox" id="sAngle"><i></i></label></div>
       </div>
@@ -341,9 +347,10 @@
         <div class="set-row"><div><div class="t">🧬 Pen DNA</div><div class="d">Açınca: uygulama alışkanlığını öğrenir — en çok kullandığın araç + renk + kalınlık + opaklık kombinasyonunu (yeterli veri birikince) sonraki açılışlarda otomatik seçer.</div></div><label class="sw-toggle"><input type="checkbox" id="oPenDNA"><i></i></label></div>
         <div class="set-row"><div><div class="t">🧭 Kenar Oto-Kaydırma</div><div class="d">Açınca: çizim ekranın kenarına yaklaştığında tuval o yöne kendiliğinden kaymaya başlar — kalemi kaldırmadan sonsuza yaz.</div></div><label class="sw-toggle"><input type="checkbox" id="oEdge"><i></i></label></div>
         <div class="set-sec-t" style="margin-top:16px">Arayüz Gizleme</div>
-        <div class="set-row"><div><div class="t">◧ Sol paneli gizle</div><div class="d">Araç çubuğu gizlenir; çalışma alanı sola genişler, PDF yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideLeft"><i></i></label></div>
-        <div class="set-row"><div><div class="t">⬒ Üst paneli gizle</div><div class="d">Üst çubuk gizlenir; çalışma alanı yukarı genişler. Sağ üstte küçük geri-getir düğmesi belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideTop"><i></i></label></div>
-        <div class="set-row"><div><div class="t">⛶ İkisini birden gizle</div><div class="d">Sol + üst panel gizlenir — tam sayfa çalışma alanı. PDF ekrana yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideBoth"><i></i></label></div>
+        <!-- Eskiden üç ayrı anahtardı; üçüncüsü ilk ikisinin VE'siydi, hangisinin
+             ne yaptığı belirsizdi ve F9 döngüsüyle çakışıyordu. Tek denetim. -->
+        <div class="set-row"><div><div class="t">⛶ Panel gizleme</div><div class="d">Çalışma alanını genişletir; PDF her değişimde ekrana yeniden sığdırılır. Aynı döngü <b>F9</b> tuşuyla da çalışır.</div></div>
+          <div class="pk-seg" id="oPanels" style="flex:0 0 auto"><button type="button">Hepsi görünür</button><button type="button">Sol gizli</button><button type="button">İkisi gizli</button></div></div>
         <div class="set-sec-t" style="margin-top:16px">Kalem Kalitesi</div>
         <div class="set-row"><div><div class="t">🔬 Ultra Netlik</div><div class="d">Tuval, ekran çözünürlüğünün üzerinde örneklenir (süper-örnekleme): kalem çizgileri yakınlaştırmada bile piksellenmez, kenarlar ipek gibi kalır. Tüm kalemler için geçerli. (Güçlü donanım önerilir.)</div></div><label class="sw-toggle"><input type="checkbox" id="oUltraInk"><i></i></label></div>
         <div class="set-row"><div><div class="t">✒️ Pro Kalem Modu</div><div class="d">Kalemler yaşamaya başlar: çizerken ucunda seni takip eden yumuşak IŞIK NEFESİ · mürekkep uçtan uca renk-derinlikli akar (ton gradyanı) · çizgiler kâğıda gömülme gölgesiyle kâğıdın ÜSTÜNDE durur · Akıllı'da yavaşlayınca doğal mürekkep birikintileri · Dolma'da hattat kontrastı + ıslak parlaklık şeridi · Tükenmez'de ipek 'nefes alan' çizgi + bilye damlası · Kurşun'da gerçek grafit dokusu · Fosforlu'da kenar pigmenti. Yazmak bağımlılık yapar.</div></div><label class="sw-toggle"><input type="checkbox" id="oProPens"><i></i></label></div>

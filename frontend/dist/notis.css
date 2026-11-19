@@ -692,3 +692,9 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 .pkd-r span{font-weight:700;color:var(--mut);white-space:nowrap}
 .pkd-r b{font-weight:700;color:var(--mut);font-size:10.5px;white-space:nowrap}
 .pkd-r b i{font-style:normal;font-weight:900;color:var(--acc)}
+
+/* ayarlar panelinde yönlendirme notu */
+.set-hint{font-size:11px;font-weight:700;color:var(--mut);line-height:1.6;background:var(--p2);
+  border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:12px}
+.set-hint b{color:var(--tx)}
+.set-hint a{color:var(--acc);text-decoration:none;font-weight:900;border-bottom:1px solid currentColor}

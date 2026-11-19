@@ -2958,8 +2958,8 @@ function openSettings(tab){openDlg(setDlg);if(tab){$$('.set-tab').forEach(x=>x.c
   if(typeof renderPenCards==='function'){renderPenCards();syncPenUI();requestAnimationFrame(pkSizeCv)}
   if(tab==='storage'&&window.LIB)LIB.fillPane();
   try{if(window.__healLogRefresh)window.__healLogRefresh()}catch(_){}}
-const bindT=(id,key,cb)=>$(id).addEventListener('change',e=>{S[key]=e.target.checked;cb&&cb();saveOpts();redraw()});
-const bindR=(id,key,k=1,cb)=>$(id).addEventListener('input',e=>{S[key]=e.target.value*k;cb&&cb();saveOpts()});
+const bindT=(id,key,cb)=>{const n=$(id);if(n)n.addEventListener('change',e=>{S[key]=e.target.checked;cb&&cb();saveOpts();redraw()})};
+const bindR=(id,key,k=1,cb)=>{const n=$(id);if(n)n.addEventListener('input',e=>{S[key]=e.target.value*k;cb&&cb();saveOpts()})};
 bindT('#sPressure','pressure');bindT('#sPredict','predict');
 bindT('#sShape','shapeFix',renderOpts);bindT('#sSnapHl','snapHl',renderOpts);
 bindT('#sSnapGrid','snapGrid');bindT('#sGuides','guides');bindT('#sAngle','angleSnap',renderOpts);
@@ -4573,6 +4573,12 @@ const LIB=(()=>{
 })();
 window.LIB=LIB;   // kancalar window.LIB üzerinden erişir — const window'a çıkmaz
 /* Depolama paneli bağları */
+/* Çizim panelindeki yönlendirme: Kalem Stüdyosu'na götür */
+$$('.goto-pens').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  const t=$$('.set-tab').find(x=>x.dataset.s==='pens');
+  if(t)t.click();
+}));
 $('#libRefresh').addEventListener('click',()=>LIB.renderLib());
 {const q=$('#libSearch');
  if(q)q.addEventListener('input',()=>LIB.setQuery(q.value));
@@ -4607,8 +4613,10 @@ $('#exitApp').addEventListener('click',()=>LIB.exit());
 function applyPanels(refit){
   document.body.classList.toggle('hide-left',!!S.hideLeft);
   document.body.classList.toggle('hide-top',!!S.hideTop);
-  $('#oHideLeft').checked=!!S.hideLeft;$('#oHideTop').checked=!!S.hideTop;
-  $('#oHideBoth').checked=!!(S.hideLeft&&S.hideTop);
+  /* Üç ayrı anahtar yerine tek segment: üçüncüsü ilk ikisinin VE'siydi ve
+     F9 döngüsüyle çakışıyordu — hangisinin ne yaptığı belirsizdi. */
+  {const st=(!S.hideLeft&&!S.hideTop)?0:((S.hideLeft&&!S.hideTop)?1:2);
+   $$('#oPanels button').forEach((b,i)=>b.classList.toggle('on',i===st));}
   resize();
   if(refit&&!boardMode())fit();               // PDF/sayfa yeni alana yeniden sığdırılır
 }
@@ -4629,9 +4637,8 @@ function applyDPR(){
   DPR=d;
   resize();
 }
-$('#oHideLeft').addEventListener('change',e=>{S.hideLeft=e.target.checked;saveOpts();applyPanels(true)});
-$('#oHideTop').addEventListener('change',e=>{S.hideTop=e.target.checked;saveOpts();applyPanels(true)});
-$('#oHideBoth').addEventListener('change',e=>{S.hideLeft=S.hideTop=e.target.checked;saveOpts();applyPanels(true)});
+$$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
+  S.hideLeft=i>=1;S.hideTop=i>=2;saveOpts();applyPanels(true)}));
 $('#oUltraInk').addEventListener('change',e=>{S.ultraInk=e.target.checked;saveOpts();applyDPR();
   toast(S.ultraInk?'Ultra Netlik AÇIK — çizgiler süper-örnekleniyor':'Ultra Netlik kapalı')});
 $('#oProPens').addEventListener('change',e=>{S.proPens=e.target.checked;saveOpts();redraw();
@@ -4658,8 +4665,11 @@ function init(){
   loadOpts();
   /* Geri yüklenen ayarları kontrollere yansıt (kaydet-yükle döngüsü tam olsun) */
   try{
-    $('#sSmooth').value=Math.round(S.smooth*100);$('#sStab').value=Math.round(S.stab*100);
-    $('#sPressure').checked=S.pressure;$('#sPredict').checked=S.predict;
+    /* Bu üçü artık Kalem Stüdyosu'nda kaleme özel yaşıyor (bkz. not) */
+    {const a=$('#sSmooth');if(a)a.value=Math.round(S.smooth*100);
+     const b=$('#sStab');if(b)b.value=Math.round(S.stab*100);
+     const c=$('#sPressure');if(c)c.checked=S.pressure;}
+    $('#sPredict').checked=S.predict;
     $('#sMini').checked=S.miniBar;$('#sRing').checked=S.ring;
     $('#sGrain').checked=S.grain;document.body.classList.toggle('nograin',!S.grain);
     syncSettingsUI();
