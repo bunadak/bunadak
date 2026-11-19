@@ -412,7 +412,7 @@
     grid.insertAdjacentHTML('beforeend', card('Çıkış İncelmesi', 'pkTEOut', slider('pkTE', 0, 40, 1, 'vio')));
 
     /* --- 5. DOKU --- */
-    grid.insertAdjacentHTML('beforeend', card('Doku', 'pkGrOut', slider('pkGr', 0, 100, 5)));
+    grid.insertAdjacentHTML('beforeend', card('Doku', 'pkGrOut', slider('pkGr', 0, 100, 5, 'vio')));
 
     /* --- 6. önizleme başlığına hayalet anahtarı + fark paneli --- */
     const head = document.querySelector('#sp-pens .pk-prevhead');

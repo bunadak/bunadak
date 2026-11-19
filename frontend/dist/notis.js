@@ -1963,7 +1963,11 @@ function setTool(t){const _PENS=['smart','ball','fountain','pencil','hl'];if(_PE
   markRail();renderOpts();
   stage.style.cursor=t==='pan'?'grab':t==='text'?'text':'default'}
 function renderOpts(){
-  $('#toolName').textContent=(tool==='smart'?'✦ ':'')+(TOOLNAMES[tool]||tool);
+  /* Araç rozeti: adın yanında aracın kendi simgesi — hangi kalemde olduğunu
+     üst çubuğa bakmadan, simgeden anlarsın. */
+  {const tn=$('#toolName');
+   if(tn)tn.innerHTML='<span class="tn-ic">'+(I[tool]||'')+'</span><span class="tn-tx">'+
+     esc(TOOLNAMES[tool]||tool)+'</span>';}
   // Bağlama duyarlı üst çubuk: yalnızca seçili araçla ilgili kontroller görünür
   const PENS=['smart','ball','fountain','pencil','hl'];
   const showColor=(PENS.includes(tool)&&tool!=='hl')||['text','line','compass'].includes(tool);
@@ -2129,7 +2133,9 @@ function renderPages(){if(scratch)return;const el=$('#pgList');if(!document.body
     bk.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="'+(p.bookmark?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
     bk.addEventListener('click',e=>{e.stopPropagation();p.bookmark=!p.bookmark;renderPages()});
     const meta=document.createElement('div');meta.className='meta';
-    meta.innerHTML=`<div class="nm">${esc(p.name)}${p.infinite?' ∞':''}</div><div class="sub">${paperName(p.paper)} · ${p.layers.length} katman · Sayfa ${i+1}</div>`;
+    /* Sayfa numarası zaten rozette yazıyor — alt satırda tekrar etmesi
+       dar panelde satırı ikiye kırıyordu. */
+    meta.innerHTML=`<div class="nm">${esc(p.name)}${p.infinite?' ∞':''}</div><div class="sub">${paperName(p.paper)} · ${p.layers.length} katman</div>`;
     // Üzerine gelince beliren eylemler: çoğalt · yeniden adlandır · özellikler · sil
     const acts=document.createElement('div');acts.className='acts';
     const mkA=(title,svg,fn,danger)=>{const b=document.createElement('button');if(danger)b.className='danger';b.title=title;b.innerHTML=svg;
@@ -3679,7 +3685,9 @@ function applyCPen(i){const p=CPENS[i];if(!p)return;
   if(p.color){penColor=p.color;if(typeof buildSwatches==='function')buildSwatches()}
   $('#sizeRng').value=penSize;$('#sizeOut').textContent=penSize;
   $('#opRng').value=Math.round(penOp*100);$('#opOut').textContent=Math.round(penOp*100);
-  const tn=$('#toolName');if(tn)tn.textContent=p.n;
+  /* Çark kalemleri de aynı rozet biçimini kullanır */
+  const tn=$('#toolName');
+  if(tn)tn.innerHTML='<span class="tn-ic">'+(I.ball||'')+'</span><span class="tn-tx">'+esc(p.n)+'</span>';
   toast(p.n+' aktif — çark kalemi')}
 function renderCPenSet(){const box=$('#cpenSet');if(!box)return;box.innerHTML='';
   const F=[['width','Kalınlık (px)','num',.5,40,.1],['op','Opaklık','pct'],
