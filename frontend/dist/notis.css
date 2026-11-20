@@ -960,3 +960,19 @@ body:not(.hide-left) #stage{border-bottom-left-radius:0}
   border:1px solid var(--line);color:var(--mut);font-size:10px;font-weight:800;display:grid;place-items:center;backdrop-filter:blur(4px)}
 .pp-act button:hover{color:var(--tx);border-color:var(--acc)}
 .pp-act button.x:hover{color:#fff;background:#C0392B;border-color:#C0392B}
+
+/* --- uygulama ayarları: dil --- */
+.lang-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+.lang-b{display:flex;align-items:center;gap:10px;background:var(--p2);border:1.5px solid var(--line);
+  border-radius:12px;padding:11px 13px;transition:.16s;cursor:pointer;min-width:0;text-align:left}
+.lang-b:hover{border-color:color-mix(in srgb,var(--acc) 55%,var(--line));transform:translateY(-1px)}
+.lang-b.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 9%,var(--p2));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 35%,transparent)}
+.lang-b .fl{font-size:19px;line-height:1;flex:none}
+.lang-b .lw{min-width:0;display:flex;flex-direction:column;gap:1px}
+.lang-b .ln{font-size:12.5px;font-weight:800;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lang-b .le{font-size:10px;font-weight:700;color:var(--mut)}
+.lang-b .ck{margin-left:auto;color:var(--acc);font-weight:900;font-size:13px;opacity:0;flex:none}
+.lang-b.on .ck{opacity:1}
+.app-ver{font-size:11.5px;font-weight:700;color:var(--mut);background:var(--p2);
+  border:1px solid var(--line);border-radius:11px;padding:11px 14px;line-height:1.6}

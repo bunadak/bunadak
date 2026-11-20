@@ -3127,11 +3127,15 @@ $('#sGrain').addEventListener('change',e=>{S.grain=e.target.checked;document.bod
    birimi seçimi kaldı — bu kalemle ilgisizdir. */
 /* Ayarlar › Opsiyonlar: ekran bildirimlerini tamamen açıp kapatan tek anahtar */
 function buildNotifyUI(){
-  const host=document.getElementById('sp-opts');
+  /* Bildirim anahtarı artık Uygulama Ayarları kategorisinde yaşıyor; o kategori
+     yoksa (eski düzen) Gelişmiş'e düşer. Başlık da orada hazır olduğu için
+     burada ikinci kez yazılmaz. */
+  const slot=document.getElementById('appNotify');
+  const host=slot||document.getElementById('sp-opts');
   if(!host||host.dataset.notify)return false;
   host.dataset.notify='1';
   const d=document.createElement('div');
-  d.innerHTML='<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>'+
+  d.innerHTML=(slot?'':'<div class="set-sec-t" style="margin-top:18px">Bildirimler</div>')+
     '<div class="set-row"><div><div class="t">🔔 Ekran Bildirimleri</div>'+
     '<div class="d">Kapalıyken çalışma ekranına <b>hiçbir bildirim düşmez</b> — ne bilgi ne uyarı ne hata. '+
     'Varsayılan kapalıdır. Bastırılan mesajlar yine de kaydedilir; merak edersen '+
@@ -4249,7 +4253,9 @@ const PANE_META={
  draw:['Çizim','Sabitleme, yumuşatma, otomatik şekil ve hizalama kılavuzları.'],
  ui:['Çalışma Alanı','Tema, tahta zemini, düzen, odak modu ve sunum.'],
  storage:['PDF ve Kayıt','Otomatik kayıt, kütüphane, dışa aktarma ve yedekleme.'],
- opts:['Gelişmiş','Klavye kısayolları, performans ve uzman seçenekleri.']};
+ keys:['Klavye ve Kısayollar','Tuş atamaları ve sabit kombinasyonlar — tıkla, yeni tuşa bas.'],
+ opts:['Gelişmiş','Performans, çizgi netliği ve uzman seçenekleri.'],
+ app:['Uygulama Ayarları','Arayüz dili, bildirimler ve sürüm bilgisi.']};
 function updPaneHead(s){const m=PANE_META[s];if(!m)return;
   $('#paneT').textContent=m[0];$('#paneD').textContent=m[1];
   const t=$$('.set-tab').find(x=>x.dataset.s===s);
@@ -4847,10 +4853,11 @@ $$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
   S.hideLeft=i>=1;S.hideTop=i>=2;saveOpts();applyPanels(true)}));
 /* Katlanabilir klavye kısayolları — Gelişmiş paneli 19 kısayolla açılıyordu,
    uzman ayarları listenin çok altında kalıyordu. */
+/* Klavye kısayolları artık kendi kategorisinde, katlanır kutu içinde değil —
+   açıp kapamaya gerek yok, hepsi doğrudan görünür. Bağ güvenli bırakıldı. */
 {const h=$('#keyFoldHead'),f=$('#keyFold');
  if(h&&f){h.addEventListener('click',()=>{f.classList.toggle('open');
-   const n=$('#keyFoldN');if(n)n.textContent=$$('#keyList > *').length+' kısayol'});
-   const n=$('#keyFoldN');if(n)setTimeout(()=>{n.textContent=$$('#keyList > *').length+' kısayol'},400);}}
+   const n=$('#keyFoldN');if(n)n.textContent=$$('#keyList > *').length+' kısayol'});}}
 /* Çizgi netliği — üç kademe. Onay kutusu yerine kademe, çünkü artık varsayılan
    zaten yüksek: "Net" fabrika ayarı, "Akıcı" zayıf donanım için geri çekilme,
    "Ultra" bir kademe daha yukarısı. */
