@@ -1,4 +1,6 @@
 :root{
+  /* iki tonlu simge vurgusu — temanın vurgu rengi */
+  --ic-acc:var(--acc);
   --bg:#0A0F20; --p1:#131A36; --p2:#1C244C; --p3:#273060; --line:#2B3364;
   --tx:#EAEDFF; --mut:#8E97C6; --acc:#FFB454; --acc-ink:#3A2A08;
   --acc2:#4FE3C1; --dgr:#FF5D73; --paper:#FBF8F0; --shadow:0 10px 30px rgba(4,8,25,.45);
@@ -308,30 +310,65 @@ dialog[open]{animation:dlgin .22s var(--ease)}
 #miniBar .mbtn:hover{background:var(--p3);color:var(--tx)}
 #miniBar .msep{width:1px;height:18px;background:var(--line)}
 
-/* ---------- HAREKET HALKASI — sağ tuşu basılı tut (PDF #11-12) ---------- */
-#gring{position:fixed;z-index:85;width:0;height:0;display:none}
+/* ---------- HAREKET HALKASI — sağ tuşu basılı tut ----------
+   Beş YAPRAK biçimli dilim: koyu dolgu, ışıyan amber kenar, aralarında
+   boşluk. Yapraklar kalın-yuvarlak konturla şişirilerek elde edilir, bu
+   yüzden köşeler kusursuz yuvarlak ve kenar tek piksel bile kırılmaz.
+   Göbekte Geri Al / Yinele: sol yarı geri al, sağ yarı yinele. */
+#gring{position:fixed;z-index:85;width:0;height:0;display:none;
+  --rg-acc:#FFC13B; --ic-acc:#FFC13B;
+  --rg-body:#23262D; --rg-body2:#1A1D23;
+  --rg-tx:#F2F4F8; --rg-mut:#9BA3B2}
+[data-theme="light"] #gring,[data-theme="paper"] #gring{
+  --rg-body:#2A2E36; --rg-body2:#1F232A}
 #gring.on{display:block}
-/* Pasta çark: açık zemin, dilimli premium tasarım — dilim vurgusu + renk noktaları */
-#gring .gwheel{position:absolute;left:0;top:0;animation:ringPop .26s var(--ease) both}
-@keyframes ringPop{from{transform:scale(.84);opacity:0}to{transform:scale(1);opacity:1}}
+#gring .gwheel{position:absolute;left:0;top:0;animation:ringPop .2s cubic-bezier(.2,.9,.25,1.1) both}
+@keyframes ringPop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
 #gring .gpie{position:absolute;left:0;top:0;overflow:visible;
-  filter:drop-shadow(0 24px 46px rgba(16,20,48,.30)) drop-shadow(0 4px 12px rgba(16,20,48,.16))}
-#gring .gwedge{fill:#F5F2E9;stroke:#E3DECF;stroke-width:1;cursor:pointer;
-  transition:fill .13s var(--ease),stroke .13s var(--ease)}
-#gring .gwedge:hover{fill:#FBF8EF}
-#gring .gwedge.hot{fill:#FFFDF6;stroke:var(--acc);stroke-width:2}
-#gring .ghub{fill:#F8F5EC;stroke:#E3DECF;stroke-width:1}
-#gring .ghub2{fill:none;stroke:#EAE5D7;stroke-width:1}
+  filter:drop-shadow(0 26px 50px rgba(0,0,0,.55)) drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+/* yaprağın ışıyan kenarı (altta) */
+#gring .gedge{fill:var(--rg-acc);stroke:var(--rg-acc);stroke-linejoin:round;stroke-linecap:round;
+  opacity:.78;transition:opacity .14s var(--ease);
+  filter:drop-shadow(0 0 5px color-mix(in srgb,var(--rg-acc) 45%,transparent))}
+#gring .gedge.hot{opacity:1;filter:drop-shadow(0 0 12px color-mix(in srgb,var(--rg-acc) 95%,transparent)) drop-shadow(0 0 4px color-mix(in srgb,var(--rg-acc) 70%,transparent))}
+/* yaprağın gövdesi (üstte) */
+#gring .gwedge{fill:var(--rg-body);stroke:var(--rg-body);stroke-linejoin:round;stroke-linecap:round;
+  cursor:pointer;transition:fill .14s var(--ease),stroke .14s var(--ease)}
+#gring .gwedge:hover{fill:#2B2F38;stroke:#2B2F38}
+#gring .gwedge.hot{fill:#32363F;stroke:#32363F}
+/* göbek */
+#gring .ghubedge{fill:none;stroke:var(--rg-acc);stroke-width:2.2;opacity:.9;
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--rg-acc) 60%,transparent))}
+#gring .ghub{fill:var(--rg-body2);stroke:none}
+#gring .ghubtx{position:absolute;transform:translate(-50%,-50%);text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:1px;user-select:none;pointer-events:none}
+#gring .ghub-arrows{display:flex;align-items:center;gap:4px;pointer-events:auto}
+#gring .ghub-arrows button{width:34px;height:30px;display:grid;place-items:center;border-radius:9px;
+  color:var(--rg-acc);opacity:.78;transition:opacity .14s var(--ease),background .14s var(--ease),transform .14s var(--ease)}
+#gring .ghub-arrows button:hover{opacity:1;background:rgba(255,193,59,.14)}
+#gring .ghubtx.u-hot .gu,#gring .ghubtx.r-hot .gr{
+  opacity:1;background:rgba(255,193,59,.2);transform:scale(1.14)}
+#gring .ghubtx b{font-size:11px;font-weight:800;color:var(--rg-tx);line-height:1.2;margin-top:1px;
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gring .ghubtx small{font-size:9.5px;font-weight:700;color:var(--rg-mut);letter-spacing:.01em}
+#gring .ghubtx.acc b{color:var(--rg-acc)}
+/* dilim içeriği */
 #gring .gseg{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;
-  align-items:center;gap:3px;background:none;border:none;padding:0;color:#28304F;
-  pointer-events:none;transition:transform .15s var(--ease)}
-#gring .gseg svg{width:20px;height:20px}
-#gring .gseg span{font-size:10.5px;font-weight:800;letter-spacing:.02em;color:#454E71;white-space:nowrap}
-#gring .gseg i{width:5px;height:5px;border-radius:50%;margin-top:1px}
-#gring .gseg.hot{transform:translate(-50%,-50%) scale(1.12)}
-#gring .gseg.hot span{color:var(--acc);font-weight:900}
-#gring .gcenter{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;z-index:2;
-  background:var(--acc);opacity:.95;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent), 0 0 14px color-mix(in srgb,var(--acc) 55%,transparent)}
+  align-items:center;gap:6px;background:none;border:none;padding:0;color:var(--rg-tx);
+  pointer-events:none;transition:transform .16s var(--ease)}
+#gring .gseg svg{width:29px;height:29px}
+#gring .gseg span{font-size:12px;font-weight:800;letter-spacing:.01em;color:var(--rg-tx);white-space:nowrap}
+#gring .gwheel:not(.five) .gseg svg{width:25px;height:25px}
+#gring .gwheel:not(.five) .gseg span{font-size:11px}
+#gring .gseg.hot{transform:translate(-50%,-50%) scale(1.1)}
+#gring .gseg.hot span{color:var(--rg-acc)}
+/* renk çarkı noktaları */
+#gring .gseg.dot .gdot{display:block;width:32px;height:32px;border-radius:50%;
+  box-shadow:inset 0 0 0 1.6px rgba(255,255,255,.3), 0 2px 8px rgba(0,0,0,.45);
+  transition:box-shadow .16s var(--ease)}
+#gring .gseg.dot.sel .gdot{box-shadow:inset 0 0 0 1.6px rgba(255,255,255,.4), 0 0 0 2.4px var(--rg-tx)}
+#gring .gseg.dot.hot .gdot{box-shadow:inset 0 0 0 1.6px rgba(255,255,255,.55), 0 0 0 3.4px var(--rg-acc), 0 3px 12px rgba(0,0,0,.5)}
+#gring .gcenter{display:none}
 
 /* ---------- KOMUT PALETİ + EVRENSEL ARAMA — Ctrl+K (PDF #7-8) ---------- */
 #palWrap{position:fixed;inset:0;z-index:120;display:none;background:rgba(4,7,20,.45);backdrop-filter:blur(4px)}
@@ -641,3 +678,9 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
   #splash .sp-mark,#splash .sp-word,#splash .sp-word .w-shine,#splash .sp-beams i,#splash .sp-tag,#splash::before{
     animation:none!important;opacity:1;transform:none;clip-path:none}
   #splash .sp-word .w-shine{display:none}}
+/* İKİ TONLU SİMGE — vurgu rengi bağlama göre değişir.
+   Seçili araç düğmesinin zemini zaten amber; amber vurgu orada kaybolur,
+   bu yüzden mürekkep renginin yumuşatılmışına döner. */
+.rtool.on, .stab.on, .pbtn.on, .tbtn.on, .cta, .pk-cd.on{
+  --ic-acc:color-mix(in srgb, currentColor 58%, transparent);
+}
