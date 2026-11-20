@@ -18,7 +18,7 @@
         · "keski" uçta basıncı sabitliyordu; motor yalnız uç biçimini değiştirir
         · sabitleyici (titreme azaltma) önizlemede HİÇ simüle edilmiyordu
       Artık önizleme gerçek hattı adım adım taklit ediyor:
-        sabitleyici (EMA) → yumuşatma geçişleri → matisInk/snapStraighten
+        sabitleyici (EMA) → yumuşatma geçişleri → penInk/snapStraighten
         → drawStroke
       Demo çizgisine gerçek el titremesi eklendi; titremesiz bir eğride
       "titreme azaltma" ayarının etkisi zaten görünmezdi.
@@ -131,7 +131,9 @@
     let oo = o;
     try {
       if (base === 'hl' && S.snapHl) oo = snapStraighten(o);
-      else if (base === 'smart') oo = matisInk(o);
+      else if (typeof PEN_MODEL !== 'undefined' && PEN_MODEL[base]) {
+        const t = o.tool; o.tool = base; oo = penInk(o); oo.tool = t;
+      }
     } catch (_) { oo = o }
     return oo;
   }

@@ -39,19 +39,38 @@
   function clearTimers() { timers.forEach(clearTimeout); timers.length = 0 }
   function later(fn, ms) { timers.push(setTimeout(fn, ms)) }
 
+  /* TAM EKRAN: ANAHTAR DEĞİL, DURUM ATAMASI
+     Eskiden giriş ve çıkış ToggleFullscreen() çağırıyordu. Anahtarın sonucu
+     pencerenin o anki durumuna bağlı olduğu için pencere zaten tam ekransa
+     sunuma basmak onu tam ekrandan ÇIKARIYOR, bütün düzen küçülüyordu; bir
+     giriş/çıkış çifti kaçtığında da parite bozulup sonraki basış ters
+     çalışıyordu. Artık istenen durum doğrudan atanır (SetFullscreen) ve
+     sunuma girmeden önceki durum hatırlanıp çıkışta aynen geri verilir:
+     uygulamayı tam ekran kullanan biri sunumdan çıkınca tam ekran kalır. */
+  let oncedenTam = false;
+  const api = () => { try { return window.go && window.go.main && window.go.main.App } catch (_) { return null } };
+
   function goFull() {
-    try {
-      const A = window.go && window.go.main && window.go.main.App;
+    const A = api();
+    if (A && A.SetFullscreen) {
+      Promise.resolve(A.IsFullscreen ? A.IsFullscreen() : false).catch(() => false)
+        .then(v => { oncedenTam = !!v; if (!oncedenTam) { try { A.SetFullscreen(true) } catch (_) { } } });
+      return;
+    }
+    try {   /* eski gövde ya da tarayıcı */
       if (A && A.ToggleFullscreen && !document.fullscreenElement) { A.ToggleFullscreen(); return }
     } catch (_) { }
     try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => { }) } catch (_) { }
   }
   function leaveFull() {
+    const A = api();
+    if (A && A.SetFullscreen) {
+      if (!oncedenTam) { try { A.SetFullscreen(false) } catch (_) { } }
+      oncedenTam = false;
+      return;
+    }
     try { if (document.fullscreenElement) { document.exitFullscreen().catch(() => { }); return } } catch (_) { }
-    try {
-      const A = window.go && window.go.main && window.go.main.App;
-      if (A && A.ToggleFullscreen) A.ToggleFullscreen();
-    } catch (_) { }
+    try { if (A && A.ToggleFullscreen) A.ToggleFullscreen() } catch (_) { }
   }
 
   /* ---------------------------------------------------------- GİRİŞ */
@@ -116,10 +135,15 @@
     leaveFull();
     try { toggleSpot(false) } catch (_) { }
     try { setTool(prevTool || 'smart') } catch (_) { }
-    setTimeout(() => {
+    /* Izgara eski haline dönerken ölçü bir karede oturmuyor: tuval bit
+       eşlemi ve sığdırma iki kez pekiştirilir, yoksa sunumdan çıkışta
+       çalışma alanı bir öncekinden küçük kalıyordu. */
+    const esitle = () => {
       try { resize() } catch (_) { }
       try { (typeof fitSmart === 'function' ? fitSmart() : fit()) } catch (_) { }
-    }, 30);
+    };
+    setTimeout(esitle, 30);
+    setTimeout(esitle, 520);
   };
 
   /* ------------------------------------------- TAM EKRANDAN ÇIKIŞ = SUNUMDAN ÇIKIŞ */

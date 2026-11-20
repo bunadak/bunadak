@@ -16,12 +16,32 @@
 (function () {
   'use strict';
   const LSK = 'notis_lang1';
+  /* Bayraklar SVG olarak çizilir. Emoji bayraklar Windows'ta glif olmadığı
+     için ülke harflerine düşüyor ("GB", "TR"...) — listede bozuk duruyordu. */
+  const FL = (inner) => '<svg viewBox="0 0 24 16" width="22" height="15" ' +
+    'style="border-radius:3px;display:block;box-shadow:0 0 0 1px rgba(0,0,0,.22)">' + inner + '</svg>';
   const LANGS = [
-    { c: 'tr', fl: '🇹🇷', n: 'Türkçe', e: 'Turkish' },
-    { c: 'en', fl: '🇬🇧', n: 'English', e: 'İngilizce' },
-    { c: 'de', fl: '🇩🇪', n: 'Deutsch', e: 'Almanca' },
-    { c: 'fr', fl: '🇫🇷', n: 'Français', e: 'Fransızca' },
-    { c: 'es', fl: '🇪🇸', n: 'Español', e: 'İspanyolca' },
+    { c: 'tr', n: 'Türkçe', e: 'Turkish', fl: FL(
+      '<rect width="24" height="16" fill="#E30A17"/>' +
+      '<circle cx="9" cy="8" r="4" fill="#fff"/><circle cx="10.4" cy="8" r="3.2" fill="#E30A17"/>' +
+      '<path d="M14.2 8 16.9 7.1 15.2 9.4 15.2 6.6 16.9 8.9z" fill="#fff"/>') },
+    { c: 'en', n: 'English', e: 'İngilizce', fl: FL(
+      '<rect width="24" height="16" fill="#012169"/>' +
+      '<path d="M0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/>' +
+      '<path d="M0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.9"/>' +
+      '<path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.4"/>' +
+      '<path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/>') },
+    { c: 'de', n: 'Deutsch', e: 'Almanca', fl: FL(
+      '<rect width="24" height="5.34" y="0" fill="#000"/>' +
+      '<rect width="24" height="5.34" y="5.33" fill="#DD0000"/>' +
+      '<rect width="24" height="5.34" y="10.66" fill="#FFCE00"/>') },
+    { c: 'fr', n: 'Français', e: 'Fransızca', fl: FL(
+      '<rect width="8" height="16" x="0" fill="#002395"/>' +
+      '<rect width="8" height="16" x="8" fill="#fff"/>' +
+      '<rect width="8" height="16" x="16" fill="#ED2939"/>') },
+    { c: 'es', n: 'Español', e: 'İspanyolca', fl: FL(
+      '<rect width="24" height="16" fill="#AA151B"/>' +
+      '<rect width="24" height="8" y="4" fill="#F1BF00"/>') },
   ];
   const IDX = { en: 0, de: 1, fr: 2, es: 3 };
 
@@ -299,15 +319,47 @@
   let cur = 'tr';
   try { cur = localStorage.getItem(LSK) || 'tr' } catch (_) { }
 
+  /* DESEN KURALLARI — içinde değişen sayı/ad geçen dizeler için.
+     "0.1 MB kullanılıyor" ya da "Mürekkep · Tükenmez 3px (1 · sağ tık: sil)"
+     gibi metinler her değerde farklı olduğu için birebir sözlükle tutulamaz.
+     Kural listesi birebir eşleşme bulunamadığında denenir: sayı yerinde
+     kalır, çevresindeki ifade çevrilir. pro-i18n3.js doldurur. */
+  const RULES = [];
+  function trRule(s) {
+    for (const [re, row] of RULES) {
+      const m = re.exec(s);
+      if (!m) continue;
+      const v = row[IDX[cur]];
+      if (!v) continue;
+      /* Yakalanan parçalar da sözlükten geçirilir: "Dolma · Dolma Kalem 4.5px"
+         gibi dizelerde yalnız kalıp değil, kalemin ADI da çevrilmeli. */
+      return v.replace(/\$(\d+)/g, (_, i) => {
+        const g = m[+i] == null ? '' : m[+i];
+        const d = D[g.trim()];
+        return (d && d[IDX[cur]]) ? d[IDX[cur]] : g;
+      });
+    }
+    return null;
+  }
   const tr = (s) => {
     if (cur === 'tr') return null;
-    const row = D[s]; if (!row) return null;
+    const row = D[s];
+    if (!row) return trRule(s);
     const v = row[IDX[cur]];
-    return (v && v !== s) ? v : null;
+    return (v && v !== s) ? v : trRule(s);
   };
 
   const ATTRS = ['title', 'placeholder', 'aria-label'];
   const SKIP = { SCRIPT: 1, STYLE: 1, CANVAS: 1, SVG: 1 };
+  /* ÇEVRİLMEYECEK ALANLAR — ürün adı her dilde "Notis" kalır.
+     Logo "Not" + "is" olarak iki metin düğümüne bölünmüş; sözlükteki
+     "Not" karşılığı logoyu "Noteis" yapıyordu. */
+  const NOTR = '#logo, .notr, [data-notr]';
+  function inNoTr(n) {
+    for (let e = (n.nodeType === 1 ? n : n.parentElement); e; e = e.parentElement)
+      if (e.matches && e.matches(NOTR)) return true;
+    return false;
+  }
 
   /* ELEMAN DÜZEYİ ÇEVİRİ
      Uzun açıklamalar <b> etiketleriyle parçalandığı için metin düğümü başına
@@ -344,6 +396,7 @@
         if (!p || SKIP[p.nodeName]) return NodeFilter.FILTER_REJECT;
         /* eleman düzeyinde çevrilen kapsayıcıların içine girilmez */
         for (let e = p; e && e !== root; e = e.parentElement) if (e.__key) return NodeFilter.FILTER_REJECT;
+        if (inNoTr(p)) return NodeFilter.FILTER_REJECT;
         return n.nodeValue && n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
@@ -359,6 +412,7 @@
     const els = root.querySelectorAll ? root.querySelectorAll('[title],[placeholder],[aria-label]') : [];
     const all = (root.nodeType === 1 && (root.hasAttribute('title') || root.hasAttribute('placeholder') || root.hasAttribute('aria-label'))) ? [root, ...els] : [...els];
     for (const el of all) {
+      if (inNoTr(el)) continue;
       for (const a of ATTRS) {
         if (!el.hasAttribute(a)) continue;
         const k = '__o_' + a;
@@ -367,6 +421,21 @@
         el.setAttribute(a, v == null ? raw : v);
       }
     }
+  }
+
+  /* SÖZLÜK SONRADAN BÜYÜYEBİLİR
+     walkEl, anahtarı sözlükte bulamadığı kapsayıcıyı __noTr ile işaretleyip
+     bir daha bakmıyordu. Sözlük katmanları (pro-i18n3/4/5) ana katmandan
+     SONRA yüklendiği için bu işaret, yeni eklenen bütün çevirileri sessizce
+     etkisiz bırakıyordu. reset() işaretleri temizler ve yeniden uygular. */
+  function reset() {
+    try {
+      for (const el of document.querySelectorAll(SELD)) {
+        if (el.__oHTML !== undefined) el.innerHTML = el.__oHTML;
+        delete el.__noTr; delete el.__oHTML; delete el.__key;
+      }
+    } catch (_) { }
+    applyAll();
   }
 
   let pending = false, obs = null;
@@ -445,5 +514,6 @@
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.proI18n = { setLang, lang: () => cur, LANGS, dict: D, elDict: DEL, apply: applyAll, IDX };
+  window.proI18n = { setLang, lang: () => cur, LANGS, dict: D, elDict: DEL, apply: applyAll, IDX,
+                     rules: RULES, reset };
 })();

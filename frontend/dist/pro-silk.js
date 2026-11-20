@@ -62,7 +62,13 @@
   function oneEuro(pts, cfg) {
     var n = pts.length; if (n < 3) return pts.slice();
     var cfgCorners = !!P.corners;
-    var out = [{ x: pts[0].x, y: pts[0].y, p: pts[0].p }];
+    /* ZAMAN DAMGASI KORUNUR
+       Çıkış noktalarına t yazılmıyordu. Akıllı kalemin hız→basınç modeli
+       noktaların t alanından hız hesaplıyor; t kaybolduğu için hızın yerine
+       dizi sırası okunuyor, Chaikin'in doğası gereği eşit olmayan nokta
+       aralıkları hız dalgalanması sanılıyor ve kalem SABİT hızda çizilen bir
+       çizgide bile görünür biçimde kalınlaşıp incelip duruyordu. */
+    var out = [{ x: pts[0].x, y: pts[0].y, p: pts[0].p, t: pts[0].t }];
     var px = pts[0].x, py = pts[0].y, dxf = 0, dyf = 0;
     for (var i = 1; i < n; i++) {
       var a = pts[i - 1], b = pts[i];
@@ -85,17 +91,17 @@
         }
       }
       px = px + al * (b.x - px); py = py + al * (b.y - py);
-      out.push({ x: px, y: py, p: b.p });
+      out.push({ x: px, y: py, p: b.p, t: b.t });
     }
     /* Uçları geri sabitle: çizgi tam kalemin bıraktığı yerde bitsin */
-    out[out.length - 1] = { x: pts[n - 1].x, y: pts[n - 1].y, p: pts[n - 1].p };
+    out[out.length - 1] = { x: pts[n - 1].x, y: pts[n - 1].y, p: pts[n - 1].p, t: pts[n - 1].t };
     return out;
   }
 
   /* --------------------------------------- 2) YAY UZUNLUĞUNA GÖRE ÖRNEKLEME */
   function resample(pts, step) {
     if (pts.length < 2) return pts.slice();
-    var out = [pts[0]], acc = 0, cur = { x: pts[0].x, y: pts[0].y, p: pts[0].p };
+    var out = [pts[0]], acc = 0, cur = { x: pts[0].x, y: pts[0].y, p: pts[0].p, t: pts[0].t };
     for (var i = 1; i < pts.length; i++) {
       var a = cur, b = pts[i];
       var d = Math.hypot(b.x - a.x, b.y - a.y);
@@ -104,8 +110,9 @@
         var t = (step - acc) / d;
         var nx = a.x + (b.x - a.x) * t, ny = a.y + (b.y - a.y) * t;
         var np = (a.p == null ? 0.6 : a.p) + ((b.p == null ? 0.6 : b.p) - (a.p == null ? 0.6 : a.p)) * t;
-        out.push({ x: nx, y: ny, p: np });
-        a = { x: nx, y: ny, p: np }; d = Math.hypot(b.x - a.x, b.y - a.y); acc = 0;
+        var nt = (a.t != null && b.t != null) ? (a.t + (b.t - a.t) * t) : (b.t != null ? b.t : a.t);
+        out.push({ x: nx, y: ny, p: np, t: nt });
+        a = { x: nx, y: ny, p: np, t: nt }; d = Math.hypot(b.x - a.x, b.y - a.y); acc = 0;
       }
       acc += d; cur = b;
     }
@@ -226,9 +233,18 @@
   }
 
   /* --------------------------------------------------------------- SILK ANA */
-  function silk(src) {
+  /* src    : ham girdi — GEOMETRİ buradan gelir (SILK'in işi titremeyi atmak)
+     pSrc   : motorun çıktısı — BASINÇ buradan gelir (kalemin işi karakterini vermek)
+     Eskiden basınç da ham girdiden eşleniyordu. Akıllı kalemin hız→basınç
+     modeli ve uç inceltmesi motorda hesaplanıp SILK tarafından çöpe atıldığı
+     için akıllı kalem, karakteri olmayan düz bir çizgiye dönüşüyordu: SILK
+     v3.8.0'da fabrika ayarında açıldığından kalem tam o sürümde bozuldu.
+     Geometri aynı eğri olduğu için yay uzunluğuna göre eşleme doğrudur ve
+     her kalemin kendi dinamiği olduğu gibi korunur. */
+  function silk(src, pSrc) {
     var cfg = prof();
     if (!src || src.length < 5) return null;
+    var pS = (pSrc && pSrc.length >= 2) ? pSrc : src;
     var f = oneEuro(src, cfg);
     var rs = resample(f, cfg.step);
     if (rs.length < 4) return null;
@@ -248,11 +264,11 @@
     if (pts.length < 3) return null;
 
     /* Basınç profilini yay uzunluğuna göre yeniden eşle + hafifçe yumuşat */
-    var su = chordParams(src), pu = chordParams(pts), j = 0;
+    var su = chordParams(pS), pu = chordParams(pts), j = 0;
     for (var i2 = 0; i2 < pts.length; i2++) {
       while (j < su.length - 2 && su[j + 1] < pu[i2]) j++;
       var t = (su[j + 1] - su[j]) > 1e-9 ? (pu[i2] - su[j]) / (su[j + 1] - su[j]) : 0;
-      var p0 = src[j].p == null ? 0.6 : src[j].p, p1 = src[j + 1].p == null ? 0.6 : src[j + 1].p;
+      var p0 = pS[j].p == null ? 0.6 : pS[j].p, p1 = pS[j + 1].p == null ? 0.6 : pS[j + 1].p;
       pts[i2].p = p0 + (p1 - p0) * Math.max(0, Math.min(1, t));
     }
     for (var q = 1; q < pts.length - 1; q++)
@@ -275,7 +291,7 @@
         if (!P.on || !before || before.length < 5) return r;
         var o = layer().objects[layer().objects.length - 1];
         if (!o || o.type !== "stroke" || o.straight || !o.points || o.points.length < 4) return r;
-        var res = silk(before);
+        var res = silk(before, o.points);   // basınç motorun çıktısından
         if (!res) return r;
         /* Dürüst ölçüm: SILK'siz hâl = nesnenin şu anki (uygulama çıktısı)
            noktaları. Ham giriş yerine bununla kıyaslanır. */
@@ -370,6 +386,9 @@
   } else setTimeout(boot, 950);
 
   /* test/ölçüm için dışa aç */
+  /* Kusursuz Çizgi katmanı seviyeyi dışarıdan kurabilsin */
+  function setLevel(lv) { if (!LV[lv]) return; P.level = lv; save(); }
+  function setOn(v) { P.on = !!v; save(); var i = $id("oSilk"); if (i) i.checked = P.on; }
   window.proSilk = { silk: silk, jitter: jitter, stat: function () { return STAT; },
-                     opts: function () { return P; } };
+                     opts: function () { return P; }, setLevel: setLevel, setOn: setOn };
 })();

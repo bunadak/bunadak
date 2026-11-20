@@ -153,6 +153,66 @@ func (a *App) Quit() {
 }
 
 // ToggleFullscreen flips the window between fullscreen and normal (fallback).
+// SetAlwaysOnTop pins the window above every other window, so the board can
+// be drawn on while another application stays visible underneath. This is a
+// real desktop capability rather than a cosmetic setting, which is why it
+// belongs in the Pro Interface group.
+func (a *App) SetAlwaysOnTop(on bool) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowSetAlwaysOnTop(a.ctx, on)
+}
+
+// GetWindowBox reports the window's position and size so the frontend can
+// store it and restore the exact same frame on the next launch.
+func (a *App) GetWindowBox() map[string]int {
+	if a.ctx == nil {
+		return map[string]int{}
+	}
+	x, y := runtime.WindowGetPosition(a.ctx)
+	w, h := runtime.WindowGetSize(a.ctx)
+	return map[string]int{"x": x, "y": y, "w": w, "h": h}
+}
+
+// SetWindowBox restores a stored window frame. Sizes below a sane floor are
+// ignored so a corrupt record can never leave the window unusable.
+func (a *App) SetWindowBox(x, y, w, h int) {
+	if a.ctx == nil || w < 480 || h < 360 {
+		return
+	}
+	runtime.WindowSetSize(a.ctx, w, h)
+	runtime.WindowSetPosition(a.ctx, x, y)
+}
+
+// SetFullscreen puts the window into or out of fullscreen deterministically.
+// ToggleFullscreen alone was not enough: presentation mode has a *desired*
+// state, not a flip. When the window already happened to be fullscreen,
+// entering presentation toggled it back out and the whole layout shrank.
+func (a *App) SetFullscreen(on bool) {
+	if a.ctx == nil {
+		return
+	}
+	if on {
+		if !runtime.WindowIsFullscreen(a.ctx) {
+			runtime.WindowFullscreen(a.ctx)
+		}
+		return
+	}
+	if runtime.WindowIsFullscreen(a.ctx) {
+		runtime.WindowUnfullscreen(a.ctx)
+	}
+}
+
+// IsFullscreen reports the window's real fullscreen state so the frontend can
+// restore exactly what it found instead of guessing.
+func (a *App) IsFullscreen() bool {
+	if a.ctx == nil {
+		return false
+	}
+	return runtime.WindowIsFullscreen(a.ctx)
+}
+
 func (a *App) ToggleFullscreen() {
 	if a.ctx == nil {
 		return
@@ -244,7 +304,7 @@ func (a *App) ReadFileAsDataURL(path string) (string, error) {
 func (a *App) AppInfo() map[string]string {
 	return map[string]string{
 		"name":    "Notis Pro",
-		"version": "3.8.0",
+		"version": "3.9.0",
 		"channel": "pro",
 	}
 }

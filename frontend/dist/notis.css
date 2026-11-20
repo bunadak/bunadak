@@ -1039,3 +1039,17 @@ body.present #rail,body.present #side,body.present #topbar{margin:0;border:none;
 #miniBar,#ringWrap .rpanel,#shapePop,.pop,#palWrap .palbox{
   -webkit-backdrop-filter:blur(var(--glass,12px)) saturate(1.25);
   backdrop-filter:blur(var(--glass,12px)) saturate(1.25)}
+
+/* Web yansıtma penceresi — ekrana ortalı ve derli toplu */
+#proWebDlg{margin:auto;border:1px solid var(--line);border-radius:16px;background:var(--p1);
+  color:var(--tx);padding:0;min-width:min(440px,92vw);box-shadow:0 30px 70px -24px rgba(0,0,0,.7)}
+#proWebDlg::backdrop{background:rgba(4,7,20,.5);backdrop-filter:blur(3px)}
+#proWebDlg .pw-h{font-size:14px;font-weight:800;padding:16px 18px 10px}
+#proWebDlg .pw-body{padding:0 18px 4px}
+#proWebDlg #pwUrl{width:100%;background:var(--p2);border:1.5px solid var(--line);border-radius:11px;
+  padding:11px 13px;color:var(--tx);font:700 12.5px Manrope,sans-serif;outline:none}
+#proWebDlg #pwUrl:focus{border-color:var(--acc)}
+#proWebDlg .pw-f{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px 16px}
+#proWebDlg .pw-f button{font-size:12px;font-weight:800;border-radius:10px;padding:9px 16px}
+#proWebDlg .pw-f #pwGo{background:var(--acc);color:var(--acc-ink)}
+.lang-b .fl{display:flex;align-items:center;flex:none;line-height:0}

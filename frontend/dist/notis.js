@@ -88,7 +88,11 @@ function toastShow(msg,opt){
   opt=opt||{};
   const err=opt.level==='error';
   logMsg(err?'hata':'bilgi',msg);
-  if(!toastOn())return null;                       // sıfır bildirim modu
+  /* Bazı hatalar sessiz kalmamalı: PDF içe aktarma çökerse kullanıcı bunu
+     görmeli, yoksa "yükledim ama hiçbir şey olmadı" deneyimi doğar. opt.force
+     yalnız bu tür kritik hatalar için kullanılır; gündelik bildirimler yine
+     anahtara uyar ve çalışma ekranı temiz kalır. */
+  if(!toastOn()&&!opt.force)return null;            // sıfır bildirim modu
   try{if(!err&&(typeof presenting!=='undefined'&&presenting))return null}catch(_){}
   const w=toastWrap();
   const t=document.createElement('div');
@@ -118,7 +122,10 @@ function toast(msg,ms){
   return toastShow(String(msg),{ms:typeof ms==='number'?ms:undefined});
 }
 toast.info =(m,ms)=>toastShow(String(m),{ms:typeof ms==='number'?ms:undefined});
-toast.error=(m)=>toastShow(String(m),{level:'error'});
+toast.error=(m,o)=>toastShow(String(m),Object.assign({level:'error'},o||{}));
+/* Kritik hata: bildirimler kapalı olsa bile gösterilir. Yalnız kullanıcının
+   başlattığı bir iş sessizce başarısız olduğunda kullanılır. */
+toast.kritik=(m)=>toastShow(String(m),{level:'error',force:true});  // kapatana kadar durur
 toast.action=(m,label,fn,ms)=>toastShow(String(m),{action:label,onAction:fn,ms:ms==null?8000:ms});
 window.toast=toast;
 
@@ -571,14 +578,19 @@ const _inkCache=new WeakMap();
    kalemin yarıçapına ve ekran ölçeğine göre seçiliyor: yazı hızı ne olursa
    olsun mürekkep sınırı aynı inceliğe ulaşıyor. */
 function proInkChord(rad){
-  const q=Math.max(.25,Math.min(8,INK.q||1));
+  /* KUSURSUZ ÇİZGİ: normalde q 8'de kısılır ve hedef 1.5 pikselde durur, yani
+     8× üstü yakınlaştırmalarda hedef küçülmeyi bırakıp çokgen yeniden
+     görünür hâle gelir. Anahtar açıkken kısma 32'ye çıkar ve hedef piksel
+     ALTINA iner: kiriş hiçbir yakınlaştırmada bir pikseli aşmaz. */
+  const qmax=INK_PERFECT?32:8, hedefPx=INK_PERFECT?.7:1.5, tabanPx=INK_PERFECT?.25:.5;
+  const q=Math.max(.25,Math.min(qmax,INK.q||1));
   /* DÜZLEŞTİRME TOLERANSI — iki koşulun küçüğü:
      · Ekran: kiriş ~1.5 aygıt pikselini aşmasın. Bu ölçekte çokgen köşeleri
        yumuşatmanın altında kalır; yakınlaştırdıkça kendiliğinden sıklaşır.
      · Geometri: kiriş kalem yarıçapını geçmesin, yoksa sol/sağ ofset çokgeni
        gerçek ofset eğrisini izleyemez ve kenarda ezilme/çıkıntı olur.
      Alt sınır yarım aygıt pikseli: daha incesi göze görünmez, boşa iştir. */
-  return Math.max(.5/q, Math.min(Math.max(.12,rad||1.1), 1.5/q));
+  return Math.max(tabanPx/q, Math.min(Math.max(.12,rad||1.1), hedefPx/q));
 }
 function proInkSmooth(src,rad){
   const n=src.length; if(n<4) return src;
@@ -589,8 +601,10 @@ function proInkSmooth(src,rad){
   for(let i=1;i<n-1;i++){const p0=src[i-1],p1=src[i],p2=src[i+1];
     a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
   a.push(src[n-1]);
-  let cur=a;
-  for(let pass=0,k=proInkPasses(a,rad);pass<k;pass++){
+  /* Kusursuz Çizgi: Chaikin geçişlerinden ÖNCE eğrilik gürültüsü düzlenir.
+     Chaikin yalnız çokgeni inceltir, eğriliği düzeltmez — sıralama önemli. */
+  let cur=INK_PERFECT?inkFair(a,6):a;
+  for(let pass=0,k=proInkPasses(cur,rad);pass<k;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
       out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
@@ -603,7 +617,38 @@ function proInkSmooth(src,rad){
    Taban 2 geçiş (eski davranış) — hiçbir durumda eskisinden kaba olmaz.
    Üst sınır hem geçiş (7) hem de toplam nokta bütçesiyle (çok uzun stroklarda
    yeniden çizim hızını korumak için) kısıtlanır. */
-const INK_BUDGET=9000;
+/* Kusursuz Çizgi bu üç değeri yükseltir (pro-perfect.js). Klasik betiklerde
+   üst düzey let bildirimi global sözcüksel kapsamda durur: başka katman adıyla
+   doğrudan atayabilir. */
+let INK_BUDGET=9000, INK_KMAX=7, INK_PERFECT=false;
+
+/* AÇI ALANINDA DÜZLEME (fairing)
+   Konum alanında alçak-geçiren süzgeç çizgiyi kısaltır ve tırtığı tam
+   silmez; tırtık ve titreme asıl olarak YÖN açısının yüksek frekanslı
+   salınımıdır. Bu süzgeç kiriş uzunluklarını aynen koruyup yalnız yön
+   açılarını düzler, sonra çizgiyi yeniden kurar — biriken sapma yay
+   uzunluğuna oranla dağıtılarak iki uç noktaya da birebir sabitlenir.
+   Böylece çizginin boyu, yeri ve uçları değişmez, yalnız eğrilik
+   gürültüsü gider. */
+function inkFair(a,iter){
+  const n=a.length; if(n<5||iter<1) return a;
+  const L=new Array(n-1),th=new Array(n-1);
+  for(let i=1;i<n;i++){const dx=a[i].x-a[i-1].x,dy=a[i].y-a[i-1].y;
+    L[i-1]=Math.hypot(dx,dy);th[i-1]=Math.atan2(dy,dx)}
+  for(let i=1;i<th.length;i++){        // açıları sürekli hâle getir
+    while(th[i]-th[i-1]>Math.PI)th[i]-=2*Math.PI;
+    while(th[i]-th[i-1]<-Math.PI)th[i]+=2*Math.PI}
+  for(let k=0;k<iter;k++){const o=th.slice();
+    for(let i=1;i<th.length-1;i++)th[i]=(o[i-1]+2*o[i]+o[i+1])/4}
+  let x=a[0].x,y=a[0].y;
+  const out=[{...a[0]}],kum=new Array(n).fill(0);
+  for(let i=0;i<L.length;i++){x+=Math.cos(th[i])*L[i];y+=Math.sin(th[i])*L[i];
+    kum[i+1]=kum[i]+L[i];out.push({x,y,p:a[i+1].p,t:a[i+1].t})}
+  const Lt=kum[n-1]||1, ex=a[n-1].x-x, ey=a[n-1].y-y;
+  if(Math.hypot(ex,ey)>1e-9)for(let i=1;i<n;i++){const f=kum[i]/Lt;
+    out[i].x+=ex*f;out[i].y+=ey*f}
+  return out;
+}
 function proInkPasses(a,rad){
   const n=a.length; if(n<2) return 2;
   let s=0;
@@ -619,7 +664,7 @@ function proInkPasses(a,rad){
      düzeltmez — o durumda taban sıfırdır. */
   const yogun=avg<=tgt*1.05, taban=yogun?0:2;
   if(k<taban)k=taban;
-  if(k>7)k=7;
+  if(k>INK_KMAX)k=INK_KMAX;
   while(k>taban&&n*Math.pow(2,k)>INK_BUDGET)k--;
   return k;
 }
@@ -1205,8 +1250,14 @@ function commitStroke(){
   if(o.points.length<2){drawOverlay();return}
   const cp=o.cp;delete o.cp; // çark kalemi parametreleri — stroke'a serileştirilmez
   const passes=cp?clamp(Math.round(cp.smoothing*1.6+cp.streamline*1.2),1,3):Math.round(S.smooth*2)+(o.tool==='smart'?1:0);
+  /* t ARA DEĞERLENİR: Chaikin çıkışına zaman damgası yazılmıyordu, bu yüzden
+     hız→basınç kullanan kalemlerde (akıllı kalem, çark kalemleri) "hız" diye
+     dizi sırası okunuyordu. Zaman doğrusal ara değerlendiğinde tek yönlü
+     artışı korunur ve hız gerçek hız olur. */
   for(let n=0;n<passes;n++){const np=[o.points[0]];for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
-    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p})}np.push(o.points.at(-1));o.points=np}
+    const ta=a.t,tb=b.t,iki=(ta!=null&&tb!=null);
+    np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,t:iki?(ta*.75+tb*.25):ta},
+            {x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,t:iki?(ta*.25+tb*.75):tb})}np.push(o.points.at(-1));o.points=np}
   if(o.tool==='hl'&&S.snapHl)o=snapStraighten(o);
   else if(cp){o=cpInk(o,cp);
     /* Render efekt tanımlayıcısı — serileştirilebilir, deterministik (seed'li) */
@@ -1216,7 +1267,7 @@ function commitStroke(){
     if(cp.spray)fx.s={r:cp.sprayR||18,d:clamp(cp.sprayD||.7,.05,1),sp:Math.max(.005,cp.sp||.01)};
     if(Object.keys(fx).length){fx.cp=1;fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
-  else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
+  else if(PEN_MODEL[o.tool]){o=penInk(o)}    // her kalem kendi amacına göre: hız→basınç modeli
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
   snapshot();layer().objects.push(o);dnaRecord(o);redraw();drawOverlay();
 }
@@ -1257,30 +1308,79 @@ function cpInk(o,cp){
 /* Matis Akilli Kalem: yavas cizgide murekkep dolgun, hizlanınca incelir.
    Taban 0.35 (Matis varsayilani). Hizlar 90. yuzdelige gore olceklenir,
    EMA ile yumusatilir, cizgi uclari dogal kalem kalkisi gibi inceltilir. */
-function matisInk(o){
-  const pts=o.points, n=pts.length;
-  if(n<3){pts.forEach(p=>p.p=.62);return o}
-  const BASE=0.35;
+/* HER KALEM KENDİ AMACINA GÖRE — hız → basınç modelleri
+   ----------------------------------------------------------------------------
+   Ölçüm şunu gösterdi: basınç vermeyen bir aygıtla (fare, dokunmatik yüzey,
+   çoğu dokunmatik ekran) tükenmez, dolma ve kurşun kalemin ÜÇÜ de sabit
+   0.60 basınçla çiziyordu — yani üçü birbirinin aynısıydı. "Basınca duyarlı
+   mürekkep" diye tanıtılan dolma kalem, kalemsiz bir makinede tükenmezden
+   ayırt edilemiyordu.
+
+   Artık gerçek basınç YOKSA her kalem kendi karakterine göre hızdan basınç
+   türetir; gerçek basınç VARSA kaleme dokunulmaz, kalemin verdiği değer
+   aynen kullanılır (uç inceltme yine uygulanır). Model alanları:
+     base     en ince hâl · mid sakin elin ağırlığı · exp hıza duyarlılık
+     taper    uç inceltmenin yay uzunluğuna oranı · taperMin uçtaki en ince kat
+     cap      inceltmenin en çok kaç doküman birimi süreceği
+   Değerler kalemlerin ilan edilen amacına göre seçildi: tükenmez neredeyse
+   sabit, dolma kaligrafik geniş aralıklı, kurşun hafif (dokusu baskındır),
+   akıllı kalem dengeli. Fosforlu kalem modele hiç girmez — vurgu kaleminin
+   amacı eşit kalınlıktır. */
+const PEN_MODEL={
+  smart:   {base:.42, mid:.70, exp:1.6, taper:.09, taperMin:.46, cap:7},
+  fountain:{base:.30, mid:.72, exp:2.0, taper:.16, taperMin:.22, cap:12},
+  pencil:  {base:.58, mid:.78, exp:1.1, taper:.05, taperMin:.70, cap:4},
+  ball:    {base:.80, mid:.92, exp:.8,  taper:.03, taperMin:.82, cap:3},
+};
+/* Aygıt gerçekten basınç veriyor mu? Kalemsiz girdide bütün örnekler aynı
+   sabit değeri taşır; o zaman modele geçilir. */
+function hasRealPressure(pts){
+  let mn=2,mx=-1;
+  for(const q of pts){const p=(q.p==null?.5:q.p); if(p<mn)mn=p; if(p>mx)mx=p}
+  return pts.length>4&&(mx-mn)>.06;
+}
+/* Yay uzunluğuna göre uç inceltme — nokta sayısından bağımsız */
+function inkTaper(pts,M){
+  const n=pts.length,kum=new Array(n).fill(0);
+  for(let i=1;i<n;i++)kum[i]=kum[i-1]+dist(pts[i-1],pts[i]);
+  const L=kum[n-1]; if(!(L>1e-6))return;
+  const uc=Math.min(L*M.taper,M.cap); if(!(uc>1e-6))return;
+  for(let i=0;i<n;i++){const d=Math.min(kum[i],L-kum[i]);
+    if(d<uc)pts[i].p*=M.taperMin+(1-M.taperMin)*(d/uc)}
+}
+function penInk(o){
+  const M=PEN_MODEL[o.tool]; if(!M)return o;
+  const pts=o.points,n=pts.length;
+  if(n<3){pts.forEach(p=>p.p=M.mid);return o}
+  if(hasRealPressure(pts)){inkTaper(pts,M);return o}   // kalem varsa kaleme karışılmaz
+  const zam=pts.every(q=>typeof q.t==='number'&&isFinite(q.t));
   const v=new Array(n).fill(0);
-  for(let i=1;i<n;i++){
-    const dt=Math.max(1,(pts[i].t??i)-(pts[i-1].t??(i-1)));
-    v[i]=dist(pts[i-1],pts[i])/dt;
-  }
+  for(let i=1;i<n;i++){const dt=zam?Math.max(1,pts[i].t-pts[i-1].t):1;
+    v[i]=dist(pts[i-1],pts[i])/dt}
   v[0]=v[1];
+  for(let k=0;k<2;k++){                                 // faz kaymasız süzgeç
+    for(let i=1;i<n;i++)v[i]=v[i-1]*.42+v[i]*.58;
+    for(let i=n-2;i>=0;i--)v[i]=v[i+1]*.42+v[i]*.58;
+  }
   const sorted=[...v].sort((a,b)=>a-b);
-  const vRef=Math.max(sorted[Math.floor(sorted.length*0.9)],0.02);
-  let ema=0.7;
+  const vMed=Math.max(sorted[Math.floor(n*.5)],.02);
+  const g1=(M.mid-M.base)/(1-M.base);                   // sakin el → mid
+  const R0=Math.pow(g1/Math.max(1e-6,1-g1),1/M.exp);
   for(let i=0;i<n;i++){
-    const raw=clamp(BASE+(1-BASE)*(1-v[i]/vRef),BASE,1);
-    ema=ema*0.55+raw*0.45;
-    pts[i].p=ema;
+    const g=1/(1+Math.pow(Math.max(v[i]/vMed,0)/R0,M.exp));
+    pts[i].p=clamp(M.base+(1-M.base)*g,M.base,1);
   }
-  const tip=Math.min(4,Math.floor(n/3));
-  for(let k=0;k<tip;k++){
-    const f=0.45+0.55*(k/tip);
-    pts[k].p*=f; pts[n-1-k].p*=f;
-  }
+  inkTaper(pts,M);
   return o;
+}
+
+/* matisInk — ESKİ AD, GERİYE DÖNÜK UYUMLULUK
+   Akıllı kalemin mürekkep dinamiği artık penInk içindeki PEN_MODEL.smart
+   girdisiyle tanımlı. Bu ad, kalem önizleme şeritlerini çizen eski
+   çağrı yerleri için duruyor ve aynı modele yönlendiriyor. */
+function matisInk(o){
+  const t=o.tool; o.tool='smart';
+  const r=penInk(o); r.tool=t; return r;
 }
 function snapStraighten(o){
   const a=o.points[0],b=o.points.at(-1);let len=0;for(let i=1;i<o.points.length;i++)len+=dist(o.points[i-1],o.points[i]);
@@ -1738,6 +1838,26 @@ stage.addEventListener('pointermove',e=>{if(spotOn)moveSpot(e);if(presenting)arm
 
 /* tekerlek: normalde kaydır · Ctrl ile yakınlaş · sunumda sayfa çevir */
 let wheelAcc=0,wheelLock=0;
+/* SAYFA YAKINLAŞTIRMASINI TAMAMEN KAPAT
+   Dokunmatik yüzeyde iki parmak sıkıştırma (ve Ctrl+tekerlek) tarayıcının
+   SAYFA yakınlaştırmasını tetikliyordu. Tuvalin kendi yakınlaştırması bunu
+   zaten ele alıyor; ama fare araç rayının, üst panelin ya da yan panelin
+   üstündeyken olayı kimse yakalamıyordu ve bütün arayüz — araç simgeleri
+   dahil — büyüyordu. Simgeler hiçbir koşulda büyümemeli: yakınlaştırma
+   yalnızca çalışma alanına aittir. */
+window.addEventListener('wheel',e=>{
+  if(!e.ctrlKey)return;
+  if(stage&&stage.contains(e.target))return;      // tuvalin kendi işleyicisi devrede
+  e.preventDefault();
+},{passive:false,capture:true});
+window.addEventListener('keydown',e=>{
+  if(!(e.ctrlKey||e.metaKey))return;
+  if(e.key==='+'||e.key==='-'||e.key==='='||e.key==='_')e.preventDefault();
+},{capture:true});
+/* Jest olayları (bazı yüzeylerde tekerlek yerine bunlar gelir) */
+for(const ev of ['gesturestart','gesturechange','gestureend'])
+  window.addEventListener(ev,e=>e.preventDefault(),{passive:false,capture:true});
+
 stage.addEventListener('wheel',e=>{
   e.preventDefault();
   if(spotOn&&!e.ctrlKey){S.spot=clamp(S.spot-Math.sign(e.deltaY)*14,60,420);moveSpot(e);return}
@@ -2359,7 +2479,39 @@ $('#pgName').addEventListener('input',e=>{doc.pages[pageDlgIdx].name=e.target.va
 $('#pgPaper').addEventListener('change',e=>{doc.pages[pageDlgIdx].paper=e.target.value;redraw();renderPages()});
 $('#pgInf').addEventListener('change',e=>{doc.pages[pageDlgIdx].infinite=e.target.checked;invalidateLayout();fit();renderPages();updCornerPg()});
 $('#pgBk').addEventListener('change',e=>{doc.pages[pageDlgIdx].bookmark=e.target.checked;renderPages()});
-$('#pgBg').addEventListener('click',()=>{imgTarget='bg';$('#fileInp').accept='image/*';$('#fileInp').click();pageDlg.close()});
+/* PDF TANIMA — MIME TÜRÜNE GÜVENİLMEZ
+   Dosya seçiciden gelen f.type değerini WebView2 Windows kayıt defterinden
+   (HKCR\.pdf\Content Type) okur. Makinede PDF okuyucu kurulu değilse, ya da
+   üçüncü parti bir okuyucu bu anahtarı değiştirdiyse f.type boş string ya da
+   başka bir şey dönüyor. Eski kod yalnız f.type==='application/pdf' kontrol
+   ettiği için PDF sessizce görsel dalına düşüyor, Image yüklemesi başarısız
+   oluyor ve HİÇBİR ŞEY olmuyordu: ne belge açılıyor, ne kütüphaneye kayıt
+   düşüyor, ne de hata görünüyordu. Tarayıcıda kendi MIME tablosu olduğu için
+   sorun yalnız exe'de ortaya çıkıyordu.
+   Artık üç kademe var: MIME → dosya uzantısı → dosyanın ilk baytları (%PDF). */
+function isPdfFile(f){
+  if(!f)return false;
+  if(f.type==='application/pdf')return true;
+  return /\.pdf$/i.test(f.name||'');
+}
+async function sniffPdf(f){
+  try{
+    const b=new Uint8Array(await f.slice(0,5).arrayBuffer());
+    return b[0]===0x25&&b[1]===0x50&&b[2]===0x44&&b[3]===0x46;   // "%PDF"
+  }catch(_){return false}
+}
+/* Dosya seçici tek ve paylaşımlı: accept her açılışta YENİDEN kurulur.
+   Eskiden sayfa arka planı seçildikten sonra accept 'image/*' olarak
+   kalıyordu; sonraki içe aktarmada Windows seçicisi PDF'leri hiç
+   göstermiyor, kullanıcı dosyasını seçemiyordu. */
+function pickFile(accept,target){
+  const i=$('#fileInp');
+  i.accept=accept;
+  if(target!==undefined)imgTarget=target;
+  i.value='';
+  i.click();
+}
+$('#pgBg').addEventListener('click',()=>{pickFile('image/*','bg');pageDlg.close()});
 $('#pgRot').addEventListener('click',()=>{
   /* Eskiden yalnız w/h takas ediliyordu: nesneler ve arka plan yerinde kalıyor,
      içerik sayfanın dışına taşıyordu. Artık sayfa ve İÇERİĞİ birlikte 90° döner. */
@@ -2434,7 +2586,7 @@ $('#stkInp').addEventListener('change',e=>{const files=[...e.target.files];let n
 ============================================================ */
 let imgTarget='object';
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(Error('yüklenemedi'));document.head.appendChild(s)})}
-$('#importBtn').addEventListener('click',()=>{imgTarget='object';$('#fileInp').accept='.pdf,.notis,image/*';$('#fileInp').click()});
+$('#importBtn').addEventListener('click',()=>pickFile('.pdf,.notis,image/*','object'));
 /* .notis GERİ AÇMA (madde 20)
    "Düzenlenebilir proje dosyası" dışa aktarılıyor ama geri açılamıyordu —
    tek yönlü bir formattı. Artık doğrulanıp kütüphaneye eklenir ve açılır. */
@@ -2457,17 +2609,25 @@ async function importNotis(f){
 }
 $('#fileInp').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
+  const hedef=imgTarget;imgTarget='object';        // yapışkan hedef sıfırlanır
   if(/\.notis$/i.test(f.name)){await importNotis(f);return}
-  if(f.type==='application/pdf'){await importPDF(f);return}
+  if(isPdfFile(f)){await importPDF(f);return}
+  /* Ne uzantı ne MIME bir şey söylemiyorsa dosyanın ilk baytlarına bakılır:
+     adı bozulmuş ya da MIME'ı boş gelen PDF'ler de açılır. */
+  if(!/^image\//.test(f.type||'')&&await sniffPdf(f)){await importPDF(f);return}
   const r=new FileReader();
-  r.onload=()=>{const im=new Image();im.onload=()=>{
-    if(imgTarget==='bg'){const p=page();p.bgImg=im;p.bg=r.result;redraw();renderPages();toast('Görsel özel arka plan olarak ayarlandı')}
+  /* SESSİZ BAŞARISIZLIK KAPATILDI: görsel olarak çözülemeyen dosyada eskiden
+     hiçbir şey olmuyordu — ne bir şey açılıyor ne hata görünüyordu. */
+  r.onerror=()=>toast.kritik('Dosya okunamadı: '+(f.name||''));
+  r.onload=()=>{const im=new Image();
+    im.onerror=()=>toast.kritik('“'+(f.name||'dosya')+'” desteklenen bir görsel ya da PDF değil.');
+    im.onload=()=>{
+    if(hedef==='bg'){const p=page();p.bgImg=im;p.bg=r.result;redraw();renderPages();toast('Görsel özel arka plan olarak ayarlandı')}
     else{snapshot();const p=page();const w=Math.min(420,im.width);const h=w*im.height/im.width;
       const rct=stage.getBoundingClientRect();const off=curOff();
       const cx=boardMode()?(rct.width/2-view.x)/view.s:(p.w/2), cy=boardMode()?(rct.height/2-view.y)/view.s:(p.h/2);
       const o={type:'image',x:cx-w/2,y:cy-h/2,w,h,rot:0,src:r.result,_img:im,opacity:1};
       layer().objects.push(o);selection=[o];setTool('select');redraw();toast('Görsel eklendi — sürükleyip boyutlandırabilirsin')}
-    imgTarget='object';
   };im.src=r.result};
   r.readAsDataURL(f);
 });
@@ -2501,7 +2661,7 @@ window.addEventListener('paste',e=>{
   for(const it of items){
     if(it.kind!=='file')continue;
     const f=it.getAsFile();if(!f)continue;
-    if(f.type==='application/pdf'){e.preventDefault();importPDF(f);return}
+    if(isPdfFile(f)){e.preventDefault();importPDF(f);return}
     if(f.type.startsWith('image/')){e.preventDefault();importImageFile(f);return}
   }
 });
@@ -2511,12 +2671,16 @@ stage.addEventListener('drop',e=>{e.preventDefault();
   const fs=e.dataTransfer&&e.dataTransfer.files;if(!fs||!fs.length)return;
   for(const f of fs){
     if(/\.notis$/i.test(f.name)){importNotis(f);return}
-    if(f.type==='application/pdf'){importPDF(f);return}
+    if(isPdfFile(f)){importPDF(f);return}
     if(f.type.startsWith('image/')){importImageFile(f);return}
   }
 });
 async function importPDF(f){
   let cancelWorker=null;
+  /* total/atlanan/N YUKARI TAŞINDI: catch bloğu iptal mesajında total'a
+     bakıyordu ama total try içinde tanımlıydı — iptalde catch'in kendisi
+     ReferenceError atıyor, asıl hata kayboluyordu. */
+  let total=0,atlanan=0,N=0;
   impStart((f&&f.name||'PDF')+' içe aktarılıyor',()=>{if(cancelWorker)try{cancelWorker()}catch(_){}});
   try{
     /* ÇEVRİMDIŞI ÖNCELİK — pdf.js ve worker uygulamanın İÇİNDE gömülüdür.
@@ -2530,7 +2694,7 @@ async function importPDF(f){
     if(S.oledUltra)targetW=Math.min(3840,Math.round(targetW*1.6));
     const buf=await f.arrayBuffer();
     const title=f.name.replace(/\.pdf$/i,'');
-    const workId=uid();let chunk=[],total=0,atlanan=0,N=0;
+    const workId=uid();let chunk=[];
     const meta=()=>({id:workId,title,updatedAt:Date.now(),pages:total,kind:'pdf',thumb:window.__pdfThumb||'',res:window.__pdfRes||0});
     const flushChunk=async()=>{
       if(!chunk.length)return;
@@ -2549,9 +2713,33 @@ async function importPDF(f){
         if(lastErr)throw new Error('kayıt yazılamadı: '+lastErr.message);
       }else{
         window.__pdfAll=(window.__pdfAll||[]).concat(JSON.parse(pagesJson));
-        await LIB.saveExternal(title,window.__pdfAll,'pdf',workId);
+        try{
+          await LIB.saveExternal(title,window.__pdfAll,'pdf',workId);
+        }catch(e){
+          /* Depolama kotası: mesaj açık ve eyleme dönük olmalı — eskiden
+             bu hata sessizce yutuluyor, PDF kütüphaneye hiç düşmüyordu. */
+          const kota=/quota|exceed|storage|NotEnough|full/i.test(String(e&&(e.name+' '+e.message)||e));
+          throw new Error(kota
+            ?('depolama alanı yetersiz — '+total+' sayfa yazıldı. Kütüphaneden eski '
+              +'çalışmaları silip yeniden deneyin ya da PDF\'i daha küçük parçalara bölün.')
+            :('kütüphaneye yazılamadı: '+(e&&e.message||e)));
+        }
       }
       if(typeof LIB!=='undefined'&&LIB.renderLib)LIB.renderLib();
+    };
+    /* ARA KAYITLARIN MALİYETİ — KARE'DEN DOĞRUSALA
+       Ara kayıt, içe aktarma yarıda kesilse bile sayfaların kütüphanede
+       durmasını sağlıyor; bu korunmalı. Ama her 4 sayfada BELGENİN TAMAMI
+       yeniden yazılıyordu: 40 sayfalık 110 KB'lık bir PDF için diske 84.8 MB,
+       200 sayfalık bir PDF için ~2 GB yazma demek. Gerçek boyutta bir PDF'te
+       bu ya kotayı doldurup içe aktarmayı öldürüyor ya da uygulamayı
+       dakikalarca kilitliyordu — "yüklüyorum, kütüphaneye düşmüyor".
+       Artık kayıt aralığı ikiye katlanarak büyüyor (8, 16, 32 … 256): toplam
+       yazma son belgenin yaklaşık iki katında kalıyor, güvenlik ağı aynen
+       sürüyor ve son kayıt her hâlükârda yapılıyor. */
+    let nextSave=8;
+    const maybeFlush=async()=>{
+      if(chunk.length&&total>=nextSave){await flushChunk();nextSave=Math.min(nextSave*2,256)}
     };
     const mkThumb=async(bg,pw,ph)=>{try{
       const tc=document.createElement('canvas');tc.width=220;tc.height=Math.round(220*ph/pw);
@@ -2562,40 +2750,12 @@ async function importPDF(f){
    PDF içe aktarma DAİMA ana iş parçacığında çalışıyor, arayüz tamamen donuyordu.
    OffscreenCanvas varsa worker kullanılır — arayüz akıcı kalır. */
 const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined';
-    if(canWorker){
-      await new Promise((resolve,reject)=>{
-        const w=new Worker(location.origin+'/libs/notis/pdf-import-worker.js');
-        let pending=Promise.resolve();
-        let wd=null;const kick=()=>{clearTimeout(wd);wd=setTimeout(()=>{
-          w.terminate();
-          reject(new Error('işleme yarıda kesildi — '+total+' sayfa kaydedildi.'))},180000)};
-        kick();
-        w.onerror=e=>{clearTimeout(wd);reject(new Error(e.message||'worker hatası'))};
-        w.onmessage=ev=>{
-          kick();
-          const m=ev.data;
-          pending=pending.then(async()=>{
-            if(m.t==='n'){N=m.N}
-            else if(m.t==='p'){
-              if(total===0){await mkThumb(m.bg,m.pw,m.ph);window.__pdfRes=m.pw}
-              chunk.push({id:uid(),name:title+' · s.'+m.i,paper:'plain',bookmark:false,infinite:false,
-                bg:m.bg,bgImg:undefined,w:1000,h:Math.round(1000*m.ph/m.pw),
-                layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
-              total++;ev.data.bg=null;
-              if(chunk.length>=4)await flushChunk();
-              impStep(m.i,N);
-              if(impCancelled){try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);await flushChunk();return resolve()}
-              w.postMessage({t:'ack'});
-            }
-            else if(m.t==='skip'){atlanan++;w.postMessage({t:'ack'})}
-            else if(m.t==='done'){clearTimeout(wd);await flushChunk();w.terminate();resolve()}
-            else if(m.t==='err'){clearTimeout(wd);w.terminate();reject(new Error(m.m))}
-          }).catch(e=>{w.terminate();reject(e)});
-        };
-        cancelWorker=()=>{try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);resolve()};
-        w.postMessage({buf,targetW,cap:3.0,maxN:N0,base:LB},[buf]);
-      });
-    }else{
+    /* ANA İŞ PARÇACIĞI YOLU — HEM YEDEK HEM ESKİ TARAYICI YOLU
+       Worker yolu tutmazsa (gömülü worker dosyasına erişilemez, OffscreenCanvas
+       kısıtlı, WebView2 worker isteğini karşılamaz) eskiden içe aktarmanın
+       tamamı ölüyordu ve hata bildirimler kapalı olduğu için görünmüyordu.
+       Artık kanıtlanmış ana iş parçacığı yoluna düşülür: PDF her koşulda açılır. */
+    const anaYol=async(buf2)=>{
       /* ÇEVRİMDIŞI ÖNCELİK: pdf.js uygulamanın içine gömülüdür. Önce gömülü
          kopya denenir (internet gerekmez, açılış anında hazır); yalnız o
          bulunamazsa CDN'e düşülür. Böylece PDF ve SLAYT içe aktarma
@@ -2607,7 +2767,7 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
         pdfjsLib.GlobalWorkerOptions.workerSrc=PB+'/pdf.js/3.11.174/pdf.worker.min.js';
         window.__pdfBase=PB;
       }else PB=window.__pdfBase||PB;
-      const pdf=await pdfjsLib.getDocument(Object.assign({data:buf},
+      const pdf=await pdfjsLib.getDocument(Object.assign({data:buf2},
         /^https?:\/\/(cdnjs|unpkg|cdn)\./.test(PB)?{}:
           {standardFontDataUrl:PB+'/pdf.js/3.11.174/standard_fonts/',
            cMapUrl:PB+'/pdf.js/3.11.174/cmaps/',cMapPacked:true})).promise;
@@ -2629,12 +2789,58 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
             layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
           total++;pg.cleanup&&pg.cleanup();
         }catch(pe){atlanan++}
-        if(chunk.length>=4)await flushChunk();
+        await maybeFlush();
         impStep(i,N);
         if(impCancelled){await flushChunk();break}
         await new Promise(r=>requestAnimationFrame(r));
       }
       await flushChunk();cnv.width=cnv.height=0;
+    };
+    if(canWorker){
+      try{
+        await new Promise((resolve,reject)=>{
+        const w=new Worker(location.origin+'/libs/notis/pdf-import-worker.js');
+        let pending=Promise.resolve();
+        let wd=null;const kick=()=>{clearTimeout(wd);wd=setTimeout(()=>{
+          w.terminate();
+          reject(new Error('işleme yarıda kesildi — '+total+' sayfa kaydedildi.'))},180000)};
+        kick();
+        w.onerror=e=>{clearTimeout(wd);reject(new Error(e.message||'worker hatası'))};
+        w.onmessage=ev=>{
+          kick();
+          const m=ev.data;
+          pending=pending.then(async()=>{
+            if(m.t==='n'){N=m.N}
+            else if(m.t==='p'){
+              if(total===0){await mkThumb(m.bg,m.pw,m.ph);window.__pdfRes=m.pw}
+              chunk.push({id:uid(),name:title+' · s.'+m.i,paper:'plain',bookmark:false,infinite:false,
+                bg:m.bg,bgImg:undefined,w:1000,h:Math.round(1000*m.ph/m.pw),
+                layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
+              total++;ev.data.bg=null;
+              await maybeFlush();
+              impStep(m.i,N);
+              if(impCancelled){try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);await flushChunk();return resolve()}
+              w.postMessage({t:'ack'});
+            }
+            else if(m.t==='skip'){atlanan++;w.postMessage({t:'ack'})}
+            else if(m.t==='done'){clearTimeout(wd);await flushChunk();w.terminate();resolve()}
+            else if(m.t==='err'){clearTimeout(wd);w.terminate();reject(new Error(m.m))}
+          }).catch(e=>{w.terminate();reject(e)});
+        };
+        cancelWorker=()=>{try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);resolve()};
+        w.postMessage({buf,targetW,cap:3.0,maxN:N0,base:LB},[buf]);
+        });
+      }catch(we){
+        /* Yarıda kesme ve iptal gerçek hatadır; sayfa üretilmişse yeniden
+           başlamak sayfaları ikileyeceğinden yedeğe DÜŞÜLMEZ. Yedek yalnız
+           worker hiç çalışmadığında devreye girer. */
+        if(impCancelled||total>0)throw we;
+        try{console.warn('PDF worker yolu tutmadı → ana iş parçacığına düşülüyor:',we)}catch(_){}
+        chunk=[];delete window.__pdfAll;nextSave=8;
+        await anaYol(await f.arrayBuffer());   // buf worker'a devredildi, yeniden okunur
+      }
+    }else{
+      await anaYol(buf);
     }
     delete window.__pdfAll;delete window.__pdfThumb;delete window.__pdfRes;
     if(!total)throw new Error('hiçbir sayfa işlenemedi');
@@ -2645,7 +2851,7 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
     }catch(e){}}
     if(typeof LIB!=='undefined'&&LIB.renderLib)LIB.renderLib();
     if(diskte<total)
-      toast.error('⚠ '+total+' sayfadan yalnız '+diskte+' tanesi kaydedilebildi.');
+      toast.kritik('⚠ '+total+' sayfadan yalnız '+diskte+' tanesi kaydedilebildi.');
     else
       toast('“'+title+'” hazır — '+total+' sayfa'+(atlanan?' · '+atlanan+' sayfa atlandı':'')+' 📚');
     /* KRİTİK: içe aktarma bitince BELGEYİ AÇ. Eskiden PDF yalnız kütüphaneye
@@ -2656,7 +2862,10 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
   }catch(err){
     console.error(err);impDone();
     if(impCancelled)toast('İçe aktarma iptal edildi'+(total?' — '+total+' sayfa kütüphanede duruyor':''));
-    else toast.error('PDF eklenemedi: '+(err&&err.message||err));
+    /* GÖRÜNÜR HATA: eskiden bu mesaj bildirimler kapalı olduğu için hiç
+       görünmüyordu; kullanıcı PDF'i yüklüyor, ekranda hiçbir şey olmuyor,
+       kütüphanede de kayıt çıkmıyordu. Artık her hâlükârda bildirilir. */
+    else toast.kritik('PDF eklenemedi — '+(err&&err.message||err));
   }
 }
 /* SAYFA İŞLEMLERİ İÇİN GERİ ALMA
@@ -4261,7 +4470,9 @@ function pkBuildStroke(raw){
     for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];
       np.push({x:a.x*.75+b.x*.25,y:a.y*.75+b.y*.25,p:a.p,t:a.t},{x:a.x*.25+b.x*.75,y:a.y*.25+b.y*.75,p:b.p,t:b.t})}
     np.push(o.points.at(-1));o.points=np}
-  if(base==='smart')matisInk(o);                   // gerçek mürekkep dinamiği
+  /* Önizleme gerçek çizimle aynı modeli kullanır: dolma, tükenmez ve kurşun
+     kalemin yeni karakteri de şeritte görünsün. */
+  if(PEN_MODEL[base]){const t=o.tool;o.tool=base;penInk(o);o.tool=t}
   const k=clamp((cfg.press??80)/80,0,1.75);        // basınç hassasiyeti
   for(const pt of o.points)pt.p=.6+((pt.p??.6)-.6)*k;
   if(cfg.nib===3)for(const pt of o.points)pt.p=.62;// keski: sabit kalın hat
@@ -4901,8 +5112,18 @@ function applyDPR(){
   DPR=Math.min(4,d);
   resize();watchDPR();
 }
+/* Dört durum: 0 hepsi görünür · 1 sol gizli · 2 ÜST gizli · 3 ikisi gizli.
+   Eskiden "üst gizli" diye bir seçenek yoktu; üst paneli tek başına
+   gizlemenin yolu bulunmuyordu. */
+const PANELSTATE=[[false,false],[true,false],[false,true],[true,true]];
 $$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
-  S.hideLeft=i>=1;S.hideTop=i>=2;saveOpts();applyPanels(true)}));
+  const st=PANELSTATE[i]||PANELSTATE[0];
+  S.hideLeft=st[0];S.hideTop=st[1];saveOpts();applyPanels(true)}));
+function panelStateIndex(){
+  const l=!!S.hideLeft,t=!!S.hideTop;
+  for(let i=0;i<PANELSTATE.length;i++)if(PANELSTATE[i][0]===l&&PANELSTATE[i][1]===t)return i;
+  return 0;
+}
 /* Katlanabilir klavye kısayolları — Gelişmiş paneli 19 kısayolla açılıyordu,
    uzman ayarları listenin çok altında kalıyordu. */
 /* Klavye kısayolları artık kendi kategorisinde, katlanır kutu içinde değil —

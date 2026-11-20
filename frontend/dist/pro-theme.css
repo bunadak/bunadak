@@ -434,7 +434,10 @@ body.pro-dark-ui .pop, body.pro-dark-ui dialog {
 }
 
 /* --- BİLDİRİMLER (iki seviyeli) ---------------------------------------- */
-#toastWrap{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
+/* Bildirimler ekranın ÜST ORTASINDA belirir. Köşede açılınca göz oraya
+   kaymıyor, silme gibi onay mesajları fark edilmiyordu. */
+#toastWrap{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--fl-gap,10px) + 62px);
+  right:auto;bottom:auto;z-index:9999;display:flex;flex-direction:column;align-items:center;
   gap:8px;align-items:flex-end;pointer-events:none;max-width:min(440px,90vw)}
 .ntoast{pointer-events:auto;display:flex;align-items:center;gap:10px;
   background:var(--p3,#1B2030);color:var(--tx,#E9ECF5);border:1px solid var(--line,#2C3350);

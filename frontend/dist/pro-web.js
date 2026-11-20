@@ -186,8 +186,8 @@
     d.innerHTML =
       '<div class="pw-h">🌐 Web Sayfasını Tahtaya Yansıt</div>' +
       '<div class="pw-body">' +
-      '<input id="pwUrl" type="text" placeholder="https://www.youtube.com/watch?v=…  veya  site adresi" spellcheck="false" autocomplete="off">' +
-      '<div class="pw-hint">YouTube bağlantıları sol üstte <b>16:9 oynatıcı kutusunda</b>, diğer siteler <b>ekranın sol yarısında</b> açılır — sağ taraf çalışma alanın olarak kalır. Tüm kalemler, silgi, seçim ve <b>çözüm modu</b> sayfanın üzerinde aynen çalışır. Sağ üstteki kapsülden <b>🖱️ Sayfayı Kullan</b> / <b>✏️ Çizime Dön</b> arasında geçiş yapılır. Not: bazı siteler gömülmeye izin vermez — YouTube her zaman çalışır.</div>' +
+      /* Örnek bağlantı ve uzun açıklama kaldırıldı: pencere sade ve ortalı. */
+      '<input id="pwUrl" type="text" placeholder="Site adresi" spellcheck="false" autocomplete="off">' +
       '</div>' +
       '<div class="pw-f"><button type="button" class="ghost" id="pwCancel">Vazgeç</button>' +
       '<button type="button" id="pwGo">Tahtaya Yansıt</button></div>';
