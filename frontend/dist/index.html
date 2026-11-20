@@ -287,13 +287,21 @@
 
         <!-- 4 · VARSAYILANLAR — eskiden "Ek Ayarlar" katının içindeydi -->
         <div class="pkx-sec">Varsayılanlar<span class="pkx-sub">uygulama her açılışta buradan başlar</span></div>
+        <!-- Varsayılanlar — v3.6 YENİDEN TASARIM.
+             Eski düzende etiketler sarmıyordu (white-space:nowrap) ve uzun
+             etiketli kart içeriğini dışarı itiyordu; panelde 15 px yatay
+             taşma oluşuyor, yatay kaydırma çubuğu gelip gittikçe bölüm
+             titriyordu. Artık her hücre minmax(0,1fr) ile sınırlı, etiketler
+             iki satıra kadar sarıyor ve hiçbir içerik kartı taşıramıyor. -->
         <div class="pkx-defs">
-          <label class="pkx-def"><span class="k">Renk</span><input type="color" id="dColor" value="#111827"></label>
-          <label class="pkx-def wide"><span class="k">Opaklık</span><input type="range" id="dOp" min="10" max="100" value="100"><b id="dOpOut">%100</b></label>
-          <label class="pkx-def"><span class="k">Metin punto</span>
-            <select class="num" id="dText"><option>14</option><option>16</option><option>18</option><option>20</option><option selected>24</option><option>28</option><option>32</option><option>40</option><option>48</option><option>64</option></select></label>
-          <!-- iç içe <label> geçersizdir ve tarayıcı yapıyı dağıtır; dış kap <div> -->
-          <div class="pkx-def sw"><span class="k">Araca geçince varsayılanı uygula</span><label class="sw-toggle"><input type="checkbox" id="sApplyDef" checked><i></i></label></div>
+          <div class="pkx-def"><span class="k">Renk</span>
+            <span class="v"><input type="color" id="dColor" value="#111827"></span></div>
+          <div class="pkx-def"><span class="k">Metin punto</span>
+            <span class="v"><select class="num" id="dText"><option>14</option><option>16</option><option>18</option><option>20</option><option selected>24</option><option>28</option><option>32</option><option>40</option><option>48</option><option>64</option></select></span></div>
+          <div class="pkx-def wide"><span class="k">Opaklık</span>
+            <span class="v rng"><input type="range" id="dOp" min="10" max="100" value="100"><b id="dOpOut">%100</b></span></div>
+          <div class="pkx-def full"><span class="k">Araca geçince varsayılanı uygula</span>
+            <span class="v"><label class="sw-toggle"><input type="checkbox" id="sApplyDef" checked><i></i></label></span></div>
         </div>
 
         <!-- 5 · ÇARK KALEMLERİ — eskiden "Ek Ayarlar" katının en dibindeydi -->

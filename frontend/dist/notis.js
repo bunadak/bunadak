@@ -383,7 +383,29 @@ function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();viewFitted=
 /* Görünüm hâlâ "sığdırılmış" durumda mı? Kullanıcı yakınlaştırıp kaydırınca
    false olur; böylece otomatik yeniden sığdırma kimsenin zoom'unu ezmez. */
 let viewFitted=false;
-function fit(){const p=page(),r=stage.getBoundingClientRect();
+/* Tuval artık panellerin ALTINI da kapsıyor (v3.6 yüzen panel düzeni).
+   İçeriği yerleştirirken görünür alanı kullanmalıyız; yoksa sayfa ya da
+   tahta içeriği araç rayının / yan panelin altında kalırdı. */
+function viewInset(){
+  let l=0,rg=0;
+  try{
+    const b=document.body;
+    if(!b.classList.contains('present')){
+      const e=$('#rail');
+      if(e&&getComputedStyle(e).display!=='none'){const q=e.getBoundingClientRect();
+        if(q.width>0)l=Math.max(0,q.right-stage.getBoundingClientRect().left)+6}
+      const sd=$('#side');
+      if(sd&&getComputedStyle(sd).display!=='none'){const q=sd.getBoundingClientRect();
+        if(q.width>0)rg=Math.max(0,stage.getBoundingClientRect().right-q.left)+6}
+    }
+  }catch(_){}
+  return {l,r:rg};
+}
+function fitRect(){
+  const r=stage.getBoundingClientRect(),ins=viewInset();
+  return {left:ins.l,width:Math.max(80,r.width-ins.l-ins.r),height:r.height,full:r.width};
+}
+function fit(){const p=page(),r=stage.getBoundingClientRect(),fr=fitRect();
   if(boardMode()){
     /* Sonsuz tahta: içerik VARSA ekrana ortalayarak sığdır — kütüphaneden açılan
        çözümler köşeye kaçmaz, tam kaydedildiği görünümde karşına gelir.
@@ -395,9 +417,9 @@ function fit(){const p=page(),r=stage.getBoundingClientRect();
         else{bb.x0=Math.min(bb.x0,b.x0);bb.y0=Math.min(bb.y0,b.y0);bb.x1=Math.max(bb.x1,b.x1);bb.y1=Math.max(bb.y1,b.y1)}}}
     if(bb&&bb.x1-bb.x0>1){
       const pad=56;
-      const s=clamp(Math.min((r.width-pad*2)/(bb.x1-bb.x0),(r.height-pad*2)/Math.max(1,bb.y1-bb.y0)),.12,1.5);
-      view={s,x:(r.width-(bb.x0+bb.x1)*s)/2,y:(r.height-(bb.y0+bb.y1)*s)/2};
-    }else view={x:r.width/2,y:r.height/3,s:1};
+      const s=clamp(Math.min((fr.width-pad*2)/(bb.x1-bb.x0),(fr.height-pad*2)/Math.max(1,bb.y1-bb.y0)),.12,1.5);
+      view={s,x:fr.left+(fr.width-(bb.x0+bb.x1)*s)/2,y:(fr.height-(bb.y0+bb.y1)*s)/2};
+    }else view={x:fr.left+fr.width/2,y:fr.height/3,s:1};
   }
   else if(presenting){fitPresent()}
   else{
@@ -405,14 +427,14 @@ function fit(){const p=page(),r=stage.getBoundingClientRect();
        boşluk/siyah bant kalmaz. Dikey kaydırmalı sayfa akışı aynen korunur.
        Sayfa ekrandan uzunsa yüksekliğe göre kısıtlanmaz (kaydırarak okunur). */
     const off=layout()[cur];
-    const s=clamp(r.width/p.w,.05,6);
-    view={x:0,y:-off.y*s,s};
+    const s=clamp(fr.width/p.w,.05,6);
+    view={x:fr.left,y:-off.y*s,s};
   }
   viewFitted=true;
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
-function fitPresent(){const p=page(),r=stage.getBoundingClientRect();
-  const s=Math.min(r.width/p.w,r.height/p.h)*.97;const off=curOff();
-  view={x:(r.width-p.w*s)/2,y:(r.height-p.h*s)/2-off.y*s,s};
+function fitPresent(){const p=page(),fr=fitRect();
+  const s=Math.min(fr.width/p.w,fr.height/p.h)*.97;const off=curOff();
+  view={x:fr.left+(fr.width-p.w*s)/2,y:(fr.height-p.h*s)/2-off.y*s,s};
   $('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
 
 /* ============================================================

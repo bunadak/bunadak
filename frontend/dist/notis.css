@@ -853,81 +853,94 @@ html body.present #corner{display:none}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .pkx-pst .sb{font-size:9.5px;font-weight:700;color:var(--mut);text-align:center}
 
-/* --- 5 · varsayılanlar: satır içi, katlanmaz --- */
-.pkx-defs{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px}
-.pkx-def{display:flex;align-items:center;gap:9px;background:var(--p2);border:1px solid var(--line);
-  border-radius:11px;padding:9px 11px;font-size:11.5px;font-weight:800;min-width:0}
-.pkx-def .k{color:var(--mut);white-space:nowrap;flex:none}
+/* --- 5 · varsayılanlar: satır içi, katlanmaz, TAŞMAZ ---
+   auto-fit + "span 2" birlikte kullanılınca kapsayıcı daraldığında örtük
+   sütun üretilip taşma oluşuyordu. Sütun sayısı artık sabit ve her hücre
+   minmax(0,1fr); etiketler iki satıra kadar sarar, değer tarafı sabittir.
+   Böylece panelde yatay kaydırma çubuğu hiç oluşmaz — titremenin sebebi
+   tam olarak o çubuğun gelip gitmesiydi. */
+.pkx-defs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;align-items:stretch}
+@media (max-width:1040px){.pkx-defs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){
+  .pkx-defs{grid-template-columns:minmax(0,1fr)}
+  .pkx-def.wide,.pkx-def.full{grid-column:span 1}
+}
 .pkx-def.wide{grid-column:span 2}
-@media (max-width:620px){.pkx-def.wide{grid-column:span 1}}
-.pkx-def input[type=range]{flex:1;min-width:0;accent-color:var(--acc)}
-.pkx-def input[type=color]{width:40px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex:none;margin-left:auto}
-.pkx-def select{margin-left:auto}
-.pkx-def b{font-variant-numeric:tabular-nums;flex:none}
-.pkx-def.sw{justify-content:space-between}
-.pkx-def.sw .sw-toggle{margin-left:auto}
+.pkx-def.full{grid-column:1 / -1}
+.pkx-def{display:flex;align-items:center;gap:10px;background:var(--p2);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px;font-size:11.5px;font-weight:800;min-width:0;min-height:48px;
+  overflow:hidden}
+.pkx-def .k{color:var(--mut);flex:1 1 auto;min-width:0;line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.pkx-def .v{flex:0 0 auto;display:flex;align-items:center;gap:9px;min-width:0;margin-left:auto}
+.pkx-def.wide .k{flex:0 0 auto}
+.pkx-def .v.rng{flex:1 1 140px;min-width:110px;margin-left:10px}
+.pkx-def .v.rng input[type=range]{flex:1 1 auto;min-width:0;accent-color:var(--acc)}
+.pkx-def .v b{font-variant-numeric:tabular-nums;width:42px;text-align:right;flex:none;color:var(--tx)}
+.pkx-def input[type=color]{width:42px;height:28px;border:1px solid var(--line);border-radius:8px;
+  background:none;cursor:pointer;padding:0;flex:none}
+.pkx-def select{flex:none;max-width:92px}
+.pkx-def .sw-toggle{flex:none}
 
 /* ═══════════════════════════════════════════════════════════════════
-   ÇALIŞMA ALANI v3.5 — YÜZEN KABUK
-   Üst panel, araç rayı ve yan panel tek bir kabuk gibi davranır:
-   üst panel yuvarlak bir kart olarak yukarıda durur, ray ve yan panel
-   ondan SIFIR BOŞLUKLA sarkar (üst kenarları düz — araya çizgi çekilemez),
-   altları yuvarlaktır. Tuvalin kendisinde ne kenar boşluğu ne yuvarlaklık
-   vardır: hücresini kenardan kenara doldurur, bu yüzden hiçbir modda
-   altta/yanda artık bir tabaka bırakmaz.
-   Paneller gizlendiğinde veya sunuma geçildiğinde kabuk tamamen kalkar.
+   ÇALIŞMA ALANI v3.6 — TUVAL ALTTA, PANELLER ÜSTÜNDE
+   Önceki düzende paneller tuvalin YANINDA duruyor, aralarındaki oluk da
+   koyu zemini gösteriyordu. Artık tuval üst panelin altındaki alanın
+   TAMAMINI kaplar; araç rayı ve yan panel onun ÜZERİNDE yüzen yuvarlak
+   kartlardır. Böylece ekranda yalnız iki yüzey kalır — üst panel ve
+   çalışma alanı — hiçbir yerde koyu artık boşluk görünmez.
+   Panellerin altında kalan tuval çizim için kullanılamaz; bu bilinçli bir
+   tercihtir, görsel bütünlük için. İçerik yerleştirme (fit) panelleri
+   hesaba katar, bu yüzden çalışman hiçbir zaman panelin altında kalmaz.
    ═══════════════════════════════════════════════════════════════════ */
-body{ --fl-gap:9px; --fl-r:16px }
-body.compact{ --fl-gap:7px; --fl-r:14px }
+body{ --fl-gap:10px; --fl-r:16px }
+body.compact{ --fl-gap:8px; --fl-r:14px }
 
-/* Satır/sütunlar kabuk boşluğu kadar büyütüldü ki paneller eski
-   ölçülerini korusun. */
-body{grid-template-columns:67px 1fr auto; grid-template-rows:63px 1fr}
-body.compact{grid-template-columns:53px 1fr auto; grid-template-rows:49px 1fr}
+body{grid-template-columns:67px 1fr auto; grid-template-rows:54px 1fr}
+body.compact{grid-template-columns:53px 1fr auto; grid-template-rows:42px 1fr}
 
-/* --- üst panel: yuvarlak yüzen kart --- */
+/* --- üst panel: tam genişlik, altı yuvarlak --- */
 #topbar{
-  margin:var(--fl-gap) var(--fl-gap) 0;
-  border:1px solid var(--line);border-bottom:none;
-  border-radius:var(--fl-r) var(--fl-r) 0 0;
+  margin:0;border:none;border-bottom:1px solid var(--line);
+  border-radius:0 0 var(--fl-r) var(--fl-r);
   box-shadow:0 10px 26px -20px rgba(0,0,0,.6);
-  background:linear-gradient(180deg,color-mix(in srgb,var(--p2) 42%,var(--p1)),var(--p1))}
+  background:linear-gradient(180deg,color-mix(in srgb,var(--p2) 42%,var(--p1)),var(--p1));
+  z-index:40}
 
-/* --- araç rayı: üst panele yapışık, altı yuvarlak --- */
+/* --- tuval: üst panelin altındaki alanın TAMAMI --- */
+#stage{grid-column:1 / -1; grid-row:2; border-radius:0; margin:0}
+
+/* --- araç rayı: tuvalin ÜSTÜNDE yüzer, üst panele sıfır boşlukla yapışık --- */
 #rail{
+  grid-column:1; grid-row:2; z-index:30;
   margin:0 0 var(--fl-gap) var(--fl-gap);
   border:1px solid var(--line);border-top:none;
   border-radius:0 0 var(--fl-r) var(--fl-r);
   padding:9px 0 10px;gap:4px;
-  box-shadow:0 14px 30px -16px rgba(0,0,0,.62);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.66),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent);
   background:linear-gradient(180deg,var(--p1),color-mix(in srgb,var(--p2) 55%,var(--p1)))}
 .rail-sep{width:22px}
 
-/* --- yan panel: aynı dil --- */
+/* --- yan panel: aynı dil, sağda yüzer --- */
 #side{
+  grid-column:3; grid-row:2; z-index:30;
   margin:0 var(--fl-gap) var(--fl-gap) 0;
   border:1px solid var(--line);border-top:none;
   border-radius:0 0 var(--fl-r) var(--fl-r);
-  box-shadow:0 14px 30px -16px rgba(0,0,0,.62);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.66),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent);
   overflow:hidden}
-
-/* Kabuğun oluğu bir tık derinleşir — kartlar gerçekten üstte durur.
-   Göreli hesap olduğu için açık temalarda da doğru yönde çalışır. */
-body{background:color-mix(in srgb,var(--bg) 88%,var(--tx))}
-
-/* --- tuval: kenar boşluğu YOK, yuvarlaklık YOK --- */
-#stage{border-radius:0;margin:0}
 
 /* --- kabuğun tamamen kalktığı durumlar ---
    body.compact bu kuralların ARDINDAN gelmediği için sütun/satır
-   bildirimleri html öneki ile yazıldı; aksi hâlde eşit özgüllükte
-   kalıp panel gizlemede hayalet bir sütun bırakıyorlardı. */
+   bildirimleri html öneki ile yazıldı; aksi hâlde eşit özgüllükte kalıp
+   panel gizlemede hayalet bir sütun bırakıyorlardı. */
 html body.hide-left{grid-template-columns:0 1fr auto}
 html body.hide-top{grid-template-rows:0 1fr}
 html body.present{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
 body.hide-left #rail{display:none}
 body.hide-top #topbar{display:none}
-body.hide-top #rail,body.hide-top #side{border-top:1px solid var(--line);border-radius:var(--fl-r)}
+body.hide-top #rail,body.hide-top #side{border-top:1px solid var(--line);
+  border-radius:var(--fl-r);margin-top:var(--fl-gap)}
 body.present #rail,body.present #side,body.present #topbar{margin:0;border:none;border-radius:0}
 
 /* --- çizim modları / türleri: her kart gerçek zemin + gerçek kalem --- */
