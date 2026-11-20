@@ -4701,8 +4701,10 @@ $('#exitApp').addEventListener('click',()=>LIB.exit());
 function applyPanels(refit){
   document.body.classList.toggle('hide-left',!!S.hideLeft);
   document.body.classList.toggle('hide-top',!!S.hideTop);
-  $('#oHideLeft').checked=!!S.hideLeft;$('#oHideTop').checked=!!S.hideTop;
-  $('#oHideBoth').checked=!!(S.hideLeft&&S.hideTop);
+  /* Üç ayrı anahtar yerine tek segment: üçüncüsü ilk ikisinin VE'siydi ve
+     F9 döngüsüyle çakışıyordu — hangisinin ne yaptığı belirsizdi. */
+  {const st=(!S.hideLeft&&!S.hideTop)?0:((S.hideLeft&&!S.hideTop)?1:2);
+   $$('#oPanels button').forEach((b,i)=>b.classList.toggle('on',i===st));}
   resize();
   if(refit&&!boardMode())fit();               // PDF/sayfa yeni alana yeniden sığdırılır
 }
@@ -4723,9 +4725,14 @@ function applyDPR(){
   DPR=d;
   resize();
 }
-$('#oHideLeft').addEventListener('change',e=>{S.hideLeft=e.target.checked;saveOpts();applyPanels(true)});
-$('#oHideTop').addEventListener('change',e=>{S.hideTop=e.target.checked;saveOpts();applyPanels(true)});
-$('#oHideBoth').addEventListener('change',e=>{S.hideLeft=S.hideTop=e.target.checked;saveOpts();applyPanels(true)});
+$$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
+  S.hideLeft=i>=1;S.hideTop=i>=2;saveOpts();applyPanels(true)}));
+/* Katlanabilir klavye kısayolları — Gelişmiş paneli 19 kısayolla açılıyordu,
+   uzman ayarları listenin çok altında kalıyordu. */
+{const h=$('#keyFoldHead'),f=$('#keyFold');
+ if(h&&f){h.addEventListener('click',()=>{f.classList.toggle('open');
+   const n=$('#keyFoldN');if(n)n.textContent=$$('#keyList > *').length+' kısayol'});
+   const n=$('#keyFoldN');if(n)setTimeout(()=>{n.textContent=$$('#keyList > *').length+' kısayol'},400);}}
 $('#oUltraInk').addEventListener('change',e=>{S.ultraInk=e.target.checked;saveOpts();applyDPR();
   toast(S.ultraInk?'Ultra Netlik AÇIK — çizgiler süper-örnekleniyor':'Ultra Netlik kapalı')});
 $('#oProPens').addEventListener('change',e=>{S.proPens=e.target.checked;saveOpts();redraw();

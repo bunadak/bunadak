@@ -329,13 +329,6 @@
       </div>
 
       <div class="set-pane" id="sp-opts">
-        <div class="set-sec-t">Klavye Kısayolları</div>
-        <div class="set-sec-t">Kısayolları düzenle — tuşa tıkla, yeni tuşa bas</div>
-        <div id="keyList"></div>
-        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:11px;color:var(--mut);font-weight:600">Sabit: Ctrl+Z/Y, Ctrl+G/D/A, Del, Boşluk, Esc, +/−, PgUp/PgDn</span>
-          <button class="ghost" id="keyReset">Varsayılanlara dön</button>
-        </div>
         <div class="set-sec-t">Deneysel Opsiyonlar — hepsi kapalı başlar, dilediğini aç</div>
         <div class="set-row"><div><div class="t">🧲 Akıllı Snap</div><div class="d">Açınca: taşınan nesneler yalnızca ızgaraya değil; sayfa ortasına, diğer nesnelere, başlıklara ve metin kutularına hafifçe mıknatıslanır. Hizalanınca pembe kılavuz belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oSnap"><i></i></label></div>
         <div class="set-row"><div><div class="t">🎥 Otomatik Odak Zoom</div><div class="d">Açınca: yazmaya başladığında kamera kalemin olduğu noktaya doğru hafifçe yaklaşır, bitirince yumuşakça geri çekilir. Video anlatımlarına sinematik his katar.</div></div><label class="sw-toggle"><input type="checkbox" id="oAutoZoom"><i></i></label></div>
@@ -343,13 +336,26 @@
         <div class="set-row"><div><div class="t">🧬 Pen DNA</div><div class="d">Açınca: uygulama alışkanlığını öğrenir — en çok kullandığın araç + renk + kalınlık + opaklık kombinasyonunu (yeterli veri birikince) sonraki açılışlarda otomatik seçer.</div></div><label class="sw-toggle"><input type="checkbox" id="oPenDNA"><i></i></label></div>
         <div class="set-row"><div><div class="t">🧭 Kenar Oto-Kaydırma</div><div class="d">Açınca: çizim ekranın kenarına yaklaştığında tuval o yöne kendiliğinden kaymaya başlar — kalemi kaldırmadan sonsuza yaz.</div></div><label class="sw-toggle"><input type="checkbox" id="oEdge"><i></i></label></div>
         <div class="set-sec-t" style="margin-top:16px">Arayüz Gizleme</div>
-        <div class="set-row"><div><div class="t">◧ Sol paneli gizle</div><div class="d">Araç çubuğu gizlenir; çalışma alanı sola genişler, PDF yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideLeft"><i></i></label></div>
-        <div class="set-row"><div><div class="t">⬒ Üst paneli gizle</div><div class="d">Üst çubuk gizlenir; çalışma alanı yukarı genişler. Sağ üstte küçük geri-getir düğmesi belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideTop"><i></i></label></div>
-        <div class="set-row"><div><div class="t">⛶ İkisini birden gizle</div><div class="d">Sol + üst panel gizlenir — tam sayfa çalışma alanı. PDF ekrana yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideBoth"><i></i></label></div>
+        <!-- Üç ayrı anahtardı; üçüncüsü ilk ikisinin VE'siydi ve F9 döngüsüyle
+             çakışıyordu. Tek üç kademeli denetime indirildi. -->
+        <div class="set-row"><div><div class="t">⛶ Panel gizleme</div><div class="d">Çalışma alanını genişletir; PDF her değişimde ekrana yeniden sığdırılır. Aynı döngü <b>F9</b> tuşuyla da çalışır.</div></div>
+          <div class="pk-seg" id="oPanels" style="flex:0 0 auto"><button type="button">Hepsi görünür</button><button type="button">Sol gizli</button><button type="button">İkisi gizli</button></div></div>
         <div class="set-sec-t" style="margin-top:16px">Kalem Kalitesi</div>
         <div class="set-row"><div><div class="t">🔬 Ultra Netlik</div><div class="d">Tuval, ekran çözünürlüğünün üzerinde örneklenir (süper-örnekleme): kalem çizgileri yakınlaştırmada bile piksellenmez, kenarlar ipek gibi kalır. Tüm kalemler için geçerli. (Güçlü donanım önerilir.)</div></div><label class="sw-toggle"><input type="checkbox" id="oUltraInk"><i></i></label></div>
         <div class="set-row"><div><div class="t">✒️ Pro Kalem Modu</div><div class="d">Kalemler yaşamaya başlar: çizerken ucunda seni takip eden yumuşak IŞIK NEFESİ · mürekkep uçtan uca renk-derinlikli akar (ton gradyanı) · çizgiler kâğıda gömülme gölgesiyle kâğıdın ÜSTÜNDE durur · Akıllı'da yavaşlayınca doğal mürekkep birikintileri · Dolma'da hattat kontrastı + ıslak parlaklık şeridi · Tükenmez'de ipek 'nefes alan' çizgi + bilye damlası · Kurşun'da gerçek grafit dokusu · Fosforlu'da kenar pigmenti. Yazmak bağımlılık yapar.</div></div><label class="sw-toggle"><input type="checkbox" id="oProPens"><i></i></label></div>
         <div class="set-row"><div><div class="t">💭 Memory Canvas</div><div class="d">Açınca: yazdığın metinleri hatırlar. Aynı ifadeyi aylar sonra başka sayfada yazmaya başladığında "bunu daha önce kullanmıştın" diye önerir; tek dokunuşla getirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oMemCanvas"><i></i></label></div>
+        <div class="fold" id="keyFold">
+          <button type="button" class="fold-head" id="keyFoldHead"><span>⌨ Klavye Kısayolları</span><span class="fold-n" id="keyFoldN"></span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="fold-body">
+            <div class="d" style="margin:0 0 10px">Tuşa tıkla, yeni tuşa bas. Sabit: Ctrl+Z/Y, Ctrl+G/D/A, Del, Boşluk, Esc, +/−, PgUp/PgDn.</div>
+        <div id="keyList"></div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--mut);font-weight:600">Sabit: Ctrl+Z/Y, Ctrl+G/D/A, Del, Boşluk, Esc, +/−, PgUp/PgDn</span>
+          <button class="ghost" id="keyReset">Varsayılanlara dön</button>
+        </div>
+          </div>
+        </div>
       </div>
 
       <div class="set-pane" id="sp-storage">

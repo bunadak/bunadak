@@ -757,3 +757,14 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 html body.present{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
 html body.present #topbar,html body.present #rail,html body.present #side,
 html body.present #corner{display:none}
+
+/* ---------- KATLANABİLİR BÖLÜM ---------- */
+.fold{border:1px solid var(--line);border-radius:13px;background:var(--p1);margin-top:18px;overflow:hidden}
+.fold-head{width:100%;display:flex;align-items:center;gap:9px;padding:13px 15px;cursor:pointer;
+  font-size:12.5px;font-weight:800;color:var(--tx);background:none;border:0;text-align:left;transition:.15s}
+.fold-head:hover{background:var(--p2)}
+.fold-head svg{margin-left:auto;color:var(--mut);transition:transform .2s var(--ease)}
+.fold.open .fold-head svg{transform:rotate(180deg)}
+.fold-n{font-size:10.5px;font-weight:800;color:var(--mut);background:var(--p3);padding:3px 8px;border-radius:999px}
+.fold-body{display:none;padding:0 15px 15px}
+.fold.open .fold-body{display:block}
