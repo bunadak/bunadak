@@ -396,6 +396,43 @@ body.pro-dark #stage { background: var(--pro-dark-bg, #12151B); }
 body.pro-dark #stage::after { opacity: .35; }          /* doku aşırı parlamasın */
 body.pro-dark #miniBar, body.pro-dark #corner { filter: saturate(.9); }
 
+/* ===========================================================================
+   GECE PALETİ — karanlık modda arayüz
+   Eski sürüm yalnız "light"/"youtube" temasını "ink"e çeviriyordu; zaten koyu
+   bir tema kullanıyorsan karanlık mod arayüzde HİÇBİR ŞEY yapmıyordu.
+   Artık tema değiştirilmez: yüzeyler gece ölçeğine iner, vurgu rengi (--acc)
+   olduğu gibi kalır. Üç şiddet kademesi gerçekten farklı derinlikte.
+   Özellikler body üzerinde yeniden tanımlanır; html'deki tema değerlerini
+   gövde ve altındaki her şey için gölgeler. Kapanınca sınıf kalkar, biter.
+   ========================================================================= */
+body.pro-dark-ui {
+  --bg:#070A10;  --p1:#0E131B;  --p2:#161D27;  --p3:#202A37;  --line:#2A3542;
+  --tx:#DCE3EE;  --mut:#7A8799;
+  --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.11);
+  --shadow:0 14px 38px rgba(0,0,0,.62);
+  color-scheme: dark;
+}
+body.pro-dark-ui.dk-soft {
+  --bg:#0D1118;  --p1:#141A23;  --p2:#1C242F;  --p3:#26313F;  --line:#303B4A;
+  --tx:#E4EAF3;  --mut:#8795A8;
+}
+body.pro-dark-ui.dk-deep {
+  --bg:#03050A;  --p1:#080C12;  --p2:#0F141C;  --p3:#171E28;  --line:#1F2833;
+  --tx:#D3DBE7;  --mut:#6E7B8D;
+}
+/* geçiş: anahtar açılıp kapanınca sert sıçrama olmasın */
+body.pro-dark-ui #topbar, body.pro-dark-ui #rail, body.pro-dark-ui #side,
+body.pro-dark-ui .pop, body.pro-dark-ui dialog {
+  transition: background .22s var(--ease), border-color .22s var(--ease), color .22s var(--ease);
+}
+/* SICAK GECE — mavi ışık azaltma katmanı. Tıklamaları geçirir, tuvali
+   yeniden çizdirmez; yalnız ekranda görünür. */
+#proDarkAmber {
+  position: fixed; inset: 0; z-index: 2147483000; pointer-events: none;
+  background: #FF9A2E; mix-blend-mode: multiply; opacity: 0;
+  transition: opacity .3s var(--ease);
+}
+
 /* --- BİLDİRİMLER (iki seviyeli) ---------------------------------------- */
 #toastWrap{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
   gap:8px;align-items:flex-end;pointer-events:none;max-width:min(440px,90vw)}
