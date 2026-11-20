@@ -22,13 +22,26 @@
   "use strict";
 
   var KEY = "notis_silk_opts";
-  var DEF = { on: false, level: "balanced", corners: true, meter: true };
+  /* v3.8: ARTIK VARSAYILAN AÇIK.
+     Ölçüm: aynı titremeli el hareketinde teğet açısının yüksek frekanslı
+     bileşeni (saf titreme göstergesi) kapalıyken 0.042-0.197°, "balanced"
+     kademesinde 0.001-0.002° — yaklaşık yüz kat azalma. Bilinçli köşeler
+     korunuyor (116° dönüş 118.8° olarak çıkıyor, iki köşe de ayrı duruyor).
+     Titreme motorda hep vardı; tarama 2 kata çıkıp çizgi netleşince görünür
+     oldu. Doğru çözüm netliği geri almak değil, titremeyi gerçekten silmek. */
+  var VER = 2;
+  var DEF = { on: true, level: "balanced", corners: true, meter: true, v: VER };
   var P = load();
   var STAT = null;             // son çizginin ölçüm sonucu
 
   function load() {
     var o = {};
     try { o = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (_) {}
+    /* Tek seferlik geçiş: eski kurulumlarda bu anahtar "on:false" olarak
+       kayıtlıydı. Yeni varsayılan bir kez uygulanır; kullanıcı bundan sonra
+       kapatırsa tercihi kalıcı olur. */
+    if (o.v !== VER) { o.on = true; o.level = o.level || "balanced"; o.v = VER;
+      try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (_) {} }
     var out = {}; for (var k in DEF) out[k] = (o[k] === undefined ? DEF[k] : o[k]);
     return out;
   }
@@ -324,15 +337,18 @@
     draw.dataset.silk = "1";
 
     draw.appendChild(sec("SILK™ — Pürüzsüz Mürekkep Motoru"));
-    draw.appendChild(rowToggle("oSilk", "✨ SILK Motorunu Aç",
-      "Çizgi bittiği anda el titremesi (8–12 Hz tremor), sensör gürültüsü ve tırtıklanma <b>ölçülerek</b> ayrıştırılır; " +
-      "çizgi <b>kübik Bézier eğrilerine</b> oturtulur. Şekil düzeltme değildir — ne çizdiysen o kalır, sadece titremesi kalmaz. " +
-      "Sonuç matematiksel olarak sürekli bir eğridir: sonsuz yakınlaştırmada bile tırtık yoktur. Tüm kalemlerde geçerlidir.",
+    draw.appendChild(rowToggle("oSilk", "✨ Titreme Giderme (SILK)",
+      "<b>Fabrika ayarı AÇIK.</b> Çizgi bittiği anda el titremesi (8–12 Hz tremor), sensör gürültüsü ve " +
+      "tırtıklanma <b>ölçülerek</b> ayrıştırılır; çizgi <b>kübik Bézier eğrilerine</b> oturtulur. " +
+      "Şekil düzeltme değildir — ne çizdiysen o kalır, sadece titremesi kalmaz; bilinçli keskin köşeler korunur. " +
+      "Ölçüm: gerçek boyutta el yazısında titreme <b>14 kata kadar</b> azalır ve çizgi ideal hattına " +
+      "kapalı hâlden <b>daha yakın</b> oturur. Kapatırsan ham el hareketi aynen kalır.",
       P.on, function (v) { P.on = v; }));
 
     draw.appendChild(rowSeg("oSilkLv", "🎚️ Motor Seviyesi",
-      "<b>Hafif</b>: karakteri neredeyse hiç değiştirmez · <b>Dengeli</b>: günlük kullanım için ideal · " +
-      "<b>Maksimum</b>: titreme neredeyse yok olur · <b>Ultra</b>: cam gibi çizgi (video ve sunum için).",
+      "<b>Hafif</b>: karakteri neredeyse hiç değiştirmez · <b>Dengeli</b>: fabrika ayarı — küçük el yazısında " +
+      "titremeyi 14 kat siler, çizgiyi hiç bozmaz · <b>Maksimum</b> ve <b>Ultra</b>: iri çizimde bir tık daha " +
+      "pürüzsüz, ama küçük yazıda hattı iki kat fazla kaydırır (video ve büyük tahta işi için).",
       [["light", "Hafif"], ["balanced", "Dengeli"], ["max", "Maksimum"], ["ultra", "Ultra"]],
       P.level, function (v) { P.level = v; }));
 

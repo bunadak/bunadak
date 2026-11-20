@@ -611,9 +611,16 @@ function proInkPasses(a,rad){
   const avg=s/(n-1); if(!(avg>0)) return 2;
   const tgt=proInkChord(rad);
   let k=Math.ceil(Math.log2(avg/tgt));
-  if(!isFinite(k)||k<2)k=2;
+  if(!isFinite(k))k=2;
+  /* Taban normalde 2 geçiştir: Chaikin'in ilk iki geçişi çizginin BİÇİMİNİ
+     belirler, daha azı çokgenin kendisini bırakır. Ama girdi zaten hedef
+     kirişten inceyse (titreşim giderme katmanı çizgiyi yeniden örneklemiş
+     olabilir) eklenecek geçiş yalnızca nokta sayısını katlar, hiçbir şeyi
+     düzeltmez — o durumda taban sıfırdır. */
+  const yogun=avg<=tgt*1.05, taban=yogun?0:2;
+  if(k<taban)k=taban;
   if(k>7)k=7;
-  while(k>2&&n*Math.pow(2,k)>INK_BUDGET)k--;
+  while(k>taban&&n*Math.pow(2,k)>INK_BUDGET)k--;
   return k;
 }
 function proInkPts(o){
