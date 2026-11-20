@@ -64,8 +64,12 @@
       pal: [['#3A4038', 'Ön plan'], ['#5A6A52', 'Orta plan'], ['#7E8F76', 'Uzak yeşil'], ['#9FB4C2', 'Uzak mavi'],
             ['#C7D4DC', 'Ufuk'], ['#8A6A45', 'Toprak'], ['#4A6B86', 'Su'], ['#F0EDE3', 'Gökyüzü']] },
 
-    { id: 'jest', n: 'Jest', d: 'Hızlı, serbest, sabitlemesiz',
-      pen: { tool: 'smart', size: 4.5, press: 100, op: .9, flow: 95, stab: 0, nib: 0 },
+    /* stab 0, canlı çizimde "gecikmesiz" demektir; ama ÖNİZLEME yolunda (pkBuildStroke)
+       stab doğrudan yumuşatma geçişi sayısına eşlenir ve sıfır geçiş, gerçekte
+       oluşmayacak boncuklu bir hat gösterir. Jest zaten serbest bir moddur;
+       1 kademe hem gerçeği yansıtır hem de kartı dürüst gösterir. */
+    { id: 'jest', n: 'Jest', d: 'Hızlı ve serbest, en az sabitleme',
+      pen: { tool: 'smart', size: 4.5, press: 100, op: .9, flow: 95, stab: 1, nib: 0 },
       col: '#3B3B46', board: 'classic', paper: 'plain',
       S: { smooth: 0, shapeFix: false, angleSnap: false, snapGrid: false },
       pal: [['#3B3B46', 'Hareket'], ['#5E5E6C', 'İkincil'], ['#8A8A99', 'Tali'], ['#C0392B', 'Eksen'],

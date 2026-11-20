@@ -263,6 +263,7 @@
     'Natürmort': ['Still Life', 'Stillleben', 'Nature morte', 'Bodegón'],
     'Manzara': ['Landscape', 'Landschaft', 'Paysage', 'Paisaje'],
     'Jest': ['Gesture', 'Geste', 'Geste', 'Gesto'],
+    'Hızlı ve serbest, en az sabitleme': ['Fast and loose, minimal stabilization', 'Schnell und locker, minimale Stabilisierung', 'Rapide et libre, stabilisation minimale', 'Rápido y suelto, estabilización mínima'],
     'Kontur': ['Contour', 'Kontur', 'Contour', 'Contorno'],
     'Silüet': ['Silhouette', 'Silhouette', 'Silhouette', 'Silueta'],
     'Karikatür': ['Cartoon', 'Karikatur', 'Caricature', 'Caricatura'],
@@ -381,9 +382,16 @@
     if (v && !v.dataset.done) {
       v.dataset.done = '1';
       v.textContent = 'Notis Pro';
+      /* Go tarafındaki bağ AppInfo adını taşır (Info değil); yanlış ad yüzünden
+         sürüm numarası boş kalıyordu. Tarayıcıda çalışırken bağ hiç yoktur,
+         o yüzden çağrı güvenli sarmalanır. */
       try {
-        if (window.go && window.go.main && window.go.main.App && window.go.main.App.Info)
-          window.go.main.App.Info().then(i => { if (i && i.version) v.textContent = 'Notis Pro ' + i.version });
+        const A = window.go && window.go.main && window.go.main.App;
+        if (A && A.AppInfo) A.AppInfo().then(i => {
+          if (!i) return;
+          v.textContent = (i.name || 'Notis Pro') + ' ' + (i.version || '') +
+            (i.channel ? '  ·  ' + i.channel : '');
+        }).catch(() => { });
       } catch (_) { }
     }
   }
