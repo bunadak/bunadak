@@ -307,7 +307,10 @@ body.pro-web #cv  { z-index: 2; }
 body.pro-web #ovl { z-index: 3; }
 body.pro-web-live #cv, body.pro-web-live #ovl { pointer-events: none !important; }
 
-#proWebBar { position: absolute; top: 8px; right: 10px; z-index: 96;
+/* Kapsül gövdeye eklenir (bkz. pro-web.js — yığınlama tuzağı): sabit
+   konumlanır ve üst panelin (40) üstünde durur. top/right değerleri
+   pro-web.js içindeki yerlestir() tarafından ölçülerek yazılır. */
+#proWebBar { position: fixed; top: 96px; right: 10px; z-index: 120;
   display: none; gap: 4px; align-items: center;
   background: color-mix(in srgb, var(--p1) 94%, transparent);
   border: 1px solid var(--line); border-radius: 999px; padding: 3px 5px;

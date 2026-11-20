@@ -67,7 +67,15 @@
       '<button type="button" id="pwFit" title="Yerleşimi sıfırla">⤢</button>' +
       '<button type="button" id="pwLink" title="Bağlantıyı değiştir">🔗</button>' +
       '<button type="button" id="pwClose" title="Web katmanını kapat">✖</button>';
-    stage.appendChild(b);
+    /* KAPSÜL GÖVDEYE TAŞINDI — YIĞINLAMA TUZAĞI
+       Kapsül #stage'in çocuğuydu. #stage'in kendi z-index'i (1) bir
+       YIĞINLAMA BAĞLAMI yaratır; o bağlamın içindeki hiçbir eleman, kendi
+       z-index'i kaç olursa olsun, dışarıdaki üst panelin (z-index 40)
+       üstüne çıkamaz. Bu yüzden "Sayfayı Kullan" ve "Çizime Dön"
+       düğmeleri üst paneldeki araçların ALTINDA kalıyordu. Artık kapsül
+       doğrudan gövdeye eklenir ve konumu üst panelin altına, varsa yan
+       panelin soluna hesaplanır. */
+    document.body.appendChild(b);
     b.querySelector("#pwMode").addEventListener("click", function () { setLive(!WEB.live); });
     b.querySelector("#pwSmall").addEventListener("click", function () { scaleBox(0.85); });
     b.querySelector("#pwBig").addEventListener("click", function () { scaleBox(1 / 0.85); });
@@ -76,6 +84,50 @@
     b.querySelector("#pwClose").addEventListener("click", closeWeb);
     return b;
   }
+  /* Kapsülün yeri: üst panelin ALTINA, yan panelin SOLUNA.
+     Ölçüler okunarak bulunur; böylece sıkışık mod, panel gizleme, sunum
+     modu ve Arayüz Ölçeği ayarının hepsinde doğru yere oturur. */
+  function yerlestir() {
+    var b = $id("proWebBar");
+    if (!b) return;
+    var ust = 0, sag = 10;
+    try {
+      var tb = document.getElementById("topbar");
+      if (tb && getComputedStyle(tb).display !== "none") {
+        var r = tb.getBoundingClientRect();
+        if (r.height > 0) ust = r.bottom;
+      }
+    } catch (_) {}
+    try {
+      var sd = document.getElementById("side");
+      if (sd && getComputedStyle(sd).display !== "none") {
+        var rs = sd.getBoundingClientRect();
+        if (rs.width > 0) sag = Math.max(10, window.innerWidth - rs.left + 10);
+      }
+    } catch (_) {}
+    b.style.top = (ust + 10) + "px";
+    b.style.right = sag + "px";
+  }
+  /* Düzen değişimlerini izle: panel boyutu/gizlenmesi, pencere boyutu ve
+     gövde sınıfları (sıkışık · üst gizli · sunum · yan panel açık). */
+  function izle() {
+    if (izle.__on) return;
+    izle.__on = true;
+    try { window.addEventListener("resize", yerlestir, { passive: true }); } catch (_) {}
+    try {
+      if (window.ResizeObserver) {
+        var ro = new ResizeObserver(function () { yerlestir(); });
+        ["topbar", "side", "rail"].forEach(function (id) {
+          var e = document.getElementById(id); if (e) ro.observe(e);
+        });
+      }
+    } catch (_) {}
+    try {
+      new MutationObserver(function () { yerlestir(); })
+        .observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    } catch (_) {}
+  }
+
   function syncUI() {
     var m = $id("pwMode");
     if (m) {
@@ -108,6 +160,8 @@
     try { stage.style.background = (typeof _bg === "function") ? _bg() : ""; } catch (_) {}
     try { localStorage.setItem("notis_web_url", raw); } catch (_) {}
     setLive(false);
+    yerlestir(); izle();
+    requestAnimationFrame(yerlestir);
     grips();
     requestAnimationFrame(function () { var b = loadBox(); if (b) applyBox(b); else layoutGrips(); });
     try { redraw(); } catch (_) {}

@@ -16,6 +16,29 @@
     const D = api.dict, DEL = api.elDict;
 
     Object.assign(D, {
+      // ------------------------------ WEB SAYFASINI TAHTAYA YANSIT (pro-web)
+      '🌐 Web Sayfasını Tahtaya Yansıt': ['🌐 Cast a Web Page to the Board', '🌐 Webseite auf die Tafel spiegeln',
+        '🌐 Projeter une page web sur le tableau', '🌐 Proyectar una página web en la pizarra'],
+      'Site adresi': ['Site address', 'Webadresse', 'Adresse du site', 'Dirección del sitio'],
+      'Tahtaya Yansıt': ['Cast to Board', 'Auf die Tafel', 'Projeter', 'Proyectar'],
+      'Vazgeç': ['Cancel', 'Abbrechen', 'Annuler', 'Cancelar'],
+      '🖱️ Sayfayı Kullan': ['🖱️ Use the Page', '🖱️ Seite bedienen', '🖱️ Utiliser la page', '🖱️ Usar la página'],
+      '✏️ Çizime Dön': ['✏️ Back to Drawing', '✏️ Zurück zum Zeichnen', '✏️ Revenir au dessin', '✏️ Volver al dibujo'],
+      'Kalem sende: sayfa kilitlenir, çizim açılır': [
+        'The pen is yours: the page locks and drawing turns on',
+        'Der Stift gehört dir: die Seite wird gesperrt, das Zeichnen aktiviert',
+        'Le stylo est à vous : la page se verrouille, le dessin s’active',
+        'El lápiz es tuyo: la página se bloquea y se activa el dibujo'],
+      'Sayfayla etkileşim: video oynat/durdur, sayfayı kaydır': [
+        'Interact with the page: play/pause video, scroll the page',
+        'Mit der Seite interagieren: Video abspielen/pausieren, scrollen',
+        'Interagir avec la page : lire/mettre en pause la vidéo, faire défiler',
+        'Interactuar con la página: reproducir/pausar vídeo, desplazarla'],
+      'Küçült': ['Shrink', 'Verkleinern', 'Réduire', 'Reducir'],
+      'Büyüt': ['Enlarge', 'Vergrößern', 'Agrandir', 'Ampliar'],
+      'Yerleşimi sıfırla': ['Reset the layout', 'Anordnung zurücksetzen', 'Réinitialiser la disposition', 'Restablecer la disposición'],
+      'Bağlantıyı değiştir': ['Change the link', 'Link ändern', 'Changer le lien', 'Cambiar el enlace'],
+      'Web katmanını kapat': ['Close the web layer', 'Web-Ebene schließen', 'Fermer la couche web', 'Cerrar la capa web'],
       // ------------------------------- PRO ARAYÜZ: gerçek masaüstü yetenekleri
       'Pro Arayüz': ['Pro Interface', 'Pro-Oberfläche', 'Interface Pro', 'Interfaz Pro'],
       'uygulamanın onsuz yapamadığı şeyler': [
