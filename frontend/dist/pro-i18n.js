@@ -309,13 +309,41 @@
   const ATTRS = ['title', 'placeholder', 'aria-label'];
   const SKIP = { SCRIPT: 1, STYLE: 1, CANVAS: 1, SVG: 1 };
 
+  /* ELEMAN DÜZEYİ ÇEVİRİ
+     Uzun açıklamalar <b> etiketleriyle parçalandığı için metin düğümü başına
+     eşleşme tutmaz ("...ekranına", "hiçbir bildirim düşmez", "— ne bilgi..."
+     gibi anlamsız parçalara bölünür). Bu yüzden bu tür kapsayıcılar BÜTÜN
+     metinleriyle anahtarlanır ve tek parça olarak değiştirilir. Özgün HTML
+     saklanır; Türkçeye dönünce vurgular aynen geri gelir. */
+  const DEL = {};
+  const SELD = '#paneD, .set-row .d, .pkx-sub, .pk-prevcap, .lib-empty p, .lib-empty .d, .side-hint';
+  function walkEl(root) {
+    if (!root || !root.querySelectorAll) return;
+    const list = [...root.querySelectorAll(SELD)];
+    if (root.nodeType === 1 && root.matches && root.matches(SELD)) list.unshift(root);
+    for (const el of list) {
+      if (el.__noTr) continue;
+      if (el.__oHTML === undefined) {
+        const k = el.textContent.replace(/\s+/g, ' ').trim();
+        if (!DEL[k]) { el.__noTr = 1; continue }
+        el.__oHTML = el.innerHTML; el.__key = k;
+      }
+      const row = DEL[el.__key];
+      if (cur === 'tr' || !row || !row[IDX[cur]]) el.innerHTML = el.__oHTML;
+      else el.textContent = row[IDX[cur]];
+    }
+  }
+
   function walk(root) {
     if (!root) return;
+    walkEl(root);
     // metin düğümleri
     const it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(n) {
         const p = n.parentNode;
         if (!p || SKIP[p.nodeName]) return NodeFilter.FILTER_REJECT;
+        /* eleman düzeyinde çevrilen kapsayıcıların içine girilmez */
+        for (let e = p; e && e !== root; e = e.parentElement) if (e.__key) return NodeFilter.FILTER_REJECT;
         return n.nodeValue && n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
@@ -401,9 +429,14 @@
     if (cur !== 'tr') applyAll();
     if (!obs) {
       obs = new MutationObserver(ms => {
-        for (const m of ms) if (m.addedNodes && m.addedNodes.length) { schedule(document.body); return }
+        for (const m of ms) {
+          if (m.addedNodes && m.addedNodes.length) { schedule(document.body); return }
+          /* Panel başlığı ve açıklaması textContent ile yazılıyor; yalnız
+             childList dinlenirse bu değişiklikler çeviriye hiç uğramıyordu. */
+          if (m.type === 'characterData') { schedule(document.body); return }
+        }
       });
-      obs.observe(document.body, { childList: true, subtree: true });
+      obs.observe(document.body, { childList: true, subtree: true, characterData: true });
     }
     const dlg = document.getElementById('setDlg');
     if (dlg && !dlg.__i18n) {
@@ -412,5 +445,5 @@
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.proI18n = { setLang, lang: () => cur, LANGS, dict: D, apply: applyAll };
+  window.proI18n = { setLang, lang: () => cur, LANGS, dict: D, elDict: DEL, apply: applyAll, IDX };
 })();

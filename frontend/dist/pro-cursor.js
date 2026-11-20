@@ -134,6 +134,58 @@
             '<path d="M-3.6 -8 H3.6 V0 a1.6 1.6 0 0 1 -1.6 1.6 H-2 A1.6 1.6 0 0 1 -3.6 0 Z" fill="#F2A0A0" ' + O + '/>' +
             '<path d="M-3.6 -8 H3.6" stroke="' + edge + '" stroke-width=".9"/>';
         break;
+      case "calig":      // KALİGRAFİ — 45° keski uç, geniş-dar kontrast
+        g = '<path d="M-2.7 -11 H2.7 V-28 a2.7 2.7 0 0 0 -5.4 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-2.9 -11 H2.9 V-14.5 H-2.9 Z" fill="url(#gd)" ' + O + '/>' +
+            '<path d="M-2.5 -11 L2.5 -11 L3.1 -3.2 L-1.4 0 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-1.4 0 L3.1 -3.2" stroke="' + ink + '" stroke-width="1.8" stroke-linecap="round"/>' +
+            '<path d="M0 -10 V-4.2" stroke="' + edge + '" stroke-width=".8" opacity=".6"/>';
+        break;
+      case "felt":       // KEÇELİ — dolgun gövde, kubbeli keçe uç
+        g = '<path d="M-3.6 -10 H3.6 V-27 a3.6 3.6 0 0 0 -7.2 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-3.8 -10 H3.8 V-13.4 H-3.8 Z" fill="#2E3549" ' + O + '/>' +
+            '<path d="M-2.8 -10 H2.8 Q2.4 -2.6 0 0 Q-2.4 -2.6 -2.8 -10 Z" fill="' + ink + '" ' + O + '/>' +
+            '<path d="M-1.2 -8.6 Q-1 -3.4 0 -1.4" stroke="' + edge + '" stroke-width=".7" fill="none" opacity=".45"/>';
+        break;
+      case "water":      // SULU BOYA — şişkin karınlı yuvarlak fırça, ıslak uç
+        g = '<path d="M-2.5 -15 H2.5 V-29 a2.5 2.5 0 0 0 -5 0 Z" fill="url(#wd)" ' + O + '/>' +
+            '<path d="M-2.9 -15 H2.9 V-19.5 H-2.9 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-2.7 -15 Q-4.6 -8.5 -1.5 -2.4 Q-0.6 -0.6 0 0 Q0.6 -0.6 1.5 -2.4 Q4.6 -8.5 2.7 -15 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-1.5 -13 Q-2.6 -7.6 -0.5 -2.6 M1.5 -13 Q2.6 -7.6 0.5 -2.6" stroke="' + edge + '" stroke-width=".65" fill="none" opacity=".5"/>';
+        break;
+      case "charcoal":   // KÖMÜR — düzensiz, mat, köşeli çubuk
+        g = '<path d="M-3.2 -2.6 L-2.4 -17.4 L-0.4 -20.2 L2.6 -19 L3.4 -4.6 L1.4 -0.6 L-1.8 0 Z" fill="#2B2B30" ' + O + '/>' +
+            '<path d="M-1.9 -16.6 L-1.2 -4.2 M1.1 -17.2 L1.9 -3.4" stroke="#55555E" stroke-width="1" opacity=".75"/>' +
+            '<path d="M-1.8 0 L1.4 -0.6 L0.6 -2.6 L-1 -2.4 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "pastel":     // PASTEL — kâğıt bandajlı yumuşak boya çubuğu
+        g = '<path d="M-3.3 -5 H3.3 V-24 a3.3 3.3 0 0 0 -6.6 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-3.5 -11 H3.5 V-19 H-3.5 Z" fill="#F0E6D2" ' + O + '/>' +
+            '<path d="M-3.5 -16.6 H3.5 M-3.5 -13.6 H3.5" stroke="#B9AC92" stroke-width=".7" opacity=".8"/>' +
+            '<path d="M-3.3 -5 Q0 -1 3.3 -5 Q2.6 0.6 0 0.6 Q-2.6 0.6 -3.3 -5 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "tech":       // TEKNİK — tırtıklı kavrama, ince uç kılıfı, versatil
+        g = '<path d="M-2 -14 H2 V-29 a2 2 0 0 0 -4 0 Z" fill="#3A4258" ' + O + '/>' +
+            '<path d="M-2.3 -14 H2.3 V-21 H-2.3 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-2.3 -19.6 H2.3 M-2.3 -18 H2.3 M-2.3 -16.4 H2.3" stroke="' + edge + '" stroke-width=".55" opacity=".75"/>' +
+            '<path d="M-1.7 -14 L1.7 -14 L0.42 -4.6 L-0.42 -4.6 Z" fill="#596277" ' + O + '/>' +
+            '<path d="M-0.3 -4.6 H0.3 V0 H-0.3 Z" fill="' + ink + '" ' + O + '/>';
+        break;
+      case "airbrush":   // AIRBRUSH — püskürtme ucu ve dağılan zerreler
+        g = '<path d="M-2.6 -13 H2.6 V-28 a2.6 2.6 0 0 0 -5.2 0 Z" fill="url(#bd)" ' + O + '/>' +
+            '<path d="M-3.4 -13 H3.4 V-16.6 H-3.4 Z" fill="url(#mt)" ' + O + '/>' +
+            '<path d="M-1.8 -13 L1.8 -13 L1 -8.4 L-1 -8.4 Z" fill="#39415A" ' + O + '/>' +
+            '<circle cx="0" cy="-6.4" r="1.05" fill="' + ink + '" ' + O + '/>' +
+            '<circle cx="-2.2" cy="-3.4" r=".75" fill="' + ink + '" opacity=".8"/>' +
+            '<circle cx="2.3" cy="-3" r=".65" fill="' + ink + '" opacity=".7"/>' +
+            '<circle cx="-0.9" cy="-0.8" r=".55" fill="' + ink + '" opacity=".6"/>' +
+            '<circle cx="1.5" cy="-0.4" r=".5" fill="' + ink + '" opacity=".5"/>';
+        break;
+      case "dot":        // NOKTA — en az dikkat dağıtan hassas imleç
+        g = '<circle cx="0" cy="0" r="2.5" fill="none" stroke="' + edge + '" stroke-width="2.6"/>' +
+            '<circle cx="0" cy="0" r="2.5" fill="none" stroke="' + ink + '" stroke-width="1.3"/>' +
+            '<circle cx="0" cy="0" r=".75" fill="' + ink + '" stroke="' + edge + '" stroke-width=".7"/>';
+        break;
       case "cross":      // NİŞANGÂH — hassas hizalama (dönmez, merkezde)
         return d +
           '<path d="M16 3.5 V12 M16 20 V28.5 M3.5 16 H12 M20 16 H28.5" stroke="' + edge +
@@ -289,15 +341,27 @@
   }
   /* Figür kartları: her seçenek kendi çizimiyle görünür — hepsi göz önünde */
   var FIGS = [
-    ["off", "Kapalı"], ["pen", "Tükenmez"], ["fountain", "Dolma Kalem"], ["brush", "Fırça"],
-    ["pencil", "Kurşun Kalem"], ["marker", "Marker"], ["fine", "İnce Uç"],
-    ["chalk", "Tebeşir"], ["stylus", "Stylus"], ["cross", "Nişangâh"]
+    ["off", "Kapalı"], ["pen", "Tükenmez"], ["fountain", "Dolma Kalem"], ["calig", "Kaligrafi"],
+    ["brush", "Fırça"], ["water", "Sulu Boya"], ["pencil", "Kurşun Kalem"], ["tech", "Teknik Kalem"],
+    ["marker", "Marker"], ["felt", "Keçeli"], ["fine", "İnce Uç"], ["charcoal", "Kömür"],
+    ["pastel", "Pastel"], ["chalk", "Tebeşir"], ["airbrush", "Airbrush"], ["stylus", "Stylus"],
+    ["dot", "Nokta"], ["cross", "Nişangâh"]
   ];
   function figThumb(f) {
-    if (f === "off") return '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.8" stroke-linecap="round"><path d="M5 3v13l3.5-3H16z" opacity=".85"/><path d="M4 4l16 16" opacity=".55"/></svg>';
+    if (f === "off") return '<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M5.5 2.8 5.5 16.4 9.1 13.2 16.6 13.2 Z" opacity=".9"/>' +
+      '<path d="M3.2 3.2 20.8 20.8" opacity=".6"/></svg>';
     var ink = inkColor(), edge = P.outline ? "#FFFFFF" : "rgba(0,0,0,.55)";
-    return '<svg width="34" height="34" viewBox="0 0 32 32">' + body(f, ink, edge) + "</svg>";
+    /* Kart önizlemesi: imlecin 45° yatıklığı yerine neredeyse DİK duruş ve
+       daha büyük ölçek — her figürün gövdesi, bileziği ve ucu okunur olur. */
+    var inner = body(f, ink, edge);
+    var i = inner.indexOf("</defs>");
+    var d = i >= 0 ? inner.slice(0, i + 7) : "";
+    var gpart = i >= 0 ? inner.slice(i + 7) : inner;
+    gpart = gpart.replace('transform="translate(3.5 28.5) rotate(45)"',
+                          'transform="translate(13.6 30.2) rotate(14) scale(1.02)"');
+    return '<svg width="46" height="46" viewBox="0 0 32 32">' + d + gpart + "</svg>";
   }
   function renderFigGrid() {
     var wrap = $id("oCurFig");

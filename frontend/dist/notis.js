@@ -4700,14 +4700,17 @@ const LIB=(()=>{
       :'<div class="lc-ph">'+(KICON[kind]||KICON.board)+'</div>';
     /* Ayraç noktaları ayrı esnek öğe olunca satır sonunda asılı kalıyordu;
        ayraç yerine boşluk ritmi kullanılıyor. */
-    const parts=[m.pages+' sayfa', fmtAgo(m.updatedAt)];
-    if(m.res)parts.push('<b class="lc-res'+(m.res>=2000?'':' low')+'">'+m.res+'p</b>');
+    /* Künye iki BELİRLİ satır: üstte tür + sayfa, altta zaman + çözünürlük.
+       Tek satırda serbest sarınca her kart farklı yükseklikte çıkıyordu. */
+    const satir1='<span>'+m.pages+' sayfa</span>';
+    const satir2='<span>'+fmtAgo(m.updatedAt)+'</span>'+
+      (m.res?'<b class="lc-res'+(m.res>=2000?'':' low')+'">'+m.res+'p</b>':'');
     card.innerHTML=
       '<div class="lc-thumb">'+thumb+'<span class="lc-k">'+(KICON[kind]||KICON.board)+'</span></div>'+
       '<div class="lc-meta">'+
         '<div class="lc-t">'+esc(m.title||'Adsız')+'</div>'+
-        '<div class="lc-d"><span class="lc-badge k-'+kind+'">'+(BADGE[kind]||'TAHTA')+'</span>'+
-          parts.map(x=>'<span>'+x+'</span>').join('')+'</div>'+
+        '<div class="lc-d"><span class="lc-badge k-'+kind+'">'+(BADGE[kind]||'TAHTA')+'</span>'+satir1+'</div>'+
+        '<div class="lc-d lc-d2">'+satir2+'</div>'+
         (open?'<div class="lc-now">şu an açık</div>':'')+
       '</div>'+
       '<div class="lc-act">'+

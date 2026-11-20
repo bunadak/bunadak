@@ -190,7 +190,8 @@ body.scratch #pgRow, body.scratch #pgSep{display:none!important}
 /* ---------- SAĞ PANEL (gizlenebilir) ---------- */
 #side{grid-area:side; width:284px; background:var(--p1); border-left:1px solid var(--line); display:none; flex-direction:column; min-height:0; z-index:30}
 body.side-open #side{display:flex}
-#sideTabs{display:flex; padding:8px 4px 0; gap:2px}
+/* Yan panel artık yuvarlak kart; sekmeler kenara dayanmasın. */
+#sideTabs{display:flex; padding:8px 8px 0; gap:3px}
 .stab{flex:1; min-width:0; font-size:10.5px; font-weight:800; padding:8px 0; border-radius:9px 9px 0 0; color:var(--mut); border-bottom:2px solid transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 body.compact .stab{font-size:10px;letter-spacing:-.1px}
 .stab.on{color:var(--tx); border-bottom-color:var(--acc); background:var(--p2)}
@@ -475,8 +476,14 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
   background:var(--p3);color:var(--mut);font-size:9px;font-weight:900;display:none;place-items:center}
 #libClear.on{display:grid}
 #libClear:hover{color:var(--tx)}
-.lib-filters{display:flex;flex-direction:column;gap:6px;align-items:stretch}
-.lib-kinds{display:flex;gap:4px;min-width:0;flex-wrap:wrap}
+/* Tür rozetleri ile sıralama segmenti AYNI satırda olmalı. Sütun yönü
+   ikisini alt alta atıyor, segment de sağa yaslanınca kopuk duruyordu. */
+/* Rozetler ile sıralama TEK satırda kalır; rozet sayısı artarsa sarmaz,
+   yatay kayar. Sarma, segmenti alt satıra itip paneli kopuk gösteriyordu. */
+.lib-filters{display:flex;flex-direction:row;align-items:center;gap:7px;flex-wrap:nowrap}
+.lib-kinds{display:flex;gap:4px;min-width:0;flex-wrap:nowrap;flex:1 1 auto;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px}
+.lib-kinds::-webkit-scrollbar{display:none}
 .lib-kinds .lk{display:flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;padding:4px 6px;
   border-radius:8px;border:1px solid var(--line);background:var(--p1);color:var(--mut);cursor:pointer;
   transition:.14s var(--ease);white-space:nowrap}
@@ -484,7 +491,7 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 .lib-kinds .lk.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
 .lib-kinds .lk i{font-style:normal;font-size:9px;font-weight:900;opacity:.62}
 .lib-sortseg{display:flex;background:var(--p1);border:1px solid var(--line);border-radius:9px;padding:2px;gap:1px;
-  align-self:flex-end}
+  flex:none;margin-left:auto}
 .lib-sortseg button{font-size:9.5px;font-weight:800;color:var(--mut);padding:4px 7px;border-radius:7px;
   border:none;background:none;cursor:pointer;transition:.14s var(--ease);white-space:nowrap}
 .lib-sortseg button:hover{color:var(--tx)}
@@ -525,7 +532,13 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 .lc-t{font-size:12px;font-weight:800;line-height:1.3;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}
 .lib-grid .lc-t{display:block;white-space:nowrap;text-overflow:ellipsis}
-.lc-d{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:9.5px;color:var(--mut);font-weight:700;margin-top:4px}
+/* Künye satırı artık SARMAZ. Serbest sarma, dar panelde her kartı farklı
+   yükseklikte ve ragged gösteriyordu; iki belirli satıra bölündü:
+   1) tür rozeti + sayfa sayısı   2) zaman + çözünürlük */
+.lc-d{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden;
+  font-size:9.5px;color:var(--mut);font-weight:700;margin-top:4px;min-width:0}
+.lc-d > span{overflow:hidden;text-overflow:ellipsis}
+.lc-d2{margin-top:2px}
 .lc-d .lc-badge{margin-right:-2px}
 .lc-dot{opacity:.5}
 .lc-badge{font-size:8.5px;font-weight:900;letter-spacing:.05em;padding:2px 5px;border-radius:5px;
@@ -855,52 +868,67 @@ html body.present #corner{display:none}
 .pkx-def.sw .sw-toggle{margin-left:auto}
 
 /* ═══════════════════════════════════════════════════════════════════
-   ÇALIŞMA ALANI v3.4 — YÜZEN PANEL DÜZENİ
-   Araç rayı ve yan panel artık düz, kenara yapışık sütunlar değil;
-   üst panelden SIFIR BOŞLUKLA sarkan yuvarlak kartlar. Üst kenarları
-   düz, alt kenarları yuvarlak: üst panelle aralarına çizgi çekilemez,
-   aşağıda ise çalışma alanının üstünde yüzerler.
+   ÇALIŞMA ALANI v3.5 — YÜZEN KABUK
+   Üst panel, araç rayı ve yan panel tek bir kabuk gibi davranır:
+   üst panel yuvarlak bir kart olarak yukarıda durur, ray ve yan panel
+   ondan SIFIR BOŞLUKLA sarkar (üst kenarları düz — araya çizgi çekilemez),
+   altları yuvarlaktır. Tuvalin kendisinde ne kenar boşluğu ne yuvarlaklık
+   vardır: hücresini kenardan kenara doldurur, bu yüzden hiçbir modda
+   altta/yanda artık bir tabaka bırakmaz.
+   Paneller gizlendiğinde veya sunuma geçildiğinde kabuk tamamen kalkar.
    ═══════════════════════════════════════════════════════════════════ */
 body{ --fl-gap:9px; --fl-r:16px }
 body.compact{ --fl-gap:7px; --fl-r:14px }
 
-/* sütunlar kart + boşluk kadar genişletildi ki kart eski genişliğini korusun */
-body{grid-template-columns:67px 1fr auto}
-body.compact{grid-template-columns:53px 1fr auto}
+/* Satır/sütunlar kabuk boşluğu kadar büyütüldü ki paneller eski
+   ölçülerini korusun. */
+body{grid-template-columns:67px 1fr auto; grid-template-rows:63px 1fr}
+body.compact{grid-template-columns:53px 1fr auto; grid-template-rows:49px 1fr}
 
-#topbar{border-bottom:1px solid var(--line);
-  box-shadow:0 1px 0 color-mix(in srgb,var(--tx) 4%,transparent),0 6px 18px -14px rgba(0,0,0,.5)}
+/* --- üst panel: yuvarlak yüzen kart --- */
+#topbar{
+  margin:var(--fl-gap) var(--fl-gap) 0;
+  border:1px solid var(--line);border-bottom:none;
+  border-radius:var(--fl-r) var(--fl-r) 0 0;
+  box-shadow:0 10px 26px -20px rgba(0,0,0,.6);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--p2) 42%,var(--p1)),var(--p1))}
 
+/* --- araç rayı: üst panele yapışık, altı yuvarlak --- */
 #rail{
-  margin:0 0 var(--fl-gap) var(--fl-gap);     /* ÜSTTE boşluk YOK — üst panele yapışık */
-  border-right:none;
+  margin:0 0 var(--fl-gap) var(--fl-gap);
   border:1px solid var(--line);border-top:none;
   border-radius:0 0 var(--fl-r) var(--fl-r);
   padding:9px 0 10px;gap:4px;
-  box-shadow:0 14px 30px -16px rgba(0,0,0,.62),0 0 0 .5px color-mix(in srgb,var(--tx) 6%,transparent);
+  box-shadow:0 14px 30px -16px rgba(0,0,0,.62);
   background:linear-gradient(180deg,var(--p1),color-mix(in srgb,var(--p2) 55%,var(--p1)))}
 .rail-sep{width:22px}
-/* Kartları çevreleyen oluk bir tık derinleşir: kart gerçekten üstte durur.
+
+/* --- yan panel: aynı dil --- */
+#side{
+  margin:0 var(--fl-gap) var(--fl-gap) 0;
+  border:1px solid var(--line);border-top:none;
+  border-radius:0 0 var(--fl-r) var(--fl-r);
+  box-shadow:0 14px 30px -16px rgba(0,0,0,.62);
+  overflow:hidden}
+
+/* Kabuğun oluğu bir tık derinleşir — kartlar gerçekten üstte durur.
    Göreli hesap olduğu için açık temalarda da doğru yönde çalışır. */
 body{background:color-mix(in srgb,var(--bg) 88%,var(--tx))}
 
-#side{
-  margin:0 var(--fl-gap) var(--fl-gap) 0;     /* ÜSTTE boşluk YOK */
-  border-left:none;
-  border:1px solid var(--line);border-top:none;
-  border-radius:0 0 var(--fl-r) var(--fl-r);
-  box-shadow:0 14px 30px -16px rgba(0,0,0,.62),0 0 0 .5px color-mix(in srgb,var(--tx) 6%,transparent);
-  overflow:hidden}
+/* --- tuval: kenar boşluğu YOK, yuvarlaklık YOK --- */
+#stage{border-radius:0;margin:0}
 
-/* Paneller gizlendiğinde sütun 0'a iner; kenar boşluğu sıyrık bırakmasın. */
-body.hide-left #rail{margin:0;border:none;visibility:hidden}
-body.present #rail,body.present #side{margin:0;border:none}
-
-/* Çalışma alanı artık panellerin arasında kalan yüzey; kartların alt
-   kenarı boyunca aynı yuvarlaklıkla biter ki düzen bütün görünsün. */
-#stage{border-radius:0 0 var(--fl-r) var(--fl-r)}
-body.side-open #stage{border-bottom-right-radius:0}
-body:not(.hide-left) #stage{border-bottom-left-radius:0}
+/* --- kabuğun tamamen kalktığı durumlar ---
+   body.compact bu kuralların ARDINDAN gelmediği için sütun/satır
+   bildirimleri html öneki ile yazıldı; aksi hâlde eşit özgüllükte
+   kalıp panel gizlemede hayalet bir sütun bırakıyorlardı. */
+html body.hide-left{grid-template-columns:0 1fr auto}
+html body.hide-top{grid-template-rows:0 1fr}
+html body.present{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
+body.hide-left #rail{display:none}
+body.hide-top #topbar{display:none}
+body.hide-top #rail,body.hide-top #side{border-top:1px solid var(--line);border-radius:var(--fl-r)}
+body.present #rail,body.present #side,body.present #topbar{margin:0;border:none;border-radius:0}
 
 /* --- çizim modları / türleri: her kart gerçek zemin + gerçek kalem --- */
 .dm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;margin-bottom:4px}
@@ -976,3 +1004,18 @@ body:not(.hide-left) #stage{border-bottom-left-radius:0}
 .lang-b.on .ck{opacity:1}
 .app-ver{font-size:11.5px;font-weight:700;color:var(--mut);background:var(--p2);
   border:1px solid var(--line);border-radius:11px;padding:11px 14px;line-height:1.6}
+/* Sıralama denetimi simgeye indi: dar panelde tür rozetlerini kırpıyordu. */
+.lib-sortseg button{padding:4px 6px;display:grid;place-items:center}
+.lib-sortseg button svg{width:12px;height:12px;display:block}
+
+/* Pro imleç figür kartları — figürler büyüdü, kart da okunur hâle geldi. */
+#oCurFig{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.pcur-card{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px 8px;
+  background:var(--p2);border:1.5px solid var(--line);border-radius:13px;transition:.16s;cursor:pointer;min-width:0}
+.pcur-card:hover{border-color:color-mix(in srgb,var(--acc) 55%,var(--line));transform:translateY(-1px)}
+.pcur-card.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 9%,var(--p2));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 35%,transparent)}
+.pcur-card .pc-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:11px;
+  background:color-mix(in srgb,var(--p1) 86%,transparent);border:1px solid color-mix(in srgb,var(--tx) 8%,transparent)}
+.pcur-card .pc-n{font-size:10px;font-weight:800;color:var(--tx);text-align:center;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
