@@ -2994,13 +2994,13 @@ function openSettings(tab){openDlg(setDlg);if(tab){$$('.set-tab').forEach(x=>x.c
   if(typeof renderPenCards==='function'){renderPenCards();syncPenUI();requestAnimationFrame(pkSizeCv)}
   if(tab==='storage'&&window.LIB)LIB.fillPane();
   try{if(window.__healLogRefresh)window.__healLogRefresh()}catch(_){}}
-const bindT=(id,key,cb)=>$(id).addEventListener('change',e=>{S[key]=e.target.checked;cb&&cb();saveOpts();redraw()});
-const bindR=(id,key,k=1,cb)=>$(id).addEventListener('input',e=>{S[key]=e.target.value*k;cb&&cb();saveOpts()});
-bindT('#sPressure','pressure');bindT('#sPredict','predict');
+const bindT=(id,key,cb)=>{const n=$(id);if(n)n.addEventListener('change',e=>{S[key]=e.target.checked;cb&&cb();saveOpts();redraw()})};
+const bindR=(id,key,k=1,cb)=>{const n=$(id);if(n)n.addEventListener('input',e=>{S[key]=e.target.value*k;cb&&cb();saveOpts()})};
+bindT('#sPredict','predict');
 bindT('#sShape','shapeFix',renderOpts);bindT('#sSnapHl','snapHl',renderOpts);
 bindT('#sSnapGrid','snapGrid');bindT('#sGuides','guides');bindT('#sAngle','angleSnap',renderOpts);
 bindT('#sApplyDef','applyDefaults');bindT('#sWheelPage','wheelPage');
-bindR('#sSmooth','smooth',.01);bindR('#sStab','stab',.01);
+
 bindR('#sGrid','grid',1,()=>{$('#sGridOut').textContent=S.grid+' px';redraw()});
 bindR('#sSpot','spot',1,()=>$('#sSpotOut').textContent=S.spot+' px · sunumda fare tekeriyle de ayarlanır');
 $('#sLaser').addEventListener('input',e=>S.laser=e.target.value);
@@ -3077,6 +3077,34 @@ function buildPenHwUI(){
   return true;
 }
 function buildPenHwSoon(n){if(buildPenHwUI()||n<=0)return;setTimeout(()=>buildPenHwSoon(n-1),400)}
+/* ÇİZİM PANELİ SEGMENTLERİ
+   Yumuşatma: motor commitStroke'ta passes=round(S.smooth*2) yapar — yani
+   gerçekte yalnız 0, 1, 2 geçiş vardır. 101 kademeli bir kaydıraç bunun
+   100 kademesini yutuyordu; artık denetim motorun gerçek çözünürlüğünde.
+   Fabrika değeri .45 → round(.9)=1 geçiş; "Orta" (.5) → round(1)=1 geçiş.
+   Yani fabrika ayarı ile BİREBİR aynı çıktıyı verir.
+   Titreme azaltma: her kalemin kendi değeri var ve kalem değişince
+   uygulanıyor. Buradaki denetim o yüzden SEÇİLİ KALEMİN değerini düzenler. */
+const SM_VAL=[0,.5,1];
+function smIndex(){const v=(typeof S!=='undefined'?S.smooth:.45)*2;const n=Math.round(v);return n<=0?0:(n===1?1:2)}
+function syncDrawSegs(){
+  $$('#sSmoothSeg button').forEach((b,i)=>b.classList.toggle('on',i===smIndex()));
+  const c=(typeof pkCfg==='function')?pkCfg(typeof livePen!=='undefined'?livePen:'smart'):null;
+  const si=c?(c.stab??2):(typeof PK_STABV!=='undefined'?PK_STABV.indexOf(S.stab):2);
+  $$('#sStabSeg button').forEach((b,i)=>b.classList.toggle('on',i===si));
+  const lbl=$('#sStabPen');
+  if(lbl&&typeof pkNameOf==='function')lbl.textContent=pkNameOf(typeof livePen!=='undefined'?livePen:'smart');
+}
+$$('#sSmoothSeg button').forEach((b,i)=>b.addEventListener('click',()=>{
+  S.smooth=SM_VAL[i];saveOpts();syncDrawSegs()}));
+$$('#sStabSeg button').forEach((b,i)=>b.addEventListener('click',()=>{
+  const c=(typeof pkCfg==='function')?pkCfg(livePen):null;
+  if(c){c.stab=i;if(typeof savePK==='function')savePK()}
+  S.stab=(typeof PK_STABV!=='undefined'?PK_STABV[i]:S.stab);
+  saveOpts();syncDrawSegs();
+  if(typeof syncPenUI==='function'&&setDlg.open)syncPenUI();
+  if(typeof pkRender==='function')pkRender();
+}));
 function syncSettingsUI(){$('#sShape').checked=S.shapeFix;$('#sSnapHl').checked=S.snapHl;$('#sAngle').checked=S.angleSnap;$('#sSnapGrid').checked=S.snapGrid}
 /* kalem varsayılanları */
 const DEFIDS={text:'#dText'}; // kalem kalınlıkları Kalem Stüdyosu kartlarından yönetilir
@@ -3958,8 +3986,7 @@ function pkOnTool(t){
   livePen=t;selPen=t;
   const c=PCFG[t];
   S.pressure=(c.press??80)>0;S.stab=PK_STABV[c.stab??2]??S.stab;
-  const sp=$('#sPressure');if(sp)sp.checked=S.pressure;
-  const st=$('#sStab');if(st)st.value=Math.round(S.stab*100);
+  syncDrawSegs();
   if(setDlg&&setDlg.open){renderPenCards();syncPenUI();pkRender()}
 }
 function pkApply(id){
@@ -4028,8 +4055,7 @@ function pkLiveSync(){ // seçili kalem aynı zamanda aktifse üst çubuğu da g
   $('#sizeRng').value=penSize;$('#sizeOut').textContent=penSize;
   $('#opRng').value=Math.round(penOp*100);$('#opOut').textContent=Math.round(penOp*100);
   S.pressure=(c.press??80)>0;S.stab=PK_STABV[c.stab??2]??S.stab;
-  const sp=$('#sPressure');if(sp)sp.checked=S.pressure;
-  const st=$('#sStab');if(st)st.value=Math.round(S.stab*100);
+  syncDrawSegs();
 }
 if($('#pkSize')){
   $('#pkSize').addEventListener('input',e=>{const v=Math.round(clamp(+e.target.value,.5,40)*10)/10;
@@ -4109,14 +4135,11 @@ if(pkCvEl){
 }
 /* --- pane başlıkları --- */
 const PANE_META={
- pens:['Kalem Ayarları','Kalem deneyimini kendi stiline göre özelleştir.'],
- draw:['Çizim Ayarları','Mürekkep ve çizgi davranışını ayarla.'],
- align:['Hizalama','Izgara, yapışma ve akıllı kılavuzlar.'],
- present:['Sunum','Lazer, spot ışığı ve sayfa geçişi.'],
- keys:['Klavye','Kısayolları kendine göre düzenle.'],
- ui:['Arayüz','Tema, tahta stili ve görünüm.'],
- opts:['Opsiyonlar','Deneysel özellikler — dilediğini aç.'],
- storage:['Depolama','Yedekleme, kütüphane ve alan yönetimi.']};
+ pens:['Kalem Ayarları','Kalınlık, renk, opaklık ve basınç — her kalem için ayrı.'],
+ draw:['Çizim','Sabitleme, yumuşatma, otomatik şekil ve hizalama kılavuzları.'],
+ ui:['Çalışma Alanı','Tema, tahta zemini, düzen, odak modu ve sunum.'],
+ storage:['PDF ve Kayıt','Otomatik kayıt, kütüphane, dışa aktarma ve yedekleme.'],
+ opts:['Gelişmiş','Klavye kısayolları, performans ve uzman seçenekleri.']};
 function updPaneHead(s){const m=PANE_META[s];if(!m)return;
   $('#paneT').textContent=m[0];$('#paneD').textContent=m[1];
   const t=$$('.set-tab').find(x=>x.dataset.s===s);
@@ -4729,8 +4752,10 @@ function init(){
   loadOpts();
   /* Geri yüklenen ayarları kontrollere yansıt (kaydet-yükle döngüsü tam olsun) */
   try{
-    $('#sSmooth').value=Math.round(S.smooth*100);$('#sStab').value=Math.round(S.stab*100);
-    $('#sPressure').checked=S.pressure;$('#sPredict').checked=S.predict;
+    /* Bu üçü artık Çizim panelinde segment denetimi (yumuşatma) ve
+       Kalem panelinde kaleme özel (basınç, titreme) olarak yaşıyor. */
+    syncDrawSegs();
+    $('#sPredict').checked=S.predict;
     $('#sMini').checked=S.miniBar;$('#sRing').checked=S.ring;
     $('#sGrain').checked=S.grain;document.body.classList.toggle('nograin',!S.grain);
     syncSettingsUI();
