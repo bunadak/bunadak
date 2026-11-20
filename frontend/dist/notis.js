@@ -4292,38 +4292,146 @@ const LIB=(()=>{
   /* ARAMA · SIRALAMA · YENİDEN ADLANDIRMA (madde 81)
      Kayıtlar yalnız tarihe göre düz bir liste hâlinde basılıyordu; 200 kayıt
      biriktiğinde aradığını bulmak imkânsızdı, yeniden adlandırma bile yoktu. */
-  let libQ='',libSort='date';
+  let libQ='',libSort='date',libKind='all';
+  let libView=(()=>{try{return localStorage.getItem('notis_lib_view')||'list'}catch(_){return 'list'}})();
+  /* TARİH GRUPLARI — 200 kayıtta düz liste okunmuyordu */
+  function dayStart(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()}
+  function groupOf(t){
+    const g=Math.floor((dayStart(Date.now())-dayStart(t))/864e5);
+    if(g<=0)return 'Bugün'; if(g===1)return 'Dün';
+    if(g<7)return 'Bu hafta'; if(g<31)return 'Bu ay';
+    if(g<366)return 'Bu yıl'; return 'Daha eski';
+  }
+  const GORDER=['Bugün','Dün','Bu hafta','Bu ay','Bu yıl','Daha eski'];
+  const KINDS=[['all','Tümü'],['pdf','PDF'],['image','Görsel'],['board','Tahta']];
+  const KICON={
+    pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6.8A1.8 1.8 0 0 0 5 3.8v16.4A1.8 1.8 0 0 0 6.8 22h10.4a1.8 1.8 0 0 0 1.8-1.8V7z"/><path d="M14 2v5h5"/></svg>',
+    image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"/><circle cx="8.6" cy="9.4" r="1.6"/><path d="m4 17 5-5 4 4 2.5-2.5L20 17"/></svg>',
+    board:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7.5 12.5c2-3.5 3.5-3.5 5 0s3 2 4-1" opacity=".55"/></svg>'};
+  function kindOf(m){const k=m.kind||'board';return KINDS.some(x=>x[0]===k)?k:'board'}
+  const fmtAgo=t=>{
+    const s2=Math.max(0,(Date.now()-t)/1000);
+    if(s2<60)return 'az önce';
+    if(s2<3600)return Math.floor(s2/60)+' dk önce';
+    if(s2<86400)return Math.floor(s2/3600)+' sa önce';
+    return fmtDate(t);
+  };
+  function libSearchMatch(m,q){
+    if(!q)return true;
+    const hay=((m.title||'')+' '+(BADGE[kindOf(m)]||'')).toLocaleLowerCase('tr');
+    return hay.includes(q);
+  }
+  function setLibView(v){
+    libView=v;
+    try{localStorage.setItem('notis_lib_view',v)}catch(_){}
+    const b=$('#libView');
+    if(b){b.innerHTML=v==='list'
+      ?'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>'
+      :'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>';
+      b.title=v==='list'?'Kart görünümüne geç':'Liste görünümüne geç'}
+    renderLib();
+  }
+  function renderKinds(counts){
+    const el=$('#libKinds');if(!el)return;
+    el.innerHTML='';
+    for(const[k,n]of KINDS){
+      const c=k==='all'?counts.all:(counts[k]||0);
+      if(k!=='all'&&!c)continue;                       // olmayan türü gösterme
+      const b=document.createElement('button');
+      b.className='lk'+(libKind===k?' on':'');
+      b.innerHTML=n+'<i>'+c+'</i>';
+      b.addEventListener('click',()=>{libKind=k;renderLib()});
+      el.appendChild(b);
+    }
+  }
   async function renderLib(){
     const el=$('#libList');if(!el)return;
-    let items=await all();
+    const raw=await all();
+    const counts={all:raw.length};
+    for(const m of raw){const k=kindOf(m);counts[k]=(counts[k]||0)+1}
+    renderKinds(counts);
+
     const q=libQ.trim().toLocaleLowerCase('tr');
-    if(q)items=items.filter(m=>(m.title||'').toLocaleLowerCase('tr').includes(q)||(BADGE[m.kind]||'').toLocaleLowerCase('tr').includes(q));
+    let items=raw.filter(m=>(libKind==='all'||kindOf(m)===libKind)&&libSearchMatch(m,q));
     if(libSort==='name')items=items.slice().sort((a,b)=>(a.title||'').localeCompare(b.title||'','tr'));
     else if(libSort==='pages')items=items.slice().sort((a,b)=>(b.pages||0)-(a.pages||0));
-    $('#libCount').textContent=items.length?items.length+' kayıt':'';
+    else items=items.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+
+    $('#libCount').textContent=items.length?(items.length===counts.all?items.length+' kayıt':items.length+'/'+counts.all):'';
+    $$('#libSort button').forEach(b=>b.classList.toggle('on',b.dataset.s===libSort));
+    const cl=$('#libClear');if(cl)cl.classList.toggle('on',!!libQ);
+    el.className=libView==='grid'?'lib-grid':'lib-list';
     el.innerHTML='';
-    if(!items.length){el.innerHTML='<div class="lib-empty">'+(q?'“'+esc(libQ)+'” ile eşleşen kayıt yok.':'Henüz kayıt yok.<br>Bir PDF veya görsel yükle — çalışmaların buraya sessizce kaydedilir.')+'</div>';return}
-    for(const m of items){
-      const card=document.createElement('div');card.className='lib-card';
-      card.innerHTML=(m.thumb?'<img src="'+m.thumb+'" alt="">':'<div style="height:104px;background:#FBF8F0"></div>')+
-        '<span class="lc-badge">'+(BADGE[m.kind]||'TAHTA')+'</span>'+
-        '<button class="lc-ren" title="Yeniden adlandır">✎</button>'+
-        '<button class="lc-del" title="Sil (geri alınabilir)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'+
-        '<div class="lc-meta"><div class="lc-t">'+esc(m.title||'Adsız')+(m.id===sessId?' · <span style="color:var(--acc)">şu an açık</span>':'')+'</div>'+
-        '<div class="lc-d">'+fmtDate(m.updatedAt)+' · '+m.pages+' sayfa'+(m.res?' · <b style="color:'+(m.res>=2000?'var(--acc)':'#EF4444')+'">'+m.res+'p</b>':'')+'</div></div>';
-      card.querySelector('.lc-ren').addEventListener('click',async e=>{e.stopPropagation();
-        const v=await askText('Kaydı yeniden adlandır','',m.title||'Adsız');
-        if(v==null||!String(v).trim())return;
-        await rename(m.id,String(v).trim());});
-      /* SİLME ARTIK GERİ ALINABİLİR (madde 82)
-         del() kaydı doğrudan siliyordu ve çöp kutusu yoktu. Artık kayıt önce
-         bir kenara alınır; 10 saniyelik "Geri al" penceresi geçmeden gerçekten
-         silinmez. */
-      card.querySelector('.lc-del').addEventListener('click',async e=>{e.stopPropagation();
-        await softDelete(m.id,m.title||'Adsız')});
-      card.addEventListener('click',()=>openWork(m.id));
-      el.appendChild(card);
+
+    if(!items.length){
+      el.className='';
+      el.innerHTML='<div class="lib-empty">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.2V5.4A1.4 1.4 0 0 1 5.4 4H10l1.8 2.4h6.8A1.4 1.4 0 0 1 20 7.8v11.4a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19.2z"/></svg>'+
+        '<b>'+(q||libKind!=='all'?'Eşleşen kayıt yok':'Henüz kayıt yok')+'</b>'+
+        '<span>'+(q?'“'+esc(libQ)+'” aramasını değiştir ya da süzgeci kaldır.'
+          :(libKind!=='all'?'Bu türde kayıt yok — “Tümü” ile hepsini gör.'
+          :'Bir PDF veya görsel yükle; çalışmaların buraya sessizce kaydedilir.'))+'</span>'+
+        ((q||libKind!=='all')?'<button class="lib-reset">Süzgeçleri temizle</button>':'')+
+        '</div>';
+      const rb=el.querySelector('.lib-reset');
+      if(rb)rb.addEventListener('click',()=>{libQ='';libKind='all';const si=$('#libSearch');if(si)si.value='';renderLib()});
+      return;
     }
+
+    /* Tarih sıralamasındayken gruplara ayır; ad/sayfa sıralamasında ayırma
+       (o sıralamalarda tarih başlıkları anlamsız olur) */
+    const grouped=libSort==='date';
+    const buckets=new Map();
+    for(const m of items){
+      const g=grouped?groupOf(m.updatedAt):'';
+      if(!buckets.has(g))buckets.set(g,[]);
+      buckets.get(g).push(m);
+    }
+    const order=grouped?GORDER.filter(g=>buckets.has(g)):[''];
+
+    for(const g of order){
+      if(grouped){
+        const h=document.createElement('div');h.className='lib-gh';
+        h.innerHTML='<span>'+g+'</span><i>'+buckets.get(g).length+'</i>';
+        el.appendChild(h);
+      }
+      for(const m of buckets.get(g))el.appendChild(libCard(m));
+    }
+  }
+  function libCard(m){
+    const kind=kindOf(m),open=m.id===sessId;
+    const card=document.createElement('div');
+    card.className='lib-card'+(open?' open':'');
+    card.title=(m.title||'Adsız')+' — açmak için dokun';
+    const thumb=m.thumb
+      ?'<img src="'+m.thumb+'" alt="" loading="lazy">'
+      :'<div class="lc-ph">'+(KICON[kind]||KICON.board)+'</div>';
+    /* Ayraç noktaları ayrı esnek öğe olunca satır sonunda asılı kalıyordu;
+       ayraç yerine boşluk ritmi kullanılıyor. */
+    const parts=[m.pages+' sayfa', fmtAgo(m.updatedAt)];
+    if(m.res)parts.push('<b class="lc-res'+(m.res>=2000?'':' low')+'">'+m.res+'p</b>');
+    card.innerHTML=
+      '<div class="lc-thumb">'+thumb+'<span class="lc-k">'+(KICON[kind]||KICON.board)+'</span></div>'+
+      '<div class="lc-meta">'+
+        '<div class="lc-t">'+esc(m.title||'Adsız')+'</div>'+
+        '<div class="lc-d"><span class="lc-badge k-'+kind+'">'+(BADGE[kind]||'TAHTA')+'</span>'+
+          parts.map(x=>'<span>'+x+'</span>').join('')+'</div>'+
+        (open?'<div class="lc-now">şu an açık</div>':'')+
+      '</div>'+
+      '<div class="lc-act">'+
+        '<button class="lc-ren" title="Yeniden adlandır"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
+        '<button class="lc-del" title="Sil (geri alınabilir)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'+
+      '</div>';
+    card.querySelector('.lc-ren').addEventListener('click',async e=>{e.stopPropagation();
+      const v=await askText('Kaydı yeniden adlandır','',m.title||'Adsız');
+      if(v==null||!String(v).trim())return;
+      await rename(m.id,String(v).trim());});
+    /* SİLME GERİ ALINABİLİR: kayıt önce bir kenara alınır, 10 saniyelik
+       "Geri al" penceresi geçmeden gerçekten silinmez. */
+    card.querySelector('.lc-del').addEventListener('click',async e=>{e.stopPropagation();
+      await softDelete(m.id,m.title||'Adsız')});
+    card.addEventListener('click',()=>openWork(m.id));
+    return card;
   }
   async function fillPane(){
     const t=$('#stUsageT');if(!t||!setDlg.open)return;
@@ -4378,14 +4486,21 @@ const LIB=(()=>{
   window.addEventListener('pagehide',()=>{clearTimeout(tmr);saveNow()});
   return{dirty,fresh,tag,renderLib,fillPane,wipe,exit,openWork,saveNow,saveExternal,all,rename,
     setQuery:(q)=>{libQ=q;renderLib()},setSort:(s2)=>{libSort=s2;renderLib()},
+    setKind:(k)=>{libKind=k;renderLib()},setView:setLibView,view:()=>libView,
     currentId:()=>sessId};
 })();
 window.LIB=LIB;   // kancalar window.LIB üzerinden erişir — const window'a çıkmaz
 /* Depolama paneli bağları */
 $('#libRefresh').addEventListener('click',()=>LIB.renderLib());
-{const q=$('#libSearch'),so=$('#libSort');
+{const q=$('#libSearch');
  if(q)q.addEventListener('input',()=>LIB.setQuery(q.value));
- if(so)so.addEventListener('change',()=>LIB.setSort(so.value));}
+ $$('#libSort button').forEach(b=>b.addEventListener('click',()=>LIB.setSort(b.dataset.s)));
+ const cl=$('#libClear');
+ if(cl)cl.addEventListener('click',()=>{if(q)q.value='';LIB.setQuery('');if(q)q.focus()});
+ const vw=$('#libView');
+ if(vw)vw.addEventListener('click',()=>LIB.setView(LIB.view()==='list'?'grid':'list'));
+ /* kaydedilmiş görünümü düğmeye yansıt (ilk açılışta) */
+ if(vw)LIB.setView(LIB.view());}
 /* Ayarlar › Depolama: kayıtların GERÇEK konumu (uydurma yol yerine) */
 (function(){
   const el=()=>document.getElementById('stPath');

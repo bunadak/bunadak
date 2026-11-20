@@ -151,19 +151,27 @@
   </div>
   <div class="spanel" id="p-library">
     <div class="side-head"><span>Kütüphane</span>
-      <span style="display:flex;gap:5px;align-items:center">
-        <span id="libCount" style="font-size:10px;color:var(--mut);font-weight:800"></span>
+      <span class="lib-headr">
+        <span id="libCount"></span>
+        <button class="mini" id="libView" title="Liste / kart görünümü"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
         <button class="mini" id="libRefresh" title="Yenile"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
       </span>
     </div>
-    <div id="libTools" style="display:flex;gap:6px;padding:0 0 8px">
-      <input id="libSearch" class="num" style="flex:1;min-width:0" placeholder="Kayıt ara…">
-      <select id="libSort" class="num" style="width:96px" title="Sırala">
-        <option value="date">Tarih</option><option value="name">Ad</option><option value="pages">Sayfa</option>
-      </select>
+    <div id="libTools">
+      <div class="lib-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="libSearch" placeholder="Kayıt ara…" spellcheck="false">
+        <button id="libClear" title="Aramayı temizle">✕</button>
+      </div>
+      <div class="lib-filters">
+        <div class="lib-kinds" id="libKinds"></div>
+        <div class="lib-sortseg" id="libSort" title="Sırala">
+          <button data-s="date" class="on">Tarih</button><button data-s="name">Ad</button><button data-s="pages">Sayfa</button>
+        </div>
+      </div>
     </div>
     <div id="libList"></div>
-    <p style="font-size:10.5px;color:var(--mut);font-weight:600;margin-top:10px;line-height:1.5">PDF ve görsel çalışmaların otomatik ve sessizce buraya kaydedilir (boş tahta çizimleri kaydedilmez). Bir karta dokunarak kaldığın yerden devam et.</p>
+    <p class="lib-note">PDF ve görsel çalışmaların otomatik ve sessizce buraya kaydedilir. Bir karta dokunarak kaldığın yerden devam et.</p>
   </div>
 </aside>
 

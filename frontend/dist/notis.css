@@ -416,21 +416,102 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 .set-tab-exit{border:1px solid rgba(239,68,68,.45)!important;border-radius:12px;margin-top:6px}
 .set-tab-exit .tt,.set-tab-exit svg{color:#EF4444}
 /* Kütüphane kartları */
-#libList{display:flex;flex-direction:column;gap:10px}
-.lib-card{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;
-  background:var(--pan2,rgba(255,255,255,.03));transition:border-color .18s,transform .18s}
-.lib-card:hover{border-color:var(--acc);transform:translateY(-1px)}
-.lib-card img{display:block;width:100%;height:104px;object-fit:cover;object-position:top;background:#FBF8F0}
-.lib-card .lc-meta{padding:8px 10px}
-.lib-card .lc-t{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lib-card .lc-d{font-size:10px;color:var(--mut);font-weight:700;margin-top:2px}
-.lib-card .lc-badge{position:absolute;top:6px;left:6px;font-size:9px;font-weight:900;letter-spacing:.04em;
-  padding:2px 7px;border-radius:20px;color:#fff;background:rgba(17,24,39,.72);backdrop-filter:blur(4px)}
-.lib-card .lc-del{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:8px;border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(239,68,68,.85);opacity:.6;transition:opacity .15s}
-.lib-card:hover .lc-del{opacity:1}
-.lib-empty{font-size:11px;color:var(--mut);font-weight:700;text-align:center;padding:26px 8px;line-height:1.6;
-  border:1px dashed var(--line);border-radius:12px}
+/* ---------- KÜTÜPHANE ---------- */
+.lib-headr{display:flex;gap:5px;align-items:center}
+#libCount{font-size:10px;color:var(--mut);font-weight:800;margin-right:2px;white-space:nowrap}
+#libTools{display:flex;flex-direction:column;gap:7px;padding:0 0 9px}
+.lib-search{position:relative;display:flex;align-items:center}
+.lib-search > svg{position:absolute;left:9px;color:var(--mut);pointer-events:none}
+.lib-search input{flex:1;min-width:0;background:var(--p1);border:1px solid var(--line);border-radius:10px;
+  color:var(--tx);padding:8px 28px 8px 28px;font-size:11.5px;font-weight:700;font-family:inherit;
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.lib-search input::placeholder{color:var(--mut);font-weight:600}
+.lib-search input:focus{outline:none;border-color:var(--acc);background:var(--p2)}
+#libClear{position:absolute;right:6px;width:18px;height:18px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--p3);color:var(--mut);font-size:9px;font-weight:900;display:none;place-items:center}
+#libClear.on{display:grid}
+#libClear:hover{color:var(--tx)}
+.lib-filters{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.lib-kinds{display:flex;gap:4px;min-width:0;flex-wrap:wrap}
+.lib-kinds .lk{display:flex;align-items:center;gap:3px;font-size:9.5px;font-weight:800;padding:4px 6px;
+  border-radius:8px;border:1px solid var(--line);background:var(--p1);color:var(--mut);cursor:pointer;
+  transition:.14s var(--ease);white-space:nowrap}
+.lib-kinds .lk:hover{color:var(--tx)}
+.lib-kinds .lk.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.lib-kinds .lk i{font-style:normal;font-size:9px;font-weight:900;opacity:.62}
+.lib-sortseg{display:flex;background:var(--p1);border:1px solid var(--line);border-radius:9px;padding:2px;gap:1px;
+  align-self:flex-end}
+.lib-sortseg button{font-size:9.5px;font-weight:800;color:var(--mut);padding:4px 7px;border-radius:7px;
+  border:none;background:none;cursor:pointer;transition:.14s var(--ease);white-space:nowrap}
+.lib-sortseg button:hover{color:var(--tx)}
+.lib-sortseg button.on{background:var(--p3);color:var(--tx)}
+/* tarih grubu başlığı */
+.lib-gh{display:flex;align-items:center;gap:7px;margin:11px 0 6px;font-size:9.5px;font-weight:900;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--mut)}
+.lib-gh:first-child{margin-top:2px}
+.lib-gh::after{content:'';flex:1;height:1px;background:var(--line)}
+.lib-gh i{font-style:normal;font-size:9px;font-weight:900;opacity:.6;order:3}
+/* LİSTE görünümü — çok kayıtta okunabilir */
+.lib-list{display:flex;flex-direction:column;gap:4px}
+.lib-list .lib-card{display:flex;align-items:center;gap:9px;padding:6px;border-radius:11px;
+  border:1px solid transparent;background:transparent;cursor:pointer;position:relative;
+  transition:background .14s var(--ease),border-color .14s var(--ease)}
+.lib-list .lib-card:hover{background:var(--p1);border-color:var(--line)}
+.lib-list .lc-thumb{position:relative;flex:0 0 42px;width:42px;height:50px;border-radius:7px;overflow:hidden;
+  background:var(--p2);border:1px solid var(--line)}
+.lib-list .lc-thumb img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.lib-list .lc-k{display:none}
+.lib-list .lc-meta{flex:1;min-width:0}
+/* KART görünümü — az kayıtta tanıma kolaylığı */
+.lib-grid{display:flex;flex-direction:column;gap:9px}
+.lib-grid .lib-card{position:relative;border:1px solid var(--line);border-radius:13px;overflow:hidden;
+  cursor:pointer;background:var(--p1);transition:border-color .15s var(--ease),transform .15s var(--ease)}
+.lib-grid .lib-card:hover{border-color:var(--acc);transform:translateY(-1px)}
+.lib-grid .lc-thumb{position:relative;height:104px;background:var(--p2)}
+.lib-grid .lc-thumb img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.lib-grid .lc-k{position:absolute;right:7px;bottom:7px;width:22px;height:22px;border-radius:7px;
+  display:grid;place-items:center;background:rgba(10,15,32,.6);color:#fff;backdrop-filter:blur(4px)}
+.lib-grid .lc-k svg{width:13px;height:13px}
+.lib-grid .lc-meta{padding:8px 10px 9px}
+/* ortak kart içi */
+.lc-ph{width:100%;height:100%;display:grid;place-items:center;color:var(--mut);opacity:.55}
+.lc-ph svg{width:40%;height:40%;max-width:30px;max-height:30px}
+/* liste görünümünde başlık iki satıra kadar açılır — dar panelde erken
+   kesilmesin; kart görünümünde tek satır kalır. */
+.lc-t{font-size:12px;font-weight:800;line-height:1.3;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}
+.lib-grid .lc-t{display:block;white-space:nowrap;text-overflow:ellipsis}
+.lc-d{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:9.5px;color:var(--mut);font-weight:700;margin-top:4px}
+.lc-d .lc-badge{margin-right:-2px}
+.lc-dot{opacity:.5}
+.lc-badge{font-size:8.5px;font-weight:900;letter-spacing:.05em;padding:2px 5px;border-radius:5px;
+  background:var(--p3);color:var(--mut)}
+.lc-badge.k-pdf{background:color-mix(in srgb,#EF4444 20%,transparent);color:#F87171}
+.lc-badge.k-image{background:color-mix(in srgb,#3B82F6 20%,transparent);color:#60A5FA}
+.lc-badge.k-board{background:color-mix(in srgb,#10B981 20%,transparent);color:#34D399}
+.lc-res{font-weight:900;color:var(--acc)}
+.lc-res.low{color:#EF4444}
+.lc-now{font-size:9px;font-weight:900;color:var(--acc);margin-top:3px;letter-spacing:.03em}
+.lib-card.open{border-color:var(--acc)!important}
+.lib-list .lib-card.open{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.lc-act{display:flex;gap:3px;opacity:0;transition:opacity .14s var(--ease)}
+.lib-card:hover .lc-act,.lib-card:focus-within .lc-act{opacity:1}
+.lib-grid .lc-act{position:absolute;top:7px;right:7px}
+.lc-act button{width:24px;height:24px;border-radius:7px;border:none;cursor:pointer;display:grid;place-items:center;
+  background:var(--p3);color:var(--mut);transition:.14s var(--ease)}
+.lib-grid .lc-act button{background:rgba(10,15,32,.62);color:#fff;backdrop-filter:blur(4px)}
+.lc-act button:hover{background:var(--acc);color:var(--acc-ink)}
+.lc-act .lc-del:hover{background:var(--dgr);color:#fff}
+/* boş durum */
+.lib-empty{display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;padding:30px 12px;
+  border:1px dashed var(--line);border-radius:13px}
+.lib-empty svg{width:34px;height:34px;color:var(--mut);opacity:.45}
+.lib-empty b{font-size:12px;font-weight:800;color:var(--tx)}
+.lib-empty span{font-size:10.5px;color:var(--mut);font-weight:600;line-height:1.55;max-width:210px}
+.lib-reset{margin-top:4px;font-size:10px;font-weight:800;padding:6px 11px;border-radius:9px;cursor:pointer;
+  background:var(--p3);border:1px solid var(--line);color:var(--tx);transition:.14s var(--ease)}
+.lib-reset:hover{border-color:var(--acc);color:var(--acc)}
+.lib-note{font-size:10px;color:var(--mut);font-weight:600;margin-top:11px;line-height:1.5;opacity:.85}
 .set-tab svg{width:17px;height:17px;flex:none}
 .set-main{display:flex;flex-direction:column;min-width:0}
 .set-mainhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 20px 12px;border-bottom:1px solid var(--line)}
