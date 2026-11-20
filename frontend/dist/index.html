@@ -151,27 +151,19 @@
   </div>
   <div class="spanel" id="p-library">
     <div class="side-head"><span>Kütüphane</span>
-      <span class="lib-headr">
-        <span id="libCount"></span>
-        <button class="mini" id="libView" title="Liste / kart görünümü"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <span style="display:flex;gap:5px;align-items:center">
+        <span id="libCount" style="font-size:10px;color:var(--mut);font-weight:800"></span>
         <button class="mini" id="libRefresh" title="Yenile"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
       </span>
     </div>
-    <div id="libTools">
-      <div class="lib-search">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="libSearch" placeholder="Kayıt ara…" spellcheck="false">
-        <button id="libClear" title="Aramayı temizle">✕</button>
-      </div>
-      <div class="lib-filters">
-        <div class="lib-kinds" id="libKinds"></div>
-        <div class="lib-sortseg" id="libSort" title="Sırala">
-          <button data-s="date" class="on">Tarih</button><button data-s="name">Ad</button><button data-s="pages">Sayfa</button>
-        </div>
-      </div>
+    <div id="libTools" style="display:flex;gap:6px;padding:0 0 8px">
+      <input id="libSearch" class="num" style="flex:1;min-width:0" placeholder="Kayıt ara…">
+      <select id="libSort" class="num" style="width:96px" title="Sırala">
+        <option value="date">Tarih</option><option value="name">Ad</option><option value="pages">Sayfa</option>
+      </select>
     </div>
     <div id="libList"></div>
-    <p class="lib-note">PDF ve görsel çalışmaların otomatik ve sessizce buraya kaydedilir. Bir karta dokunarak kaldığın yerden devam et.</p>
+    <p style="font-size:10.5px;color:var(--mut);font-weight:600;margin-top:10px;line-height:1.5">PDF ve görsel çalışmaların otomatik ve sessizce buraya kaydedilir (boş tahta çizimleri kaydedilmez). Bir karta dokunarak kaldığın yerden devam et.</p>
   </div>
 </aside>
 
@@ -259,7 +251,7 @@
               <div class="pk-card"><div class="pk-lbl">Akış<span class="pk-val" id="pkFlowOut">%95</span></div>
                 <div class="pk-slider"><button class="pk-step" data-t="pkFlow" data-d="-1">−</button><input type="range" id="pkFlow" min="40" max="100" step="5" value="95"><button class="pk-step" data-t="pkFlow" data-d="1">+</button></div></div>
               <div class="pk-card"><div class="pk-lbl">Uç Yapısı<span class="pk-val" id="pkNibOut">Sivri</span></div>
-                <div class="pk-nibs" id="pkNibs"><button class="pk-nib on" title="Sivri — çizginin iki ucu kendiliğinden incelir"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.4 8.6V17a3.4 3.4 0 0 1-6.8 0v-6.4z"/><path d="M12 8v7"/></svg></button><button class="pk-nib" title="İnce — düz, sabit kalınlıkta uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.6 6.6V16a2.6 2.6 0 1 1-5.2 0v-5.4z"/></svg></button><button class="pk-nib" title="Dolgun — %18 daha geniş, yuvarlak uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c2.6 0 4.2 1.9 4.2 4.6V15a4.2 4.2 0 0 1-8.4 0V8.6C7.8 5.9 9.4 4 12 4z"/></svg></button><button class="pk-nib" title="Keski — düz kesim uç. Yöne göre kalınlık değişimi için aşağıdaki Uç Açısı ayarını kullan."><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4h6.8l.9 10a4.3 4.3 0 0 1-8.6 0z"/></svg></button></div></div>
+                <div class="pk-nibs" id="pkNibs"><button class="pk-nib on" title="Sivri — uçlarda incelir"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.4 8.6V17a3.4 3.4 0 0 1-6.8 0v-6.4z"/><path d="M12 8v7"/></svg></button><button class="pk-nib" title="İnce — standart uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.6 6.6V16a2.6 2.6 0 1 1-5.2 0v-5.4z"/></svg></button><button class="pk-nib" title="Dolgun — geniş yuvarlak uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c2.6 0 4.2 1.9 4.2 4.6V15a4.2 4.2 0 0 1-8.4 0V8.6C7.8 5.9 9.4 4 12 4z"/></svg></button><button class="pk-nib" title="Keski — düz kesim"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4h6.8l.9 10a4.3 4.3 0 0 1-8.6 0z"/></svg></button></div></div>
             </div>
           </div>
           <div class="pk-prev">
@@ -286,23 +278,17 @@
       </div>
 
       <div class="set-pane" id="sp-draw">
-        <!-- Basınç hassasiyeti, çizgi yumuşatma ve titreme azaltma BURADAN
-             KALDIRILDI. Sebebi gerçek bir hataydı: kalem değiştirdiğin her
-             seferde (pkApply / pkOnTool) bu üç değer kalemin kendi ayarıyla
-             sessizce EZİLİYORDU. Yani buradan kapattığını bir sonraki kalem
-             geçişinde geri açılmış buluyordun. Üçü de artık Kalem Stüdyosu'nda,
-             her kalem için ayrı ayrı yaşıyor. -->
-        <div class="set-hint">Basınç, yumuşatma ve titreme azaltma artık
-          <b>her kalem için ayrı</b> — <a href="#" class="goto-pens">Kalemler</a> sekmesinden ayarla.
-          Önceden buradaki değerler kalem değiştirince sessizce eziliyordu.</div>
+        <div class="set-row"><div><div class="t">Basınç hassasiyeti</div><div class="d">Stylus basıncına göre çizgi kalınlığı değişir</div></div><label class="sw-toggle"><input type="checkbox" id="sPressure" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Çizgi yumuşatma</div><div class="d">Kalem hareketlerini pürüzsüzleştirir</div></div><input type="range" id="sSmooth" min="0" max="100" value="45"></div>
+        <div class="set-row"><div><div class="t">Titreme azaltma (Sabitleyici)</div></div><input type="range" id="sStab" min="0" max="90" value="35"></div>
         <div class="set-row"><div><div class="t">Gecikme tahmini</div><div class="d">Hareketi önceden kestirerek gecikmeyi azaltır</div></div><label class="sw-toggle"><input type="checkbox" id="sPredict" checked><i></i></label></div>
         <div class="set-row"><div><div class="t">Şekilleri otomatik düzelt</div><div class="d">Tükenmez / dolma / kurşun kalemde geçerli · Akıllı kalem saf mürekkeptir</div></div><label class="sw-toggle"><input type="checkbox" id="sShape"><i></i></label></div>
-        <div class="set-row"><div><div class="t">Fosforlu kalemi düzleştir</div><div class="d">Fosforlu çizgi iki uç arasında düz bir banda oturur</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapHl" checked><i></i></label></div>
+        <div class="set-row"><div><div class="t">Fosforlu kalemi düzleştir</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapHl" checked><i></i></label></div>
       </div>
 
       <div class="set-pane" id="sp-align">
         <div class="set-row"><div><div class="t">Izgaraya yapış (Snap)</div></div><label class="sw-toggle"><input type="checkbox" id="sSnapGrid"><i></i></label></div>
-        <div class="set-row"><div><div class="t">Yapışma aralığı</div><div class="d"><span id="sGridOut">20 px</span> · nesneler bu adımlara oturur. Kâğıdın görünen kareleri Sayfa Özellikleri'nden seçilir.</div></div><input type="range" id="sGrid" min="8" max="80" step="4" value="20"></div>
+        <div class="set-row"><div><div class="t">Izgara aralığı</div><div class="d" id="sGridOut">20 px</div></div><input type="range" id="sGrid" min="8" max="80" step="4" value="20"></div>
         <div class="set-row"><div><div class="t">Akıllı kılavuz çizgileri</div><div class="d">Sayfa merkezine hizalanınca kılavuz göster</div></div><label class="sw-toggle"><input type="checkbox" id="sGuides" checked><i></i></label></div>
         <div class="set-row"><div><div class="t">Cetvelde açı yapışması</div><div class="d">15°'lik adımlara kilitlenir</div></div><label class="sw-toggle"><input type="checkbox" id="sAngle"><i></i></label></div>
       </div>
@@ -347,10 +333,9 @@
         <div class="set-row"><div><div class="t">🧬 Pen DNA</div><div class="d">Açınca: uygulama alışkanlığını öğrenir — en çok kullandığın araç + renk + kalınlık + opaklık kombinasyonunu (yeterli veri birikince) sonraki açılışlarda otomatik seçer.</div></div><label class="sw-toggle"><input type="checkbox" id="oPenDNA"><i></i></label></div>
         <div class="set-row"><div><div class="t">🧭 Kenar Oto-Kaydırma</div><div class="d">Açınca: çizim ekranın kenarına yaklaştığında tuval o yöne kendiliğinden kaymaya başlar — kalemi kaldırmadan sonsuza yaz.</div></div><label class="sw-toggle"><input type="checkbox" id="oEdge"><i></i></label></div>
         <div class="set-sec-t" style="margin-top:16px">Arayüz Gizleme</div>
-        <!-- Eskiden üç ayrı anahtardı; üçüncüsü ilk ikisinin VE'siydi, hangisinin
-             ne yaptığı belirsizdi ve F9 döngüsüyle çakışıyordu. Tek denetim. -->
-        <div class="set-row"><div><div class="t">⛶ Panel gizleme</div><div class="d">Çalışma alanını genişletir; PDF her değişimde ekrana yeniden sığdırılır. Aynı döngü <b>F9</b> tuşuyla da çalışır.</div></div>
-          <div class="pk-seg" id="oPanels" style="flex:0 0 auto"><button type="button">Hepsi görünür</button><button type="button">Sol gizli</button><button type="button">İkisi gizli</button></div></div>
+        <div class="set-row"><div><div class="t">◧ Sol paneli gizle</div><div class="d">Araç çubuğu gizlenir; çalışma alanı sola genişler, PDF yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideLeft"><i></i></label></div>
+        <div class="set-row"><div><div class="t">⬒ Üst paneli gizle</div><div class="d">Üst çubuk gizlenir; çalışma alanı yukarı genişler. Sağ üstte küçük geri-getir düğmesi belirir.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideTop"><i></i></label></div>
+        <div class="set-row"><div><div class="t">⛶ İkisini birden gizle</div><div class="d">Sol + üst panel gizlenir — tam sayfa çalışma alanı. PDF ekrana yeniden sığdırılır.</div></div><label class="sw-toggle"><input type="checkbox" id="oHideBoth"><i></i></label></div>
         <div class="set-sec-t" style="margin-top:16px">Kalem Kalitesi</div>
         <div class="set-row"><div><div class="t">🔬 Ultra Netlik</div><div class="d">Tuval, ekran çözünürlüğünün üzerinde örneklenir (süper-örnekleme): kalem çizgileri yakınlaştırmada bile piksellenmez, kenarlar ipek gibi kalır. Tüm kalemler için geçerli. (Güçlü donanım önerilir.)</div></div><label class="sw-toggle"><input type="checkbox" id="oUltraInk"><i></i></label></div>
         <div class="set-row"><div><div class="t">✒️ Pro Kalem Modu</div><div class="d">Kalemler yaşamaya başlar: çizerken ucunda seni takip eden yumuşak IŞIK NEFESİ · mürekkep uçtan uca renk-derinlikli akar (ton gradyanı) · çizgiler kâğıda gömülme gölgesiyle kâğıdın ÜSTÜNDE durur · Akıllı'da yavaşlayınca doğal mürekkep birikintileri · Dolma'da hattat kontrastı + ıslak parlaklık şeridi · Tükenmez'de ipek 'nefes alan' çizgi + bilye damlası · Kurşun'da gerçek grafit dokusu · Fosforlu'da kenar pigmenti. Yazmak bağımlılık yapar.</div></div><label class="sw-toggle"><input type="checkbox" id="oProPens"><i></i></label></div>
@@ -424,6 +409,5 @@
 <script src="pro-cursor.js"></script>
 <script src="pro-silk.js"></script>
 <script src="pro-dark.js"></script>
-<script src="pro-pen.js"></script>
 </body>
 </html>
