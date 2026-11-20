@@ -387,23 +387,29 @@ let viewFitted=false;
    İçeriği yerleştirirken görünür alanı kullanmalıyız; yoksa sayfa ya da
    tahta içeriği araç rayının / yan panelin altında kalırdı. */
 function viewInset(){
-  let l=0,rg=0;
+  let l=0,rg=0,t=0;
   try{
-    const b=document.body;
+    const b=document.body,sr=stage.getBoundingClientRect();
     if(!b.classList.contains('present')){
       const e=$('#rail');
       if(e&&getComputedStyle(e).display!=='none'){const q=e.getBoundingClientRect();
-        if(q.width>0)l=Math.max(0,q.right-stage.getBoundingClientRect().left)+6}
+        if(q.width>0)l=Math.max(0,q.right-sr.left)+6}
       const sd=$('#side');
       if(sd&&getComputedStyle(sd).display!=='none'){const q=sd.getBoundingClientRect();
-        if(q.width>0)rg=Math.max(0,stage.getBoundingClientRect().right-q.left)+6}
+        if(q.width>0)rg=Math.max(0,sr.right-q.left)+6}
+      /* Tuval v3.7'de üst panelin de ALTINI kapsıyor; içerik onun arkasında
+         kalmasın diye üst pay da hesaplanır. */
+      const tb=$('#topbar');
+      if(tb&&getComputedStyle(tb).display!=='none'){const q=tb.getBoundingClientRect();
+        if(q.height>0)t=Math.max(0,q.bottom-sr.top)+6}
     }
   }catch(_){}
-  return {l,r:rg};
+  return {l,r:rg,t};
 }
 function fitRect(){
   const r=stage.getBoundingClientRect(),ins=viewInset();
-  return {left:ins.l,width:Math.max(80,r.width-ins.l-ins.r),height:r.height,full:r.width};
+  return {left:ins.l,top:ins.t,width:Math.max(80,r.width-ins.l-ins.r),
+          height:Math.max(80,r.height-ins.t),full:r.width};
 }
 function fit(){const p=page(),r=stage.getBoundingClientRect(),fr=fitRect();
   if(boardMode()){
@@ -418,8 +424,8 @@ function fit(){const p=page(),r=stage.getBoundingClientRect(),fr=fitRect();
     if(bb&&bb.x1-bb.x0>1){
       const pad=56;
       const s=clamp(Math.min((fr.width-pad*2)/(bb.x1-bb.x0),(fr.height-pad*2)/Math.max(1,bb.y1-bb.y0)),.12,1.5);
-      view={s,x:fr.left+(fr.width-(bb.x0+bb.x1)*s)/2,y:(fr.height-(bb.y0+bb.y1)*s)/2};
-    }else view={x:fr.left+fr.width/2,y:fr.height/3,s:1};
+      view={s,x:fr.left+(fr.width-(bb.x0+bb.x1)*s)/2,y:fr.top+(fr.height-(bb.y0+bb.y1)*s)/2};
+    }else view={x:fr.left+fr.width/2,y:fr.top+fr.height/3,s:1};
   }
   else if(presenting){fitPresent()}
   else{
@@ -428,13 +434,13 @@ function fit(){const p=page(),r=stage.getBoundingClientRect(),fr=fitRect();
        Sayfa ekrandan uzunsa yüksekliğe göre kısıtlanmaz (kaydırarak okunur). */
     const off=layout()[cur];
     const s=clamp(fr.width/p.w,.05,6);
-    view={x:fr.left,y:-off.y*s,s};
+    view={x:fr.left,y:fr.top-off.y*s,s};
   }
   viewFitted=true;
   $('#zoomLbl').textContent=Math.round(view.s*100)+'%';redraw()}
 function fitPresent(){const p=page(),fr=fitRect();
   const s=Math.min(fr.width/p.w,fr.height/p.h)*.97;const off=curOff();
-  view={x:fr.left+(fr.width-p.w*s)/2,y:(fr.height-p.h*s)/2-off.y*s,s};
+  view={x:fr.left+(fr.width-p.w*s)/2,y:fr.top+(fr.height-p.h*s)/2-off.y*s,s};
   $('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
 
 /* ============================================================
@@ -1880,8 +1886,22 @@ function toggleShapePop(anchor){buildShapePop();const p=$('#shapePop');
   if(p.classList.contains('on')){p.classList.remove('on');return}
   const r=(anchor||$('.rtool[data-t="shapes"]')).getBoundingClientRect();
   p.style.left=(document.body.classList.contains('present')?70:(r.right+12))+'px';
-  p.style.top=clamp(r.top-40,60,innerHeight-420)+'px';
+  p.style.top=clamp(r.top-40,12,Math.max(12,innerHeight-420))+'px';
   p.classList.add('on');
+  /* Konum, panelin GERÇEK ölçüsüne göre yeniden kurulur. Eskiden yükseklik
+     420 px varsayılıyordu; panel 540 px'e kadar çıkabildiği için alt kenardan
+     taşıyor ve içeriği görmek için kaydırmak gerekiyordu. */
+  requestAnimationFrame(()=>{
+    if(!p.classList.contains('on'))return;
+    const M=12,w=p.offsetWidth,h=p.offsetHeight;
+    let left=document.body.classList.contains('present')?70:(r.right+12);
+    if(left+w>innerWidth-M)left=Math.max(M,r.left-w-12);   // sığmıyorsa rayın SOLUNA
+    if(left+w>innerWidth-M)left=Math.max(M,innerWidth-w-M);
+    let top=r.top-40;
+    if(top+h>innerHeight-M)top=innerHeight-h-M;
+    if(top<M)top=M;
+    p.style.left=Math.round(left)+'px';p.style.top=Math.round(top)+'px';
+  });
 }
 document.addEventListener('pointerdown',e=>{const p=$('#shapePop');
   if(p.classList.contains('on')&&!p.contains(e.target)&&!e.target.closest('.rtool[data-t="shapes"]'))p.classList.remove('on')});

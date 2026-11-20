@@ -883,54 +883,56 @@ html body.present #corner{display:none}
 .pkx-def .sw-toggle{flex:none}
 
 /* ═══════════════════════════════════════════════════════════════════
-   ÇALIŞMA ALANI v3.6 — TUVAL ALTTA, PANELLER ÜSTÜNDE
-   Önceki düzende paneller tuvalin YANINDA duruyor, aralarındaki oluk da
-   koyu zemini gösteriyordu. Artık tuval üst panelin altındaki alanın
-   TAMAMINI kaplar; araç rayı ve yan panel onun ÜZERİNDE yüzen yuvarlak
-   kartlardır. Böylece ekranda yalnız iki yüzey kalır — üst panel ve
-   çalışma alanı — hiçbir yerde koyu artık boşluk görünmez.
-   Panellerin altında kalan tuval çizim için kullanılamaz; bu bilinçli bir
-   tercihtir, görsel bütünlük için. İçerik yerleştirme (fit) panelleri
-   hesaba katar, bu yüzden çalışman hiçbir zaman panelin altında kalmaz.
+   ÇALIŞMA ALANI v3.7 — ÜÇ YÜZEN KART, TEK TUVAL
+   Tuval pencerenin TAMAMINI kaplar. Üst panel, araç rayı ve yan panel
+   onun üzerinde yüzen, DÖRT KÖŞESİ DE YUVARLAK kartlardır; hiçbiri
+   birbirine ve pencere kenarına değmez, aralarından hep çalışma alanı
+   görünür. Böylece ekranda tek bir zemin vardır ve hiçbir yerde koyu
+   artık boşluk kalmaz.
+   Panel yüzeyleri uygulamanın ÖZGÜN tonundadır (var(--p1)); önceki
+   sürümdeki açık gradyan kaldırıldı — paneller soluk görünüyordu.
    ═══════════════════════════════════════════════════════════════════ */
-body{ --fl-gap:10px; --fl-r:16px }
-body.compact{ --fl-gap:8px; --fl-r:14px }
+body{ --fl-gap:11px; --fl-r:16px }
+body.compact{ --fl-gap:9px; --fl-r:14px }
 
-body{grid-template-columns:67px 1fr auto; grid-template-rows:54px 1fr}
-body.compact{grid-template-columns:53px 1fr auto; grid-template-rows:42px 1fr}
+/* Satır 1 = üst panel + kendi kenar boşlukları (üstte ve altta). */
+body{grid-template-columns:69px 1fr auto; grid-template-rows:76px 1fr}
+body.compact{grid-template-columns:55px 1fr auto; grid-template-rows:60px 1fr}
 
-/* --- üst panel: tam genişlik, altı yuvarlak --- */
+/* --- tuval: pencerenin tamamı, en altta --- */
+#stage{grid-row:1 / -1; grid-column:1 / -1; border-radius:0; margin:0; z-index:1}
+
+/* --- üst panel: yüzen yuvarlak kart --- */
 #topbar{
-  margin:0;border:none;border-bottom:1px solid var(--line);
-  border-radius:0 0 var(--fl-r) var(--fl-r);
-  box-shadow:0 10px 26px -20px rgba(0,0,0,.6);
-  background:linear-gradient(180deg,color-mix(in srgb,var(--p2) 42%,var(--p1)),var(--p1));
-  z-index:40}
+  grid-row:1; grid-column:1 / -1; z-index:40;
+  margin:var(--fl-gap);
+  background:var(--p1);
+  border:1px solid var(--line);
+  border-radius:var(--fl-r);
+  box-shadow:0 14px 30px -16px rgba(0,0,0,.62),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent)}
 
-/* --- tuval: üst panelin altındaki alanın TAMAMI --- */
-#stage{grid-column:1 / -1; grid-row:2; border-radius:0; margin:0}
-
-/* --- araç rayı: tuvalin ÜSTÜNDE yüzer, üst panele sıfır boşlukla yapışık --- */
+/* --- araç rayı: üst panele DEĞMEZ, dört köşesi yuvarlak --- */
 #rail{
-  grid-column:1; grid-row:2; z-index:30;
-  margin:0 0 var(--fl-gap) var(--fl-gap);
-  border:1px solid var(--line);border-top:none;
-  border-radius:0 0 var(--fl-r) var(--fl-r);
+  grid-row:2; grid-column:1; z-index:30;
+  margin:var(--fl-gap) 0 var(--fl-gap) var(--fl-gap);
+  background:var(--p1);
+  border:1px solid var(--line);
+  border-radius:var(--fl-r);
   padding:9px 0 10px;gap:4px;
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.66),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent);
-  background:linear-gradient(180deg,var(--p1),color-mix(in srgb,var(--p2) 55%,var(--p1)))}
+  box-shadow:0 14px 30px -16px rgba(0,0,0,.62),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent)}
 .rail-sep{width:22px}
 
-/* --- yan panel: aynı dil, sağda yüzer --- */
+/* --- yan panel / kütüphane: aynı dil, aynı özgün ton --- */
 #side{
-  grid-column:3; grid-row:2; z-index:30;
-  margin:0 var(--fl-gap) var(--fl-gap) 0;
-  border:1px solid var(--line);border-top:none;
-  border-radius:0 0 var(--fl-r) var(--fl-r);
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.66),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent);
+  grid-row:2; grid-column:3; z-index:30;
+  margin:var(--fl-gap) var(--fl-gap) var(--fl-gap) 0;
+  background:var(--p1);
+  border:1px solid var(--line);
+  border-radius:var(--fl-r);
+  box-shadow:0 14px 30px -16px rgba(0,0,0,.62),0 0 0 .5px color-mix(in srgb,var(--tx) 7%,transparent);
   overflow:hidden}
 
-/* --- kabuğun tamamen kalktığı durumlar ---
+/* --- kabuğun kalktığı durumlar ---
    body.compact bu kuralların ARDINDAN gelmediği için sütun/satır
    bildirimleri html öneki ile yazıldı; aksi hâlde eşit özgüllükte kalıp
    panel gizlemede hayalet bir sütun bırakıyorlardı. */
@@ -939,8 +941,6 @@ html body.hide-top{grid-template-rows:0 1fr}
 html body.present{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
 body.hide-left #rail{display:none}
 body.hide-top #topbar{display:none}
-body.hide-top #rail,body.hide-top #side{border-top:1px solid var(--line);
-  border-radius:var(--fl-r);margin-top:var(--fl-gap)}
 body.present #rail,body.present #side,body.present #topbar{margin:0;border:none;border-radius:0}
 
 /* --- çizim modları / türleri: her kart gerçek zemin + gerçek kalem --- */
@@ -1032,3 +1032,10 @@ body.present #rail,body.present #side,body.present #topbar{margin:0;border:none;
   background:color-mix(in srgb,var(--p1) 86%,transparent);border:1px solid color-mix(in srgb,var(--tx) 8%,transparent)}
 .pcur-card .pc-n{font-size:10px;font-weight:800;color:var(--tx);text-align:center;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* Cam efekti ayarı (--glass) panellerden alındı; içerik üstünde açılan
+   yüzen katmanlara taşındı — orada arka plan gerçekten içeriktir ve
+   bulanıklık anlamlıdır. */
+#miniBar,#ringWrap .rpanel,#shapePop,.pop,#palWrap .palbox{
+  -webkit-backdrop-filter:blur(var(--glass,12px)) saturate(1.25);
+  backdrop-filter:blur(var(--glass,12px)) saturate(1.25)}
