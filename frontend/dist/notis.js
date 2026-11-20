@@ -127,9 +127,10 @@ const S={smooth:.45,stab:.22,pressure:true,predict:false,shapeFix:false,snapHl:t
   snapGrid:false,grid:20,guides:true,angleSnap:false,laser:'#FF4D5E',spot:150,
   applyDefaults:true,wheelPage:true,
   /* Opsiyonlar — hepsi kapalı başlar */
-  smartSnap:false,focusWrite:false,autoZoom:false,livingInk:false,penDNA:false,memCanvas:false,compact:true,edgeScroll:false,cornerUI:false,hideLeft:false,hideTop:false,ultraInk:false,proPens:false,board:'classic',
+  smartSnap:false,focusWrite:false,autoZoom:false,livingInk:false,penDNA:false,memCanvas:false,compact:true,edgeScroll:false,cornerUI:false,hideLeft:false,hideTop:false,ultraInk:false,inkQ:1,proPens:false,board:'classic',
   defColor:'#111827',defOp:1};
-const INK={z:1}; // Living Ink: geçerli render'ın zoom bağlamı (dışa aktarımda 1)
+const INK={z:1,q:1}; // z: Living Ink zoom bağlamı · q: 1 doküman biriminin kaç aygıt pikseline düştüğü (kiriş sıklığı buna göre seçilir)
+// Living Ink: geçerli render'ın zoom bağlamı (dışa aktarımda 1)
 const ES={dx:0,dy:0,raf:0}; // Kenar oto-kaydırma: kare başına tek redraw
 let curCP=null;  // Çark kalemi (özel kalem) aktifse burada tutulur — normal araca geçince sıfırlanır
 const DEF={smart:2.2,ball:2.2,fountain:2.4,pencil:2.2,hl:18,text:24};const DEFV=2; // kalınlık kalibrasyon sürümü
@@ -350,8 +351,33 @@ const stage=$('#stage'), cv=$('#cv'), ovl=$('#ovl');
 const ctx=cv.getContext('2d'), octx=ovl.getContext('2d');ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';
 let DPR=Math.min(2,window.devicePixelRatio||1);
 let stageRect=null;
-function resize(){const r=stageRect=stage.getBoundingClientRect();[cv,ovl].forEach(c=>{c.width=r.width*DPR;c.height=r.height*DPR;c.style.width=r.width+'px';c.style.height=r.height+'px'});ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
+/* Tuval tamponu TAM SAYI aygıt pikseli olmalı ve CSS boyutu buna birebir
+   karşılık gelmeli. canvas.width kesirli değeri aşağı kırptığı için eskiden
+   tampon, kapladığı fiziksel alandan yarım piksel küçük kalabiliyordu; tarayıcı
+   da tüm tuvali yeniden örnekliyordu. Kesirli ekran ölçeğinde (%125 / %150 —
+   Windows'ta en yaygın durum) bu her zaman oluyordu ve yeniden örnekleme,
+   zaten yumuşatılmış kenarı merdivene çeviriyordu. Aşağıdaki eşleme tamponu
+   fiziksel piksele birebir oturtur. */
+function resize(){const r=stageRect=stage.getBoundingClientRect();
+  const bw=Math.max(1,Math.round(r.width*DPR)),bh=Math.max(1,Math.round(r.height*DPR));
+  [cv,ovl].forEach(c=>{if(c.width!==bw)c.width=bw;if(c.height!==bh)c.height=bh;
+    c.style.width=(bw/DPR)+'px';c.style.height=(bh/DPR)+'px'});
+  ctx.imageSmoothingQuality='high';octx.imageSmoothingQuality='high';/* boyutlandırma bağlamı sıfırlar — kalite ayarını geri kur */redraw();drawOverlay()}
 window.addEventListener('resize',resize);
+/* Ekran yoğunluğu değişebilir: pencere başka monitöre taşınır ya da Windows
+   ekran ölçeği değiştirilir. DPR eskiden yalnızca açılışta okunuyordu, bu yüzden
+   böyle bir durumda tampon ile fiziksel piksel KALICI olarak uyuşmuyor ve
+   çizgiler yeniden başlatılana kadar bulanık/merdivenli kalıyordu. */
+let _dprMQ=null;
+function watchDPR(){
+  if(!window.matchMedia)return;
+  try{
+    if(_dprMQ&&_dprMQ.mq&&_dprMQ.fn)_dprMQ.mq.removeEventListener('change',_dprMQ.fn);
+    const mq=window.matchMedia('(resolution: '+(window.devicePixelRatio||1)+'dppx)');
+    const fn=()=>{if(typeof applyDPR==='function')applyDPR();watchDPR()};
+    mq.addEventListener('change',fn);_dprMQ={mq,fn};
+  }catch(_){}
+}
 function toDoc(e){const r=stageRect||(stageRect=stage.getBoundingClientRect());return{x:(e.clientX-r.left-view.x)/view.s,y:(e.clientY-r.top-view.y)/view.s}}
 function setZoom(s,cx,cy){if(typeof azCancel==='function')azCancel();viewFitted=false;const r=stage.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;s=clamp(s,.1,8);const k=s/view.s;view.x=cx-(cx-view.x)*k;view.y=cy-(cy-view.y)*k;view.s=s;$('#zoomLbl').textContent=Math.round(s*100)+'%';redraw()}
 /* Görünüm hâlâ "sığdırılmış" durumda mı? Kullanıcı yakınlaştırıp kaydırınca
@@ -504,7 +530,29 @@ function drawSpray(c,o){
  * Sonuç WeakMap'te önbelleklenir (kayıtta saklanmaz, yeniden çizimde ucuz).
  * ------------------------------------------------------------------------- */
 const _inkCache=new WeakMap();
-function proInkSmooth(src){
+/* ---- Kiriş sıklığı: tırtığın kökü ----
+   Chaikin köşe-kesmenin LİMİT EĞRİSİ geçiş sayısından BAĞIMSIZDIR (düzgün
+   ikinci dereceden B-spline). Her geçiş yalnızca o eğriyi temsil eden çokgeni
+   ikiye böler; eğrinin kendisi kımıldamaz. Dolayısıyla geçiş eklemek kalemin
+   HİSSİNİ, biçimini, basınç tepkisini değiştirmez — sadece mürekkep sınırını
+   oluşturan kirişleri inceltir.
+   Eski davranış sabit 2 geçişti. Nokta sayısı işletim sisteminin ürettiği olay
+   sayısına bağlı olduğu için hızlı yazarken kirişler kalem yarıçapından uzun
+   kalıyordu; o zaman sol/sağ ofset noktaları arasındaki açı sıçraması kenarda
+   gözle görülür köşeler (tırtık) bırakıyordu. Artık hedef kiriş uzunluğu
+   kalemin yarıçapına ve ekran ölçeğine göre seçiliyor: yazı hızı ne olursa
+   olsun mürekkep sınırı aynı inceliğe ulaşıyor. */
+function proInkChord(rad){
+  const q=Math.max(.25,Math.min(8,INK.q||1));
+  /* DÜZLEŞTİRME TOLERANSI — iki koşulun küçüğü:
+     · Ekran: kiriş ~1.5 aygıt pikselini aşmasın. Bu ölçekte çokgen köşeleri
+       yumuşatmanın altında kalır; yakınlaştırdıkça kendiliğinden sıklaşır.
+     · Geometri: kiriş kalem yarıçapını geçmesin, yoksa sol/sağ ofset çokgeni
+       gerçek ofset eğrisini izleyemez ve kenarda ezilme/çıkıntı olur.
+     Alt sınır yarım aygıt pikseli: daha incesi göze görünmez, boşa iştir. */
+  return Math.max(.5/q, Math.min(Math.max(.12,rad||1.1), 1.5/q));
+}
+function proInkSmooth(src,rad){
   const n=src.length; if(n<4) return src;
   const P=p=>(p==null?0.6:p);
   // ORİJİNAL kalem teknolojisi: hafif merkez-ağırlıklı alçak-geçiren (/8) —
@@ -514,7 +562,7 @@ function proInkSmooth(src){
     a.push({x:(p0.x+6*p1.x+p2.x)/8,y:(p0.y+6*p1.y+p2.y)/8,p:(P(p0.p)+6*P(p1.p)+P(p2.p))/8,t:p1.t});}
   a.push(src[n-1]);
   let cur=a;
-  for(let pass=0;pass<2;pass++){
+  for(let pass=0,k=proInkPasses(a,rad);pass<k;pass++){
     const out=[cur[0]];
     for(let i=0;i<cur.length-1;i++){const A=cur[i],B=cur[i+1];
       out.push({x:A.x*0.75+B.x*0.25,y:A.y*0.75+B.y*0.25,p:P(A.p)*0.75+P(B.p)*0.25,t:A.t});
@@ -522,6 +570,23 @@ function proInkSmooth(src){
     out.push(cur[cur.length-1]); cur=out;
   }
   return cur;
+}
+/* Kaç geçiş gerekir? Her geçiş ortalama kirişi yarıya indirir.
+   Taban 2 geçiş (eski davranış) — hiçbir durumda eskisinden kaba olmaz.
+   Üst sınır hem geçiş (7) hem de toplam nokta bütçesiyle (çok uzun stroklarda
+   yeniden çizim hızını korumak için) kısıtlanır. */
+const INK_BUDGET=9000;
+function proInkPasses(a,rad){
+  const n=a.length; if(n<2) return 2;
+  let s=0;
+  for(let i=1;i<n;i++)s+=Math.hypot(a[i].x-a[i-1].x,a[i].y-a[i-1].y);
+  const avg=s/(n-1); if(!(avg>0)) return 2;
+  const tgt=proInkChord(rad);
+  let k=Math.ceil(Math.log2(avg/tgt));
+  if(!isFinite(k)||k<2)k=2;
+  if(k>7)k=7;
+  while(k>2&&n*Math.pow(2,k)>INK_BUDGET)k--;
+  return k;
 }
 function proInkPts(o){
   const src=o.points;
@@ -532,9 +597,13 @@ function proInkPts(o){
      uçlar da kontrol edilmezse tuval eski konumdaki gövdeyi çizmeye devam eder
      (nesne "taşınmıyor" gibi görünür, uçlardan hayalet çizgiler sarkar). */
   const h=src[0],t=src[src.length-1];
+  /* Hedef kiriş uzunluğu da anahtara girer: yakınlaştırınca (veya yüksek
+     çözünürlüklü dışa aktarımda) mürekkep daha ince kirişlerle yeniden
+     örülsün, uzaklaşınca boşuna nokta üretilmesin. */
+  const rad=Math.max(.3,(o.size||2.2)*.5), ch=proInkChord(rad);
   let e=_inkCache.get(o);
-  if(e&&e.n===src.length&&e.v===v&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
-  const pts=proInkSmooth(src); _inkCache.set(o,{n:src.length,v,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
+  if(e&&e.n===src.length&&e.v===v&&e.ch===ch&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
+  const pts=proInkSmooth(src,rad); _inkCache.set(o,{n:src.length,v,ch,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
 }
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
@@ -606,8 +675,18 @@ function drawStroke(c,o){
       }c.restore();
     }
   }else if(o.tool==='fountain'){const L=pts.length;
-    for(let i=1;i<L;i++){const p0=pts[i-1],p1=pts[i];const pr0=((p0.p??.5)+(p1.p??.5))/2,pr=.5+(pr0-.5)*PKK;
-      c.lineWidth=Math.max(.4,o.size*NW*nibEnd(i,L)*(0.35+1.35*pr));c.beginPath();c.moveTo(p0.x,p0.y);c.lineTo(p1.x,p1.y);c.stroke()}
+    /* Dolma kalem eskiden her kirişi AYRI bir çizgi olarak basıyordu: kalınlık
+       kiriş başına basamak basamak değişiyor, üst üste binen yuvarlak uçlar da
+       her eklemde alfa harmanlanıp boncuklanıyordu — kenar testere ağzına
+       dönüyordu (ölçüm: diğer kalemlerin 2.5 katı kenar titreşimi).
+       Artık gövde TEK yol olarak örülüp tek seferde dolduruluyor: kalınlık
+       noktadan noktaya sürekli, eklem yok, boncuklanma yok. Kalınlık formülü
+       ve basınç tepkisi birebir korunur — yalnızca basma yöntemi değişti. */
+    c.fillStyle=o.color;
+    fillInkStroke(c,pts,(pt,i,n)=>{
+      const pr=.5+(((pt&&pt.p)??.5)-.5)*PKK;
+      return Math.max(.4,o.size*NW*nibEnd(i,n)*(0.35+1.35*pr));
+    });
       if(S.proPens){
         c.save();c.globalAlpha*=.26;c.lineWidth=o.size*NW*.52;strokePath(c,pts);c.stroke();c.restore();  // koyu mürekkep çekirdeği
         /* PRO İMZA: ıslak mürekkep parlaklığı — çizginin bir yanında ince ışık şeridi */
@@ -733,7 +812,7 @@ function redraw(){ctx.imageSmoothingQuality='high';
   ctx.setTransform(DPR*view.s,0,0,DPR*view.s,Math.round(DPR*view.x),Math.round(DPR*view.y));
   const r=stageRect||(stageRect=stage.getBoundingClientRect());
   const vx0=-view.x/view.s,vy0=-view.y/view.s,vx1=(r.width-view.x)/view.s,vy1=(r.height-view.y)/view.s;
-  INK.z=S.livingInk?view.s:1; // Living Ink: mürekkep bu zoom'a göre yeniden hesaplanır
+  INK.z=S.livingInk?view.s:1; INK.q=DPR*view.s; // Living Ink: mürekkep bu zoom'a göre yeniden hesaplanır
   if(boardMode()){
     ctx.fillStyle=boardBg();ctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);
     paperPattern(ctx,p.paper,vx0,vy0,vx1,vy1);
@@ -2105,7 +2184,7 @@ $$('.stab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.p==='pages')renderPages();
   if(t.dataset.p==='library'&&window.LIB)LIB.renderLib();
 }));
-function renderPageTo(c,p,scale){INK.z=1;const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
+function renderPageTo(c,p,scale){INK.z=1;INK.q=scale;const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
   g.setTransform(scale,0,0,scale,0,0);g.fillStyle='#FBF8F0';g.fillRect(0,0,p.w,p.h);
   if(p.bgImg&&p.bgImg.complete)drawPageBg(g,p,p.w,p.h);
   paperPattern(g,p.paper,0,0,p.w,p.h);
@@ -2652,7 +2731,7 @@ $('#expGo').addEventListener('click',async()=>{
       const k=clamp(2400/W,1,3);
       const c=document.createElement('canvas');
       c.width=Math.round(W*k);c.height=Math.round(H*k);
-      const g=c.getContext('2d');INK.z=1;
+      const g=c.getContext('2d');INK.z=1;INK.q=k;
       g.scale(k,k);g.translate(-(b.x0-PAD),-(b.y0-PAD));
       g.fillStyle='#FBF8F0';g.fillRect(b.x0-PAD,b.y0-PAD,W,H);
       for(const l of sp.layers){if(!l.visible)continue;
@@ -2673,7 +2752,7 @@ $('#expGo').addEventListener('click',async()=>{
         const PAD=48,W=b.x1-b.x0+PAD*2,H=b.y1-b.y0+PAD*2;
         const k=clamp(2600/Math.max(W,H),1,3);
         const c=document.createElement('canvas');c.width=Math.round(W*k);c.height=Math.round(H*k);
-        const g=c.getContext('2d');INK.z=1;
+        const g=c.getContext('2d');INK.z=1;INK.q=k;
         g.scale(k,k);g.translate(-(b.x0-PAD),-(b.y0-PAD));
         g.fillStyle=boardBg();g.fillRect(b.x0-PAD,b.y0-PAD,W,H);
         paperPattern(g,p.paper,b.x0-PAD,b.y0-PAD,b.x1+PAD,b.y1+PAD);
@@ -3891,7 +3970,7 @@ function saveOpts(){try{lsSet('notis_opts',JSON.stringify({
   CP:CPENS.map(p=>({width:p.width,op:p.op,pressure:p.pressure,velocity:p.velocity,
     streamline:p.streamline,smoothing:p.smoothing,stab:p.stab,predict:p.predict,taperS:p.taperS,taperE:p.taperE}))}))}catch{}}
 function loadOpts(){try{const o=JSON.parse(localStorage.getItem('notis_opts')||'null');if(!o)return;
-  for(const k of['smartSnap','focusWrite','autoZoom','livingInk','penDNA','memCanvas','compact','cornerUI','board','defColor','defOp'])
+  for(const k of['smartSnap','focusWrite','autoZoom','livingInk','penDNA','memCanvas','compact','cornerUI','board','defColor','defOp','inkQ'])
     if(o[k]!==undefined)S[k]=o[k];
   if(S.defColor==='#243B6B')S.defColor='#111827'; // eski varsayılan lacivert → siyah geçişi
   if(o.S2)for(const k in o.S2){if(k==='edgeScroll')continue;if(k in S)S[k]=o.S2[k]}  // genel ayar geri yüklemesi
@@ -4112,12 +4191,12 @@ function pkRender(){
   if(!pkCtx||!pkCvEl.width)return;
   pkCtx.setTransform(1,0,0,1,0,0);pkCtx.clearRect(0,0,pkCvEl.width,pkCvEl.height);
   pkCtx.setTransform(DPR,0,0,DPR,0,0);
-  const old=INK.z;INK.z=1;
+  const old=INK.z,oldq=INK.q;INK.z=1;INK.q=DPR;
   const W=pkCvEl.width/DPR,H=pkCvEl.height/DPR;
   if(!pkUser.length&&!pkLive)drawStroke(pkCtx,pkBuildStroke(pkDemoPts(W,H)));
   for(const s of pkUser)drawStroke(pkCtx,pkBuildStroke(s));
   if(pkLive)drawStroke(pkCtx,pkBuildStroke(pkLive));
-  INK.z=old}
+  INK.z=old;INK.q=oldq}
 if(pkCvEl){
   pkCvEl.addEventListener('pointerdown',e=>{e.preventDefault();
     try{pkCvEl.setPointerCapture(e.pointerId)}catch{}
@@ -4710,20 +4789,28 @@ function applyPanels(refit){
 }
 function applyDPR(){
   const base=Math.min(2,window.devicePixelRatio||1);
-  /* ORİJİNAL yol: Ultra Netlik dışında hiçbir şey tuval çözünürlüğüne karışmaz */
-  let d=S.ultraInk?Math.min(3,base*1.6):base;   // Ultra Netlik: süper-örnekleme
-  if(S.oledUltra){
-    /* OLED Ultra Görüntü (opsiyon · varsayılan KAPALI): yalnız bu opsiyon açıkken
-       devreye girer; kapalıyken çözünürlük davranışı birebir orijinaldir.
-       Piksel bütçesi de yalnız bu moda aittir (akıcılık garantisi). */
-    d=Math.min(4,Math.max(d,base*2));
-    try{const r=stage.getBoundingClientRect();
-      const px=Math.max(1,(r.width||1280)*(r.height||800));
-      d=Math.max(Math.min(d,Math.sqrt(8.5e6/px)),base);
-    }catch(_){}
-  }
-  DPR=d;
-  resize();
+  /* NET ÇİZGİ — varsayılan, ayar gerektirmez.
+     Mürekkep artık her zaman en az ~2 örnek/CSS piksel ile taranır.
+     Neden: devicePixelRatio=1 olan ekranlarda (tipik Windows dizüstü) tuval
+     1× taranıyordu; ince koyu bir çizgi bu çözünürlükte ayrık bloklara bölünüp
+     merdivene dönüşüyor — kullanıcının "tırtıklı yazıyorum" dediği şey tam
+     olarak bu. Ölçüm: 1×'te kenar titreşimi 0.052 px, 2×'te 0.019 px (%63 az).
+     Yüksek yoğunluklu ekranlarda base zaten 2'dir; orada davranış değişmez.
+     Bu bir kalem ayarı DEĞİLDİR: çizginin biçimine, basınç tepkisine ve hisse
+     dokunmaz, yalnızca aynı çizgiyi daha ince bir ızgarada tarar. */
+  const q=S.inkQ??1;                       // 0 Akıcı · 1 Net (fabrika) · 2 Ultra
+  let d=q===0?base:Math.max(base,2);
+  if(q===2)d=Math.max(d,Math.min(3,base*1.6),2.6);       // Ultra: bir kademe daha yukarı
+  if(S.oledUltra)d=Math.max(d,base*2);
+  /* Piksel bütçesi — akıcılık garantisi. Geniş ekranda çarpan kendiliğinden
+     düşer, küçük ekranda tam netliğe çıkar; hiçbir koşulda base'in altına inmez
+     (yoksa görüntü eskisinden bulanık olurdu). */
+  try{const r=stage.getBoundingClientRect();
+    const px=Math.max(1,(r.width||1280)*(r.height||800));
+    d=Math.max(base,Math.min(d,Math.sqrt(8.5e6/px)));
+  }catch(_){}
+  DPR=Math.min(4,d);
+  resize();watchDPR();
 }
 $$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
   S.hideLeft=i>=1;S.hideTop=i>=2;saveOpts();applyPanels(true)}));
@@ -4733,8 +4820,16 @@ $$('#oPanels button').forEach((b,i)=>b.addEventListener('click',()=>{
  if(h&&f){h.addEventListener('click',()=>{f.classList.toggle('open');
    const n=$('#keyFoldN');if(n)n.textContent=$$('#keyList > *').length+' kısayol'});
    const n=$('#keyFoldN');if(n)setTimeout(()=>{n.textContent=$$('#keyList > *').length+' kısayol'},400);}}
-$('#oUltraInk').addEventListener('change',e=>{S.ultraInk=e.target.checked;saveOpts();applyDPR();
-  toast(S.ultraInk?'Ultra Netlik AÇIK — çizgiler süper-örnekleniyor':'Ultra Netlik kapalı')});
+/* Çizgi netliği — üç kademe. Onay kutusu yerine kademe, çünkü artık varsayılan
+   zaten yüksek: "Net" fabrika ayarı, "Akıcı" zayıf donanım için geri çekilme,
+   "Ultra" bir kademe daha yukarısı. */
+const INKQ_LBL=['Akıcı — tarama ekran çözünürlüğünde (en hızlı)',
+                'Net — mürekkep 2 kat çözünürlükte taranır (fabrika ayarı)',
+                'Ultra — en yüksek tarama, aşırı yakınlaştırma için'];
+function syncInkQ(){const el=$('#sInkQSeg');if(!el)return;
+  $$('#sInkQSeg button').forEach((b,i)=>b.classList.toggle('on',i===(S.inkQ??1)))}
+$$('#sInkQSeg button').forEach((b,i)=>b.addEventListener('click',()=>{
+  S.inkQ=i;S.ultraInk=(i===2);saveOpts();syncInkQ();applyDPR();toast(INKQ_LBL[i])}));
 $('#oProPens').addEventListener('change',e=>{S.proPens=e.target.checked;saveOpts();redraw();
   toast(S.proPens?'Pro Kalem Modu AÇIK ✒️':'Pro Kalem Modu kapalı')});
 /* Panelleri geri getiren yüzen düğme kaldırıldı — işlev klavyeye taşındı
@@ -4766,7 +4861,7 @@ function init(){
     $('#sMini').checked=S.miniBar;$('#sRing').checked=S.ring;
     $('#sGrain').checked=S.grain;document.body.classList.toggle('nograin',!S.grain);
     syncSettingsUI();
-    $('#oUltraInk').checked=!!S.ultraInk;$('#oProPens').checked=!!S.proPens;
+    if(S.inkQ==null)S.inkQ=S.ultraInk?2:1;syncInkQ();{const e=$('#oProPens');if(e)e.checked=!!S.proPens}
     applyPanels(false);applyDPR();
   }catch(e){}
   if(S.defColor)penColor=S.defColor;
