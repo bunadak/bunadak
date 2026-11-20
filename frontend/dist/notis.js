@@ -4152,7 +4152,9 @@ if($('#pkSize')){
     syncPenUI();pkRender();savePK()}));
   $$('.pk-step').forEach(b=>b.addEventListener('click',()=>{const t=$('#'+b.dataset.t);if(!t)return;
     const st=+t.step||1;t.value=(+t.value)+(+b.dataset.d)*st;t.dispatchEvent(new Event('input'))}));
-  $('#pkMore').addEventListener('click',()=>$('#pkMore').closest('.pk-extra').classList.toggle('open'));
+  /* "Ek Ayarlar" katlanır sayfası kaldırıldı — içindeki her şey artık Kalem
+     panelinin kendi yüzeyinde, açıkta duruyor. Bağ yine de güvenli bırakıldı. */
+  {const m=$('#pkMore');if(m&&m.closest('.pk-extra'))m.addEventListener('click',()=>m.closest('.pk-extra').classList.toggle('open'));}
 }
 /* --- Canlı Önizleme: uygulamanın GERÇEK kalem motoruyla çizer —
        drawStroke + matisInk hattı; kurşun kalem dokusu, fosforlu, hepsi birebir --- */

@@ -239,49 +239,61 @@
       <div class="set-panels">
 
       <div class="set-pane on" id="sp-pens">
+        <!-- KALEM STÜDYOSU v3.3 — TEK YÜZEY.
+             Eskiden ayarların yarısı "Ek Ayarlar" adlı katlanır bir sayfada
+             duruyordu; bir kalemi tam ayarlamak için açıp kapamak, sayfa
+             dolaşmak gerekiyordu. Artık her şey aynı yüzeyde: kalem şeridi,
+             geniş canlı önizleme, tüm denetimler, hazır uçlar, varsayılanlar
+             ve çark kalemleri — hiçbiri katlı değil, hiçbiri başka sayfada. -->
+
         <div id="penCards" class="pk-cards"></div>
 
-        <div class="pk-grid">
-          <div class="pk-left">
-            <div class="pk-sec"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Kalem Özelleştirme</div>
-            <div class="pk-cardgrid">
-              <div class="pk-card"><div class="pk-lbl">Kalınlık<span class="pk-val" id="pkSizeOut">2,2 px</span></div>
-                <div class="pk-slider"><button class="pk-step" data-t="pkSize" data-d="-1">−</button><input type="range" id="pkSize" min="0.5" max="40" step="0.1" value="2.2"><button class="pk-step" data-t="pkSize" data-d="1">+</button></div></div>
-              <div class="pk-card"><div class="pk-lbl">Basınç Hassasiyeti<span class="pk-val" id="pkPressOut">%80</span></div>
-                <div class="pk-slider vio"><button class="pk-step" data-t="pkPress" data-d="-1">−</button><input type="range" id="pkPress" min="0" max="100" step="5" value="80"><button class="pk-step" data-t="pkPress" data-d="1">+</button></div></div>
-              <div class="pk-card"><div class="pk-lbl">Opaklık<span class="pk-val" id="pkOpOut">%100</span></div>
-                <div class="pk-slider"><button class="pk-step" data-t="pkOp" data-d="-1">−</button><input type="range" id="pkOp" min="10" max="100" step="5" value="100"><button class="pk-step" data-t="pkOp" data-d="1">+</button></div></div>
-              <div class="pk-card"><div class="pk-lbl">Stabilizasyon<span class="pk-val" id="pkStabOut">Yüksek</span></div>
-                <div class="pk-seg" id="pkStab"><button>Kapalı</button><button>Düşük</button><button>Orta</button><button class="on">Yüksek</button></div></div>
-              <div class="pk-card"><div class="pk-lbl">Akış<span class="pk-val" id="pkFlowOut">%95</span></div>
-                <div class="pk-slider"><button class="pk-step" data-t="pkFlow" data-d="-1">−</button><input type="range" id="pkFlow" min="40" max="100" step="5" value="95"><button class="pk-step" data-t="pkFlow" data-d="1">+</button></div></div>
-              <div class="pk-card"><div class="pk-lbl">Uç Yapısı<span class="pk-val" id="pkNibOut">Sivri</span></div>
-                <div class="pk-nibs" id="pkNibs"><button class="pk-nib on" title="Sivri — uçlarda incelir"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.4 8.6V17a3.4 3.4 0 0 1-6.8 0v-6.4z"/><path d="M12 8v7"/></svg></button><button class="pk-nib" title="İnce — standart uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.6 6.6V16a2.6 2.6 0 1 1-5.2 0v-5.4z"/></svg></button><button class="pk-nib" title="Dolgun — geniş yuvarlak uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c2.6 0 4.2 1.9 4.2 4.6V15a4.2 4.2 0 0 1-8.4 0V8.6C7.8 5.9 9.4 4 12 4z"/></svg></button><button class="pk-nib" title="Keski — düz kesim"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4h6.8l.9 10a4.3 4.3 0 0 1-8.6 0z"/></svg></button></div></div>
-            </div>
-          </div>
-          <div class="pk-prev">
-            <div class="pk-prevhead"><span>Canlı Önizleme</span><button class="tbtn" id="pkClear" title="Önizlemeyi temizle" style="width:26px;height:25px">↺</button></div>
-            <canvas id="pkCv"></canvas>
-            <div class="pk-prevcap" id="pkCap">Akıllı Kalem ile yazı deneyimini test et — üzerine çizebilirsin</div>
-          </div>
+        <!-- 1 · CANLI FIRÇA ÖNİZLEME — kahraman öge, tam genişlik.
+             Gerçek motorla, o anki gerçek ayarlarla çizer; üzerine yazılabilir. -->
+        <div class="pk-prev pkx-hero">
+          <div class="pk-prevhead"><span>Canlı fırça önizleme</span><button class="tbtn" id="pkClear" title="Önizlemeyi temizle" style="width:26px;height:25px">↺</button></div>
+          <canvas id="pkCv"></canvas>
+          <div class="pk-prevcap" id="pkCap">Akıllı Kalem ile yazı deneyimini test et — üzerine çizebilirsin</div>
         </div>
 
-        <div class="pk-extra">
-          <button class="pk-extrahead" id="pkMore"><span>Ek Ayarlar</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-          <div class="pk-extrabody" id="pkMoreBody">
-            <div class="set-sec-t" style="margin-top:12px">Genel Varsayılanlar</div>
-            <div class="set-row"><div><div class="t">Varsayılan renk</div><div class="d">Uygulama her açılışta kalemi bu renkle başlatır</div></div><input type="color" id="dColor" value="#111827" style="width:44px;height:30px;border:none;background:none;cursor:pointer"></div>
-            <div class="set-row"><div><div class="t">Varsayılan opaklık</div><div class="d" id="dOpOut">%100</div></div><input type="range" id="dOp" min="10" max="100" value="100"></div>
-            <div class="set-row"><div><div class="t">Varsayılan punto</div><div class="d">Metin aracı bu boyutla başlar</div></div>
-              <select class="num" id="dText" style="width:82px"><option>14</option><option>16</option><option>18</option><option>20</option><option selected>24</option><option>28</option><option>32</option><option>40</option><option>48</option><option>64</option></select></div>
-            <div class="set-row"><div><div class="t">Araca geçince varsayılanı uygula</div><div class="d">Kapalıysa son kullanılan kalınlık korunur</div></div><label class="sw-toggle"><input type="checkbox" id="sApplyDef" checked><i></i></label></div>
-            <div class="set-sec-t" style="margin-top:16px">Çark Kalemleri — sağ tık basılı tut › Kalem</div>
-            <div class="d" style="margin:0 0 6px">Bu üç özel kalem yalnızca hareket halkasındaki kalem çarkında yaşar. Aşağıdan her birinin varsayılanlarını düzenleyebilirsin; değişiklikler kalıcıdır.</div>
-            <div id="cpenSet"></div>
-          </div>
+        <!-- 2 · DENETİMLER — hepsi görünür, katlama yok.
+             Kaydıraç izleri ayarın ne yaptığını gösterir (kalınlık kaması,
+             basınç koyuluğu, opaklık daması, yoğunluk dolgusu). -->
+        <div class="pk-cardgrid">
+          <div class="pk-card"><div class="pk-lbl">Kalınlık<span class="pk-val" id="pkSizeOut">2,2 px</span></div>
+            <div class="pk-slider t-size"><button class="pk-step" data-t="pkSize" data-d="-1">&minus;</button><input type="range" id="pkSize" min="0.5" max="40" step="0.1" value="2.2"><button class="pk-step" data-t="pkSize" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl">Basınç Hassasiyeti<span class="pk-val" id="pkPressOut">%80</span></div>
+            <div class="pk-slider t-press"><button class="pk-step" data-t="pkPress" data-d="-1">&minus;</button><input type="range" id="pkPress" min="0" max="100" step="5" value="80"><button class="pk-step" data-t="pkPress" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl">Opaklık<span class="pk-val" id="pkOpOut">%100</span></div>
+            <div class="pk-slider t-op"><button class="pk-step" data-t="pkOp" data-d="-1">&minus;</button><input type="range" id="pkOp" min="10" max="100" step="5" value="100"><button class="pk-step" data-t="pkOp" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl">Akış<span class="pk-val" id="pkFlowOut">%95</span></div>
+            <div class="pk-slider t-flow"><button class="pk-step" data-t="pkFlow" data-d="-1">&minus;</button><input type="range" id="pkFlow" min="40" max="100" step="5" value="95"><button class="pk-step" data-t="pkFlow" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl">Stabilizasyon<span class="pk-val" id="pkStabOut">Yüksek</span></div>
+            <div class="pk-seg" id="pkStab"><button>Kapalı</button><button>Düşük</button><button>Orta</button><button class="on">Yüksek</button></div></div>
+          <div class="pk-card"><div class="pk-lbl">Uç Yapısı<span class="pk-val" id="pkNibOut">Sivri</span></div>
+            <div class="pk-nibs" id="pkNibs"><button class="pk-nib on" title="Sivri — uçlarda incelir"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.4 8.6V17a3.4 3.4 0 0 1-6.8 0v-6.4z"/><path d="M12 8v7"/></svg></button><button class="pk-nib" title="İnce — standart uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.6 6.6V16a2.6 2.6 0 1 1-5.2 0v-5.4z"/></svg></button><button class="pk-nib" title="Dolgun — geniş yuvarlak uç"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c2.6 0 4.2 1.9 4.2 4.6V15a4.2 4.2 0 0 1-8.4 0V8.6C7.8 5.9 9.4 4 12 4z"/></svg></button><button class="pk-nib" title="Keski — düz kesim"><svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 4h6.8l.9 10a4.3 4.3 0 0 1-8.6 0z"/></svg></button></div></div></div>
         </div>
+
+        <!-- 3 · HAZIR UÇLAR — küçük resimlerin her biri GERÇEK motorla,
+             seçili kalemle, o ayarlarla çizilir. Sabit resim değildir. -->
+        <div class="pkx-sec">Hazır uçlar<span class="pkx-sub" id="pkPresetSub">seçili kalem için — dokun, anında uygulanır</span></div>
+        <div class="pkx-presets" id="pkPresets"></div>
+
+        <!-- 4 · VARSAYILANLAR — eskiden "Ek Ayarlar" katının içindeydi -->
+        <div class="pkx-sec">Varsayılanlar<span class="pkx-sub">uygulama her açılışta buradan başlar</span></div>
+        <div class="pkx-defs">
+          <label class="pkx-def"><span class="k">Renk</span><input type="color" id="dColor" value="#111827"></label>
+          <label class="pkx-def wide"><span class="k">Opaklık</span><input type="range" id="dOp" min="10" max="100" value="100"><b id="dOpOut">%100</b></label>
+          <label class="pkx-def"><span class="k">Metin punto</span>
+            <select class="num" id="dText"><option>14</option><option>16</option><option>18</option><option>20</option><option selected>24</option><option>28</option><option>32</option><option>40</option><option>48</option><option>64</option></select></label>
+          <!-- iç içe <label> geçersizdir ve tarayıcı yapıyı dağıtır; dış kap <div> -->
+          <div class="pkx-def sw"><span class="k">Araca geçince varsayılanı uygula</span><label class="sw-toggle"><input type="checkbox" id="sApplyDef" checked><i></i></label></div>
+        </div>
+
+        <!-- 5 · ÇARK KALEMLERİ — eskiden "Ek Ayarlar" katının en dibindeydi -->
+        <div class="pkx-sec">Çark kalemleri<span class="pkx-sub">sağ tık basılı tut &rsaquo; Kalem</span></div>
+        <div id="cpenSet"></div>
       </div>
-
       <div class="set-pane" id="sp-draw">
         <div class="set-sec-t">Çizgi Davranışı</div>
         <!-- Basınç hassasiyeti ve titreme azaltma BURADAN KALDIRILDI; ikisi de
@@ -427,6 +439,7 @@
 <script src="pro-silk.js"></script>
 <script src="pro-dark.js"></script>
 <script src="pro-pen.js"></script>
+  <script src="pro-penui.js"></script>
 <script src="pro-export.js"></script>
 <script src="pro-present.js"></script>
 </body>

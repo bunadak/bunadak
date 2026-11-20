@@ -768,3 +768,88 @@ html body.present #corner{display:none}
 .fold-n{font-size:10.5px;font-weight:800;color:var(--mut);background:var(--p3);padding:3px 8px;border-radius:999px}
 .fold-body{display:none;padding:0 15px 15px}
 .fold.open .fold-body{display:block}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KALEM STÜDYOSU v3.3 — TEK YÜZEY
+   Eskiden ayarların yarısı "Ek Ayarlar" adlı katlanır bir sayfada,
+   önizleme ise dar bir yan sütunda duruyordu. Artık önizleme kahraman
+   öge olarak en üstte ve tam genişlikte; tüm denetimler tek ızgarada,
+   katlanmadan; hazır uçlar, varsayılanlar ve çark kalemleri de aynı
+   yüzeyde. Hiçbir ayar için sayfa dolaşmak gerekmiyor.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* --- 1 · canlı fırça önizleme: geniş şerit --- */
+.pk-prev.pkx-hero{min-height:0;margin:12px 0 0;padding:12px 14px 11px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 5%,var(--p2)),var(--p2));
+  border-radius:14px}
+.pk-prev.pkx-hero #pkCv{height:168px;flex:none}
+.pk-prev.pkx-hero .pk-prevhead{margin-bottom:9px;font-size:13px;letter-spacing:.2px}
+
+/* --- 2 · denetim ızgarası: üç sütun, kutu içinde kutu yok --- */
+#sp-pens .pk-cardgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+  border-radius:14px;margin-top:11px;padding:12px}
+@media (max-width:980px){#sp-pens .pk-cardgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#sp-pens .pk-card{gap:9px;padding:10px 12px 12px}
+
+/* kaydıraç izleri — ayarın NE YAPTIĞINI gösterir.
+   Tarayıcı iz boyamasını accent-color ile sınırladığı için izi
+   input'un arkasındaki katmana çiziyoruz. */
+#sp-pens .pk-slider{position:relative;padding:3px 0}
+#sp-pens .pk-slider input[type=range]{height:16px;background:transparent;-webkit-appearance:none;appearance:none}
+#sp-pens .pk-slider input[type=range]::-webkit-slider-runnable-track{height:9px;border-radius:99px;background:var(--trk,var(--p2));border:1px solid var(--line)}
+#sp-pens .pk-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;margin-top:-4px;border-radius:50%;background:#fff;
+  border:2.5px solid var(--thb,var(--acc));box-shadow:0 1px 5px rgba(0,0,0,.28);cursor:grab}
+#sp-pens .pk-slider input[type=range]:active::-webkit-slider-thumb{cursor:grabbing;transform:scale(1.12)}
+/* kalınlık: ince→kalın kama */
+#sp-pens .pk-slider.t-size{--thb:#E08A2B}
+#sp-pens .pk-slider.t-size input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--tx) 22%,transparent),color-mix(in srgb,var(--tx) 78%,transparent))}
+/* basınç: açık→koyu */
+#sp-pens .pk-slider.t-press{--thb:#8B7CFF}
+#sp-pens .pk-slider.t-press input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,#CFCBF5,#8B7CFF 55%,#4B3FD0)}
+/* opaklık: saydam dama→dolu */
+#sp-pens .pk-slider.t-op{--thb:#2E9E6B}
+#sp-pens .pk-slider.t-op input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,transparent,#2E9E6B),
+    repeating-conic-gradient(color-mix(in srgb,var(--tx) 13%,transparent) 0 25%,transparent 0 50%) 0 0/8px 8px}
+/* akış: seyrek→yoğun mürekkep */
+#sp-pens .pk-slider.t-flow{--thb:#2B7FC0}
+#sp-pens .pk-slider.t-flow input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(90deg,#BFD9EC,#2B7FC0)}
+
+/* --- 3 · bölüm başlığı --- */
+.pkx-sec{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+  font-size:12.5px;font-weight:800;margin:18px 0 9px;letter-spacing:.2px}
+.pkx-sec::before{content:'';width:3px;height:13px;border-radius:99px;background:var(--acc);flex:none;align-self:center}
+.pkx-sub{font-size:10.5px;font-weight:700;color:var(--mut);letter-spacing:0}
+
+/* --- 4 · hazır uçlar: her küçük resim GERÇEK motorla çizilir --- */
+.pkx-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px}
+.pkx-pst{background:var(--p2);border:1.5px solid var(--line);border-radius:13px;
+  padding:9px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;
+  transition:.16s;cursor:pointer;min-width:0}
+.pkx-pst:hover{border-color:color-mix(in srgb,var(--acc) 55%,var(--line));transform:translateY(-1px);
+  box-shadow:0 5px 16px rgba(0,0,0,.10)}
+.pkx-pst.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 8%,var(--p2));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 35%,transparent),0 5px 18px color-mix(in srgb,var(--acc) 16%,transparent)}
+.pkx-pst canvas{width:84px;height:84px;border-radius:50%;background:var(--p1);
+  border:1px solid var(--line);display:block;touch-action:none}
+.pkx-pst .nm{font-size:10.5px;font-weight:800;color:var(--tx);text-align:center;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pkx-pst .sb{font-size:9.5px;font-weight:700;color:var(--mut);text-align:center}
+
+/* --- 5 · varsayılanlar: satır içi, katlanmaz --- */
+.pkx-defs{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px}
+.pkx-def{display:flex;align-items:center;gap:9px;background:var(--p2);border:1px solid var(--line);
+  border-radius:11px;padding:9px 11px;font-size:11.5px;font-weight:800;min-width:0}
+.pkx-def .k{color:var(--mut);white-space:nowrap;flex:none}
+.pkx-def.wide{grid-column:span 2}
+@media (max-width:620px){.pkx-def.wide{grid-column:span 1}}
+.pkx-def input[type=range]{flex:1;min-width:0;accent-color:var(--acc)}
+.pkx-def input[type=color]{width:40px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex:none;margin-left:auto}
+.pkx-def select{margin-left:auto}
+.pkx-def b{font-variant-numeric:tabular-nums;flex:none}
+.pkx-def.sw{justify-content:space-between}
+.pkx-def.sw .sw-toggle{margin-left:auto}

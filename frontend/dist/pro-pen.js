@@ -142,8 +142,14 @@
     let jx = 0, jy = 0;
     for (let i = 0; i <= N; i++) {
       const u = i / N, t = u + Math.sin(u * Math.PI) * .12;
-      jx = jx * .62 + (rnd() * 2 - 1) * 1.05;
-      jy = jy * .62 + (rnd() * 2 - 1) * 1.05;
+      /* El salınımı: YAVAŞ ve geniş olmalı, gürültülü değil. Eskiden korelasyon
+         düşük (.62) ve genlik yüksekti (±1.05); bu, nokta aralığı mertebesinde
+         yüksek frekanslı bir titreme üretip önizlemeyi tırtıklı gösteriyordu —
+         oysa gerçek elde titreme yavaştır ve sabitleyicinin bastırdığı da
+         tam olarak yüksek frekanstır. Uzun korelasyon + düşük genlik, gerçek
+         el yazısına çok daha yakın ve önizleme artık dürüst biçimde temiz. */
+      jx = jx * .88 + (rnd() * 2 - 1) * .38;
+      jy = jy * .88 + (rnd() * 2 - 1) * .38;
       pts.push({
         x: w * .10 + t * w * .80 + jx,
         y: h * .54 - Math.sin(t * Math.PI * 1.9 + .3) * h * .30 * (1 - t * .18) + jy,
