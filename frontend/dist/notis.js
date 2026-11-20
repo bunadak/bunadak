@@ -2694,11 +2694,18 @@ async function importPDF(f){
     if(S.oledUltra)targetW=Math.min(3840,Math.round(targetW*1.6));
     const buf=await f.arrayBuffer();
     const title=f.name.replace(/\.pdf$/i,'');
-    const workId=uid();let chunk=[];
+    const workId=uid();let chunk=[],chunkSira=[];
+    /* ATLANAN SAYFALAR UNUTULMUYOR
+       Render'ı zaman aşımına uğrayan ya da worker'ın askıda kaldığı sayfalar
+       eskiden sessizce kayboluyordu — "PDF eksik yüklendi" şikâyetinin ikinci
+       yarısı buydu. Numaraları biriktirilir, worker aşaması bittikten sonra
+       ana iş parçacığında ikinci kez denenir ve doğru sıraya yerleştirilir. */
+    const atlananlar=[];
     const meta=()=>({id:workId,title,updatedAt:Date.now(),pages:total,kind:'pdf',thumb:window.__pdfThumb||'',res:window.__pdfRes||0});
     const flushChunk=async()=>{
       if(!chunk.length)return;
       const pagesJson=JSON.stringify(chunk);chunk=[];
+      const siraJson=chunkSira.slice();chunkSira=[];
       if(window.__NOTIS_SRV){
         let lastErr=null;
         for(let a=0;a<3;a++){
@@ -2713,6 +2720,19 @@ async function importPDF(f){
         if(lastErr)throw new Error('kayıt yazılamadı: '+lastErr.message);
       }else{
         window.__pdfAll=(window.__pdfAll||[]).concat(JSON.parse(pagesJson));
+        window.__pdfSira=(window.__pdfSira||[]).concat(siraJson);
+        /* Kayıt DAİMA sayfa sırasında tutulur: ikinci denemede tamamlanan
+           sayfalar sona eklendiği için sıralama olmadan belge karışırdı.
+           Akış sırası zaten artan olduğundan bu, yalnız tamamlama sonrası
+           gerçek iş yapar. */
+        if(window.__pdfSira.length===window.__pdfAll.length){
+          const ix=window.__pdfSira.map((v,i)=>i).sort((a2,b2)=>window.__pdfSira[a2]-window.__pdfSira[b2]);
+          const bozuk=ix.some((v,i)=>v!==i);
+          if(bozuk){
+            window.__pdfAll=ix.map(i=>window.__pdfAll[i]);
+            window.__pdfSira=ix.map(i=>window.__pdfSira[i]);
+          }
+        }
         try{
           await LIB.saveExternal(title,window.__pdfAll,'pdf',workId);
         }catch(e){
@@ -2755,7 +2775,7 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
        kısıtlı, WebView2 worker isteğini karşılamaz) eskiden içe aktarmanın
        tamamı ölüyordu ve hata bildirimler kapalı olduğu için görünmüyordu.
        Artık kanıtlanmış ana iş parçacığı yoluna düşülür: PDF her koşulda açılır. */
-    const anaYol=async(buf2)=>{
+    const anaYol=async(buf2,bastan)=>{
       /* ÇEVRİMDIŞI ÖNCELİK: pdf.js uygulamanın içine gömülüdür. Önce gömülü
          kopya denenir (internet gerekmez, açılış anında hazır); yalnız o
          bulunamazsa CDN'e düşülür. Böylece PDF ve SLAYT içe aktarma
@@ -2776,7 +2796,7 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
       if(N>250)tw=Math.min(tw,1400);else if(N>120)tw=Math.min(tw,1600);else if(N>60)tw=Math.min(tw,2000);
       const q=N>120?.86:.93;
       const cnv=document.createElement('canvas'),g=cnv.getContext('2d');
-      for(let i=1;i<=N;i++){
+      for(let i=Math.max(1,bastan|0||1);i<=N;i++){
         try{
           const pg=await pdf.getPage(i);const vp1=pg.getViewport({scale:1});
           const vp=pg.getViewport({scale:Math.min(3.0,Math.max(1.15,tw/vp1.width))});
@@ -2787,8 +2807,9 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
           chunk.push({id:uid(),name:title+' · s.'+i,paper:'plain',bookmark:false,infinite:false,
             bg,bgImg:undefined,w:1000,h:Math.round(1000*vp.height/vp.width),
             layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
+          chunkSira.push(i);
           total++;pg.cleanup&&pg.cleanup();
-        }catch(pe){atlanan++}
+        }catch(pe){atlanan++;atlananlar.push(i)}
         await maybeFlush();
         impStep(i,N);
         if(impCancelled){await flushChunk();break}
@@ -2796,53 +2817,179 @@ const canWorker=typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined
       }
       await flushChunk();cnv.width=cnv.height=0;
     };
+    /* ATLANAN SAYFALARI İKİNCİ KEZ DENE — ana iş parçacığında, tek tek.
+       Worker'da zaman aşımına uğrayan ya da askıda kalan sayfalar burada
+       kurtarılır ve flushChunk sıralaması sayesinde belgede doğru yerine
+       oturur. Burada da başarısız olan sayfa gerçekten atlanmış sayılır ve
+       kullanıcıya kaç sayfanın atlandığı dürüstçe bildirilir. */
+    const eksikTamamla=async(buf2,liste)=>{
+      let PB=location.origin;
+      if(!window.pdfjsLib){
+        try{await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
+        catch(e){PB='https://cdnjs.cloudflare.com/ajax/libs';await loadScript(PB+'/pdf.js/3.11.174/pdf.min.js')}
+        pdfjsLib.GlobalWorkerOptions.workerSrc=PB+'/pdf.js/3.11.174/pdf.worker.min.js';
+        window.__pdfBase=PB;
+      }else PB=window.__pdfBase||PB;
+      const pdf=await pdfjsLib.getDocument(Object.assign({data:buf2},
+        /^https?:\/\/(cdnjs|unpkg|cdn)\./.test(PB)?{}:
+          {standardFontDataUrl:PB+'/pdf.js/3.11.174/standard_fonts/',
+           cMapUrl:PB+'/pdf.js/3.11.174/cmaps/',cMapPacked:true})).promise;
+      const son=Math.min(pdf.numPages,N0);
+      const cnv=document.createElement('canvas'),g=cnv.getContext('2d');
+      let kurtarilan=0;
+      for(const i of liste){
+        if(impCancelled)break;
+        if(!(i>=1&&i<=son))continue;
+        try{
+          const pg=await pdf.getPage(i);const vp1=pg.getViewport({scale:1});
+          const vp=pg.getViewport({scale:Math.min(3.0,Math.max(1.15,targetW/vp1.width))});
+          cnv.width=Math.round(vp.width);cnv.height=Math.round(vp.height);
+          await pg.render({canvasContext:g,viewport:vp}).promise;
+          let bg=cnv.toDataURL('image/webp',.93);
+          if(!bg.startsWith('data:image/webp'))bg=cnv.toDataURL('image/jpeg',.95);
+          chunk.push({id:uid(),name:title+' · s.'+i,paper:'plain',bookmark:false,infinite:false,
+            bg,bgImg:undefined,w:1000,h:Math.round(1000*vp.height/vp.width),
+            layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
+          chunkSira.push(i);
+          total++;atlanan=Math.max(0,atlanan-1);kurtarilan++;
+          pg.cleanup&&pg.cleanup();
+        }catch(_){ /* gerçekten işlenemiyor: atlanmış kalır */ }
+        await new Promise(r=>requestAnimationFrame(r));
+      }
+      cnv.width=cnv.height=0;
+      return kurtarilan;
+    };
+
     if(canWorker){
-      try{
-        await new Promise((resolve,reject)=>{
-        const w=new Worker(location.origin+'/libs/notis/pdf-import-worker.js');
-        let pending=Promise.resolve();
-        let wd=null;const kick=()=>{clearTimeout(wd);wd=setTimeout(()=>{
-          w.terminate();
-          reject(new Error('işleme yarıda kesildi — '+total+' sayfa kaydedildi.'))},180000)};
+      /* İÇE AKTARMA ARTIK DURMUYOR — TUR TUR DEVAM EDİYOR
+         Eski akış tek bir worker'a bağlıydı: worker bir sayfada askıda
+         kalırsa 180 saniye beklenip reject ediliyor, o ana kadar
+         KAYDEDİLMEMİŞ sayfalar çöpe gidiyor ve içe aktarma ölüyordu.
+         Kullanıcının gördüğü "7 sayfa yüklendi, sonra dondu, 7 sayfa kaldı"
+         tam olarak buydu.
+
+         Artık her worker bir TUR'dur. Tur askıda kalırsa:
+           · o ana kadarki sayfalar diske yazılır (ilerleme kaybolmaz),
+           · takılan sayfa atlanmış sayılır,
+           · bir SONRAKİ sayfadan yeni bir worker'la devam edilir
+             (worker protokolündeki startAt alanı tam bunun içindi,
+              bugüne dek hiç kullanılmamıştı).
+         Turlar tükenirse kalan sayfalar kanıtlanmış ana iş parçacığı
+         yolunda tamamlanır. Böylece PDF her koşulda sonuna kadar yüklenir. */
+      /* Bir sayfa için üst sınır. Worker'ın kendi sınırları 25+45+20 sn
+         olduğundan 90 sn hiçbir gerçek sayfayı yanlışlıkla kesmez.
+         __NOTIS_PAGE_TIMEOUT yalnız testlerin bu süreyi kısaltması için
+         vardır; uygulamada tanımlı değildir. */
+      /* 100 sn, worker'ın kendi üst sınırlarının toplamından (25+45+20=90 sn)
+         BİLEREK biraz yüksek: böylece yavaş bir sayfada önce worker'ın kendi
+         zaman aşımı devreye girer, temiz bir 'skip' üretir ve akış hiç
+         kesilmez. Bizim watchdog'umuz yalnız worker'ın tamamen sustuğu
+         durumda (kilit, çökme) devreye girer. */
+      const SAYFA_SURESI=Math.max(3000,+(window.__NOTIS_PAGE_TIMEOUT||100000));
+      const TUR_SINIRI=12;             // takılma başına yeniden deneme
+
+      const tur=(basla,bufT)=>new Promise(resolve=>{
+        let w;
+        try{w=new Worker(location.origin+'/libs/notis/pdf-import-worker.js')}
+        catch(e){return resolve({hata:e,sonI:basla-1})}
+        let pending=Promise.resolve(),wd=null,sonI=basla-1,kapandi=false;
+        const kapat=sonuc=>{
+          if(kapandi)return; kapandi=true;
+          clearTimeout(wd); try{w.terminate()}catch(_){}
+          resolve(sonuc);
+        };
+        /* Watchdog SAYFA başınadır, belge başına değil: worker her sayfaya
+           başlarken yaşam belirtisi yollar, uzun bir sayfa donma sanılmaz. */
+        const kick=()=>{clearTimeout(wd);wd=setTimeout(()=>kapat({takildi:sonI+1,sonI}),SAYFA_SURESI)};
         kick();
-        w.onerror=e=>{clearTimeout(wd);reject(new Error(e.message||'worker hatası'))};
+        w.onerror=e=>kapat({hata:new Error(e.message||'worker hatası'),sonI});
         w.onmessage=ev=>{
           kick();
           const m=ev.data;
           pending=pending.then(async()=>{
+            if(kapandi)return;
             if(m.t==='n'){N=m.N}
+            else if(m.t==='hb'){/* yalnız yaşam belirtisi — kick yeterli */}
             else if(m.t==='p'){
               if(total===0){await mkThumb(m.bg,m.pw,m.ph);window.__pdfRes=m.pw}
               chunk.push({id:uid(),name:title+' · s.'+m.i,paper:'plain',bookmark:false,infinite:false,
                 bg:m.bg,bgImg:undefined,w:1000,h:Math.round(1000*m.ph/m.pw),
                 layers:[newLayer('Katman 1')],_undo:[],_redo:[]});
-              total++;ev.data.bg=null;
+              chunkSira.push(m.i);
+              total++;sonI=m.i;ev.data.bg=null;
               await maybeFlush();
               impStep(m.i,N);
-              if(impCancelled){try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);await flushChunk();return resolve()}
-              w.postMessage({t:'ack'});
+              if(impCancelled){try{w.postMessage({t:'cancel'})}catch(_){}return kapat({iptal:true,sonI})}
+              if(!kapandi)w.postMessage({t:'ack'});
             }
-            else if(m.t==='skip'){atlanan++;w.postMessage({t:'ack'})}
-            else if(m.t==='done'){clearTimeout(wd);await flushChunk();w.terminate();resolve()}
-            else if(m.t==='err'){clearTimeout(wd);w.terminate();reject(new Error(m.m))}
-          }).catch(e=>{w.terminate();reject(e)});
+            else if(m.t==='skip'){atlanan++;atlananlar.push(m.i);sonI=m.i;if(!kapandi)w.postMessage({t:'ack'})}
+            else if(m.t==='done'){kapat({tamam:true,sonI})}
+            else if(m.t==='err'){kapat({hata:new Error(m.m),sonI})}
+          }).catch(e=>kapat({hata:e,sonI}));
         };
-        cancelWorker=()=>{try{w.postMessage({t:'cancel'})}catch(_){}try{w.terminate()}catch(_){}clearTimeout(wd);resolve()};
-        w.postMessage({buf,targetW,cap:3.0,maxN:N0,base:LB},[buf]);
-        });
-      }catch(we){
-        /* Yarıda kesme ve iptal gerçek hatadır; sayfa üretilmişse yeniden
-           başlamak sayfaları ikileyeceğinden yedeğe DÜŞÜLMEZ. Yedek yalnız
-           worker hiç çalışmadığında devreye girer. */
-        if(impCancelled||total>0)throw we;
-        try{console.warn('PDF worker yolu tutmadı → ana iş parçacığına düşülüyor:',we)}catch(_){}
+        cancelWorker=()=>{try{w.postMessage({t:'cancel'})}catch(_){}kapat({iptal:true,sonI})};
+        w.postMessage({buf:bufT,targetW,cap:3.0,maxN:N0,base:LB,startAt:basla},[bufT]);
+      });
+
+      let basla=1,deneme=0,tamam=false,iptal=false,ilkTurHata=null;
+      while(deneme<=TUR_SINIRI){
+        /* ArrayBuffer worker'a DEVREDİLİR (zero-copy), yani her tur kendi
+           kopyasını okumalı; ilk turda zaten elimizde olan kullanılır. */
+        const bufT=(deneme===0&&basla===1)?buf:await f.arrayBuffer();
+        const r=await tur(basla,bufT);
+        if(r.iptal){iptal=true;break}
+        if(r.tamam){tamam=true;break}
+        /* İLERLEME HER KOŞULDA DİSKE YAZILIR */
+        await flushChunk();
+        if(deneme===0&&total===0){ilkTurHata=r.hata||new Error('worker yanıt vermedi');break}
+        deneme++;
+        let sonraki;
+        if(r.takildi!=null){sonraki=r.takildi+1;atlanan++;atlananlar.push(r.takildi)}   // askıda kalan sayfa atlanır
+        else if(r.sonI>=basla){sonraki=r.sonI+1}                  // hata ama ilerleme var
+        else{sonraki=basla+1;atlanan++;atlananlar.push(basla)}   // hiç ilerleme yok → o sayfayı atla
+        if(N&&sonraki>N){tamam=true;break}
+        basla=sonraki;
+        try{console.warn('PDF içe aktarma '+basla+'. sayfadan sürüyor (tur '+deneme+')')}catch(_){}
+      }
+      /* SON KISMİ YIĞIN HER KOŞULDA YAZILIR
+         Tur 'done' ile bitince döngü break ediyor ve chunk'ta kalan
+         sayfalar yazılmamış oluyordu. Kayıt aralığı 8'den başladığı için
+         8 sayfadan kısa bir PDF'te HİÇ yazma olmuyor, kütüphanede kayıt
+         oluşmuyor ve belge "bozuk" diye açılamıyordu. Tur nasıl biterse
+         bitsin (tamam · iptal · turlar tükendi) burada yazılır; chunk
+         boşsa işlem zaten hiçbir şey yapmaz. */
+      await flushChunk();
+      if(ilkTurHata){
+        /* Worker hiç çalışmadı → kanıtlanmış ana iş parçacığı yolu */
+        try{console.warn('PDF worker yolu tutmadı → ana iş parçacığına düşülüyor:',ilkTurHata)}catch(_){}
         chunk=[];delete window.__pdfAll;nextSave=8;
-        await anaYol(await f.arrayBuffer());   // buf worker'a devredildi, yeniden okunur
+        await anaYol(await f.arrayBuffer(),1);
+      }else if(!tamam&&!iptal&&!impCancelled){
+        /* Turlar tükendi ama sayfa kaldı → kalanı ana yolda bitir */
+        try{console.warn('PDF: worker turları tükendi, kalan sayfalar ana iş parçacığında')}catch(_){}
+        await anaYol(await f.arrayBuffer(),basla);
       }
     }else{
-      await anaYol(buf);
+      await anaYol(buf,1);
     }
-    delete window.__pdfAll;delete window.__pdfThumb;delete window.__pdfRes;
+    /* Atlanan sayfalar için ikinci deneme — belge eksik kalmasın */
+    if(!impCancelled&&atlananlar.length){
+      const kalan=[...new Set(atlananlar)].filter(i=>i>=1&&(!N||i<=N)).sort((a2,b2)=>a2-b2);
+      if(kalan.length){
+        try{
+          try{
+            /* Göstergede kullanıcıya ne olduğunu söyle; yeni bir içe aktarma
+               oturumu AÇMADAN (impStart iptal durumunu sıfırlardı). */
+            const d=impEl&&impEl.querySelector('.imp-d');
+            if(d)d.textContent='Atlanan '+kalan.length+' sayfa yeniden deneniyor…';
+          }catch(_){}
+          const k=await eksikTamamla(await f.arrayBuffer(),kalan);
+          await flushChunk();
+          try{console.warn('PDF: ikinci denemede '+k+'/'+kalan.length+' sayfa kurtarıldı')}catch(_){}
+        }catch(e){try{console.warn('PDF ikinci deneme yapılamadı:',e)}catch(_){}}
+      }
+    }
+    delete window.__pdfAll;delete window.__pdfSira;delete window.__pdfThumb;delete window.__pdfRes;
     if(!total)throw new Error('hiçbir sayfa işlenemedi');
     let diskte=total;
     if(window.__NOTIS_SRV){try{
