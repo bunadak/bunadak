@@ -605,6 +605,19 @@ function proInkPts(o){
   if(e&&e.n===src.length&&e.v===v&&e.ch===ch&&e.hx===h.x&&e.hy===h.y&&e.tx===t.x&&e.ty===t.y) return e.pts;
   const pts=proInkSmooth(src,rad); _inkCache.set(o,{n:src.length,v,ch,pts,hx:h.x,hy:h.y,tx:t.x,ty:t.y}); return pts;
 }
+/* Grafit / keçe dokusu — seed'li deterministik ofset geçişleri; silmez, katman ekler.
+   Eskiden yalnız akıllı kalem dalının içindeydi ve o.fx'i de yalnız çark kalemleri
+   üretiyordu, yani beş ana kalemde doku denetimi diye bir şey yoktu. Artık ortak:
+   hangi kalem olursa olsun kalem kartındaki Doku/Tane değerleriyle çalışır. */
+function inkTexture(c,o,pts){
+  const FX=o.fx; if(!FX||!(FX.t||FX.g||FX.n)||!pts||pts.length<2)return;
+  const gz=Math.max(1,INK.z),rnd=mulberry32(FX.sd||1),k=(FX.t||0)+(FX.g||0);
+  const jit=.4+(FX.n||0)*1.4;
+  for(let pass=0;pass<(k>.4?2:1);pass++){
+    c.save();c.globalAlpha*=clamp(.16+k*.4,.1,.5);
+    c.translate((rnd()*2-1)*jit/gz,(rnd()*2-1)*jit/gz);
+    c.lineWidth=Math.max(.3,o.size*(.4+rnd()*.25));strokePath(c,pts);c.stroke();c.restore()}
+}
 function drawStroke(c,o){
   const pts=proInkPts(o);if(!pts||!pts.length)return;
   if(o.fx&&o.fx.s){drawSpray(c,o);return}                 // Air Brush özel dalı
@@ -626,7 +639,11 @@ function drawStroke(c,o){
     for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y);
     c.stroke();c.restore();return;
   }
-  const nibEnd=(i,L)=>NIB===0?(.3+.7*Math.min(1,i/6,(L-i)/6)):1;
+  /* Uç inceltme uzunluğu artık kalem kartından gelir (o.tp). Varsayılan 6 nokta —
+     eski sabit davranışla birebir aynıdır, yalnız kullanıcı isterse uzatıp
+     kısaltabilir. Sivri uçta geçerlidir. */
+  const TPW=Math.max(1,o.tp==null?6:o.tp);
+  const nibEnd=(i,L)=>NIB===0?(.3+.7*Math.min(1,i/TPW,(L-i)/TPW)):1;
   if(o.tool==='smart'){const L=pts.length,EG=ENGINE_DEFAULTS,FX=o.fx;
     const PRO=S.proPens?1.12:1;               // Pro: kalınlık tepkisi zenginleşir
     if(S.proPens&&L>3){                        // PRO İMZA: kâğıda gömülme gölgesi
@@ -646,18 +663,9 @@ function drawStroke(c,o){
     fillInkStroke(c,pts,(pt,i,n)=>{
       const pr=.6+(((pt&&pt.p)??.6)-.6)*PKK*PRO;
       let w=Math.max(.4,o.size*NW*nibEnd(i,n)*(0.45+1.25*pr));
-      if(FX)w=clamp(w,EG.minWidth,EG.maxWidth*Math.max(1,o.size/6)); // motor sınırı (çark kalemleri)
+      if(FX&&FX.cp)w=clamp(w,EG.minWidth,EG.maxWidth*Math.max(1,o.size/6)); // motor sınırı — yalnız çark kalemleri
       return w;
     });
-    if(FX&&(FX.t||FX.g||FX.n)){
-      /* Grafit / keçe dokusu: seed'li deterministik ofset geçişleri — silmez, katman ekler */
-      const gz=Math.max(1,INK.z),rnd=mulberry32(o.fx.sd),k=(FX.t||0)+(FX.g||0);
-      const jit=.4+(FX.n||0)*1.4;
-      for(let pass=0;pass<(k>.4?2:1);pass++){
-        c.save();c.globalAlpha*=clamp(.16+k*.4,.1,.5);
-        c.translate((rnd()*2-1)*jit/gz,(rnd()*2-1)*jit/gz);
-        c.lineWidth=o.size*(.4+rnd()*.25);strokePath(c,pts);c.stroke();c.restore()}
-    }
     const WETX=Math.max((FX&&FX.w)||0,S.proPens?.18:0);
     if(WETX>.12){                                            // çift-ton: koyu ıslak çekirdek
       c.save();c.globalAlpha*=clamp(WETX*.5,.08,.42);
@@ -728,6 +736,7 @@ function drawStroke(c,o){
       strokePath(c,offsetRail(pts,-o.size*NW*.42));c.stroke();
       c.restore();
     }}
+  inkTexture(c,o,pts);        // doku katmanı — tüm kalemler için ortak
   c.restore();
 }
 /* Yazı tipi: "Güzel El Yazısı" açıkken metin, Excalifont el yazısı fontuyla çizilir */
@@ -1016,6 +1025,8 @@ stage.addEventListener('pointerdown',e=>{
   live={type:'stroke',tool,color:tool==='hl'?'#FFE066':penColor,size:penSize,
     opacity:(tool==='hl'?Math.min(penOp,.6):penOp)*(typeof pkFlowK==='function'?pkFlowK():1)*(curCP&&curCP.flow!=null?curCP.flow:1),
     pk:(typeof pkPressK==='function'?pkPressK():.8),nib:(typeof pkNibK==='function'?pkNibK():1),
+    tp:(typeof pkTaperK==='function'?pkTaperK():undefined),
+    fx:(typeof pkFxOf==='function'?pkFxOf():undefined),
     cp:curCP?{...curCP}:undefined,points:[{x:pt.x,y:pt.y,p:p0}]};
   strokePid=e.pointerId;
   fwEnter();azIn(e); // opsiyonlar: Odaklı Yazım Modu + Otomatik Odak Zoom
@@ -1168,7 +1179,7 @@ function commitStroke(){
     if(cp.blend)fx.b=cp.blend;
     if(cp.tx)fx.t=cp.tx; if(cp.gr)fx.g=cp.gr; if(cp.ns)fx.n=cp.ns; if(cp.wet)fx.w=cp.wet;
     if(cp.spray)fx.s={r:cp.sprayR||18,d:clamp(cp.sprayD||.7,.05,1),sp:Math.max(.005,cp.sp||.01)};
-    if(Object.keys(fx).length){fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
+    if(Object.keys(fx).length){fx.cp=1;fx.sd=(Math.random()*0x7fffffff)|0;o.fx=fx}
   }                 // Çark kalemi: basınç+hız karışımı, uç inceltme
   else if(o.tool==='smart'){o=matisInk(o)}   // Matis Akilli Kalem: hiz -> basinc, dogal murekkep
   else if(o.tool!=='hl'&&S.shapeFix){const f=recognizeShape(o);if(f)o=f}
@@ -4057,6 +4068,15 @@ function pkColorOf(id){return PK_META[id]?PK_META[id].c:((pkCfg(id)||{}).color||
 function pkNameOf(id){return PK_META[id]?PK_META[id].n:((pkCfg(id)||{}).name||'Kalem')}
 /* strok motoru bu üçünü okur */
 function pkFlowK(){const c=pkCfg(livePen);return c?(c.flow??100)/100:1}
+/* Uç inceltme uzunluğu (nokta cinsinden) — sivri uçta çizginin kaç nokta
+   boyunca inceldiğini belirler. 6 fabrika değeridir (eski sabit davranış). */
+function pkTaperK(){const c=pkCfg(livePen);return clamp((c&&c.tp!=null)?c.tp:6,1,40)}
+/* Doku/tane — beş ana kalemde de çalışır. Sıfırsa hiç katman eklenmez,
+   yani varsayılan davranış birebir eskisi gibidir. */
+function pkFxOf(){const c=pkCfg(livePen);if(!c)return undefined;
+  const t=clamp((c.tx??0)/100,0,1),g=clamp((c.gr??0)/100,0,1);
+  if(t<=0&&g<=0)return undefined;
+  return {t,g,n:t*.6,sd:(Math.random()*0x7fffffff)|0}}
 function pkPressK(){const c=pkCfg(livePen);return c?(c.press??80)/100:.8}
 function pkNibK(){const c=pkCfg(livePen);return (pkCfg(livePen)||{}).nib??1}
 /* setTool bildirir: dahili kaleme geçilince stüdyo o kalemi izler */
@@ -4123,6 +4143,8 @@ function syncPenUI(){
   $('#pkFlow').value=c.flow??95;$('#pkFlowOut').textContent='%'+(c.flow??95);
   $('#pkStabOut').textContent=PK_STABL[c.stab??2];
   $$('#pkStab button').forEach((b,i)=>b.classList.toggle('on',i===(c.stab??2)));
+  {const t=$('#pkTx');if(t){t.value=c.tx??0;$('#pkTxOut').textContent='%'+(c.tx??0)}}
+  {const t=$('#pkTp');if(t){t.value=c.tp??6;$('#pkTpOut').textContent=String(c.tp??6)}}
   $('#pkNibOut').textContent=PK_NIBL[c.nib??1];
   $$('#pkNibs .pk-nib').forEach((b,i)=>b.classList.toggle('on',i===(c.nib??1)));
   $('#pkCap').textContent=pkNameOf(selPen)+' ile yazı deneyimini test et — üzerine çizebilirsin';
@@ -4146,6 +4168,10 @@ if($('#pkSize')){
     $('#pkOpOut').textContent='%'+e.target.value;pkLiveSync();pkRender();savePK()});
   $('#pkFlow').addEventListener('input',e=>{const c=pkCfg(selPen);c.flow=+e.target.value;
     $('#pkFlowOut').textContent='%'+c.flow;pkRender();savePK()});
+  {const t=$('#pkTx');if(t)t.addEventListener('input',e=>{const c=pkCfg(selPen);c.tx=+e.target.value;
+    $('#pkTxOut').textContent='%'+c.tx;pkRender();savePK()});}
+  {const t=$('#pkTp');if(t)t.addEventListener('input',e=>{const c=pkCfg(selPen);c.tp=+e.target.value;
+    $('#pkTpOut').textContent=String(c.tp);pkRender();savePK()});}
   $$('#pkStab button').forEach((b,i)=>b.addEventListener('click',()=>{const c=pkCfg(selPen);c.stab=i;
     pkLiveSync();syncPenUI();pkRender();savePK()}));
   $$('#pkNibs .pk-nib').forEach((b,i)=>b.addEventListener('click',()=>{const c=pkCfg(selPen);c.nib=i;
@@ -4173,7 +4199,10 @@ function pkBuildStroke(raw){
   const o={type:'stroke',tool:base,color:pkColorOf(selPen),
     size:Math.max(.5,pkSizeOf(selPen))*(cfg.nib===2?1.15:1),
     opacity:(cfg.op??1)*((cfg.flow??100)/100),
+    tp:clamp(cfg.tp!=null?cfg.tp:6,1,40),
     points:raw.map(pt=>({...pt}))};
+  {const t=clamp((cfg.tx??0)/100,0,1),g=clamp((cfg.gr??0)/100,0,1);
+   if(t>0||g>0)o.fx={t,g,n:t*.6,sd:7331};}   // önizlemede sabit seed: titremesin
   const passes=cfg.stab??2;                        // stabilizasyon → yumuşatma geçişleri
   for(let n=0;n<passes;n++){const np=[o.points[0]];
     for(let i=0;i<o.points.length-1;i++){const a=o.points[i],b=o.points[i+1];

@@ -268,6 +268,10 @@
             <div class="pk-slider t-op"><button class="pk-step" data-t="pkOp" data-d="-1">&minus;</button><input type="range" id="pkOp" min="10" max="100" step="5" value="100"><button class="pk-step" data-t="pkOp" data-d="1">+</button></div></div>
           <div class="pk-card"><div class="pk-lbl">Akış<span class="pk-val" id="pkFlowOut">%95</span></div>
             <div class="pk-slider t-flow"><button class="pk-step" data-t="pkFlow" data-d="-1">&minus;</button><input type="range" id="pkFlow" min="40" max="100" step="5" value="95"><button class="pk-step" data-t="pkFlow" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl" title="Grafit / keçe dokusu — seed'li, deterministik katman. Beş kalemin hepsinde çalışır.">Doku<span class="pk-val" id="pkTxOut">%0</span></div>
+            <div class="pk-slider t-tex"><button class="pk-step" data-t="pkTx" data-d="-1">&minus;</button><input type="range" id="pkTx" min="0" max="100" step="5" value="0"><button class="pk-step" data-t="pkTx" data-d="1">+</button></div></div>
+          <div class="pk-card"><div class="pk-lbl" title="Sivri uçta çizginin kaç nokta boyunca inceldiği — 6 fabrika değeridir">Uç İnceltme<span class="pk-val" id="pkTpOut">6</span></div>
+            <div class="pk-slider t-taper"><button class="pk-step" data-t="pkTp" data-d="-1">&minus;</button><input type="range" id="pkTp" min="1" max="30" step="1" value="6"><button class="pk-step" data-t="pkTp" data-d="1">+</button></div></div>
           <div class="pk-card"><div class="pk-lbl">Stabilizasyon<span class="pk-val" id="pkStabOut">Yüksek</span></div>
             <div class="pk-seg" id="pkStab"><button>Kapalı</button><button>Düşük</button><button>Orta</button><button class="on">Yüksek</button></div></div>
           <div class="pk-card"><div class="pk-lbl">Uç Yapısı<span class="pk-val" id="pkNibOut">Sivri</span></div>
@@ -441,6 +445,7 @@
 <script src="pro-pen.js"></script>
   <script src="pro-penui.js"></script>
   <script src="pro-modes.js"></script>
+  <script src="pro-profiles.js"></script>
 <script src="pro-export.js"></script>
 <script src="pro-present.js"></script>
 </body>
