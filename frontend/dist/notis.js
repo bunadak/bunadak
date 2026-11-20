@@ -3254,7 +3254,7 @@ window.addEventListener('keydown',e=>{
     if(presenting)exitPresent();
     else if(scratch)exitScratch();
     else{if(tool==='solve')setTool('smart');selection=[];lineDraft=null;compassDraft=null;solveDraft=null;redraw();drawOverlay()}}
-  if(k==='?')openSettings('keys');
+  if(k==='?')openSettings('opts');
 });
 window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceHeld=false;stage.style.cursor=tool==='pan'?'grab':'default'}});
 
@@ -3594,7 +3594,7 @@ function PAL_CMDS(){return[
  {t:'Paneli aç/kapat — Sayfalar · Katmanlar',sec:'Eylem',fn:()=>$('#sideBtn').click()},
  {t:'Önceki kaleme dön',k:'X',sec:'Eylem',fn:swapPen},
  {t:'Ayarlar',sec:'Eylem',fn:()=>openSettings()},
- {t:'Klavye kısayolları',k:'?',sec:'Eylem',fn:()=>openSettings('keys')},
+ {t:'Klavye kısayolları',k:'?',sec:'Eylem',fn:()=>openSettings('opts')},
  {t:'Şekiller & Semboller',k:(KEYMAP.shapes||'').toUpperCase(),sec:'Araç',fn:()=>toggleShapePop()},
  {t:'Seçim aracı',k:(KEYMAP.select||'').toUpperCase(),sec:'Araç',fn:()=>setTool('select')},
  {t:'Akıllı kalem',k:(KEYMAP.smart||'').toUpperCase(),sec:'Araç',fn:()=>setTool('smart')},

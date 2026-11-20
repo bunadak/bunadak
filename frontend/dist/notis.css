@@ -42,8 +42,15 @@ body{
   display:grid; grid-template-rows:54px 1fr; grid-template-columns:58px 1fr auto;
   grid-template-areas:"top top top" "rail canvas side"; user-select:none;
 }
+/* SUNUM MODU — ESKİ YAZIM HATASI DÜZELTİLDİ.
+   Burada "body.present #topbar, body.present #rail, body.present #side,"
+   satırının kendi bildirim bloğu yoktu: virgülle bir alttaki transition
+   kuralının seçici listesine karışmıştı. Sonuç olarak sunum modunda
+   PANELLER HİÇ GİZLENMİYORDU — araç rayı ekranda kalıyor, çalışma alanı
+   tam ekrana açılmıyordu. */
 body.present{grid-template-rows:0 1fr; grid-template-columns:0 1fr 0}
-body.present #topbar,body.present #rail,body.present #side,
+body.present #topbar,body.present #rail,body.present #side{display:none}
+body.present #corner{display:none}
 /* Odaklı Yazım Modu (opsiyon): kalem kâğıda değince arayüz kenara çekilir */
 #topbar,#rail,#side{transition:opacity .38s var(--ease),transform .38s var(--ease)}
 body.fwrite #topbar{opacity:.18;pointer-events:none}
@@ -734,3 +741,19 @@ body.compact #setDlg{top:calc(42px + 16px);left:calc(46px + 16px)}
 .exp-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
 .exp-actions .cta{padding:9px 16px}
 .exp-actions .ghost{padding:9px 14px;font-size:12px}
+
+/* ---------- SUNUM ÇUBUĞU: sayfa gezintisi ---------- */
+#presentBar .pr-page{display:flex;align-items:center;gap:4px}
+#presentBar .pr-lbl{font-size:12px;font-weight:800;color:var(--tx);min-width:52px;text-align:center;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;opacity:.92}
+#presentBar .pbtn:disabled{opacity:.3;cursor:default}
+#presentBar .pbtn:disabled:hover{background:none}
+
+/* SUNUM MODU — ızgara ezilmesi düzeltmesi.
+   "body.compact" kuralı stil sayfasında "body.present"ten SONRA geliyor ve
+   aynı özgüllükte olduğu için sütunları 46px'e geri çekiyordu: sunumda araç
+   rayının yeri boş kalıyor, çalışma alanı tam ekrana açılmıyordu.
+   "html body.present" bir tip seçici daha içerdiği için kazanır. */
+html body.present{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
+html body.present #topbar,html body.present #rail,html body.present #side,
+html body.present #corner{display:none}
